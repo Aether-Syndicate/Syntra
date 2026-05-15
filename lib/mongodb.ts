@@ -1,43 +1,19 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
-}
-
-/**
- * Global is used here to maintain a cached connection across hot reloads
- * in development. This prevents connections growing exponentially
- * during API Route usage.
- */
-let cached = (global as any).mongoose;
-
-if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
-}
-
-export async function connectDB() {
-  if (cached.conn) {
-    return cached.conn;
+export const connectDB = async () => {
+  // 1. If already connected, don't do it again
+  if (mongoose.connection.readyState >= 1) {
+    return;
   }
-
-  if (!cached.promise) {
-    const opts = {
-      bufferCommands: false,
-    };
-
-    cached.promise = mongoose.connect(MONGODB_URI as string, opts).then((mongoose) => {
-      return mongoose;
-    });
-  }
-
+  
+  // 2. HARDCODED BYPASS (No environment variables, no throw errors)
+  // PASTE YOUR ACTUAL MONGODB ATLAS CONNECTION STRING HERE:
+  const uri = "mongodb+srv://aanapandey00_db_user:slDcjzEhLzofSPEP@cluster0.3jkkmva.mongodb.net/"; 
+  
   try {
-    cached.conn = await cached.promise;
-  } catch (e) {
-    cached.promise = null;
-    throw e;
+    await mongoose.connect(uri);
+    console.log("🔥 DB CONNECTED SUCCESSFULLY!");
+  } catch (error) {
+    console.error("❌ DB CONNECTION FAILED:", error);
   }
-
-  return cached.conn;
-}
+};

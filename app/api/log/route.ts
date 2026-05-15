@@ -1,6 +1,7 @@
 // src/app/api/log/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next"; 
+import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb"; 
 import User from "@/models/User";
 import { 
@@ -13,7 +14,7 @@ import {
 export async function POST(req: Request) {
   try {
     // 1. SECURE VAULT: We keep the NextAuth session active
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
     }
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
     await connectDB();
 
     const user = await User.findOne({ email: session.user.email });
+
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -53,7 +55,7 @@ export async function POST(req: Request) {
 
     // 4. GAMIFICATION UPDATES
     user.totalPoints = calculateTotalPoints(user.healthScore, user.financeScore, user.careerScore);
-    user.currentStreak += 1; // Antigravity's quick streak win!
+    user.currentStreak += 1; 
 
     // 5. SAVE TO DB
     await user.save();

@@ -1,47 +1,55 @@
 // src/models/User.ts
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema, Document, models } from "mongoose";
 
-// --- 1. DOMAIN SUB-SCHEMAS (The "Memory Banks") ---
-const HealthLogSchema = new Schema({
-  date: { type: Date, default: Date.now },
-  sleepHours: { type: Number, required: true },
-  workoutMinutes: { type: Number, required: true },
-  stressLevel: { type: Number, min: 1, max: 10, required: true },
-});
+// 1. TypeScript Interface for strict type checking
+export interface IUser extends Document {
+  email: string;
+  name: string;
+  password?: string;
+  healthScore: number;
+  financeScore: number;
+  careerScore: number;
+  totalPoints: number;
+  currentStreak: number;
+  healthLogs: { encryptedData: string; timestamp: Date }[];
+  financeLogs: { encryptedData: string; timestamp: Date }[];
+  careerLogs: { encryptedData: string; timestamp: Date }[];
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-const FinanceLogSchema = new Schema({
-  date: { type: Date, default: Date.now },
-  amountSaved: { type: Number, required: true },
-  discretionarySpent: { type: Number, required: true },
-});
+// 2. Reusable Log Schema for the encrypted payloads
+const EncryptedLogSchema = new Schema(
+  {
+    encryptedData: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+  },
+  { _id: false } // Prevents Mongoose from creating a 24-character ID for every single log to save DB space
+);
 
-const CareerLogSchema = new Schema({
-  date: { type: Date, default: Date.now },
-  hoursStudied: { type: Number, required: true },
-  productivityRating: { type: Number, min: 1, max: 10, required: true },
-});
+// 3. The Main User Schema
+const UserSchema = new Schema<IUser>(
+  {
+    email: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
+    password: { type: String, required: true },
+    
+    // Gamification State
+    healthScore: { type: Number, default: 0 },
+    financeScore: { type: Number, default: 0 },
+    careerScore: { type: Number, default: 0 },
+    totalPoints: { type: Number, default: 0 },
+    currentStreak: { type: Number, default: 0 },
+    
+    // Encrypted Log Arrays
+    healthLogs: [EncryptedLogSchema],
+    financeLogs: [EncryptedLogSchema],
+    careerLogs: [EncryptedLogSchema],
+  },
+  { timestamps: true }
+);
 
-// --- 2. MASTER USER SCHEMA ---
-const UserSchema = new Schema({
-  // Core Auth
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  name: { type: String },
-  
-  // The Digital Twin Scores
-  healthScore: { type: Number, default: 0 },
-  financeScore: { type: Number, default: 0 },
-  careerScore: { type: Number, default: 0 },
-  
-  // Multi-Domain Data Arrays (Where Khwaish's form data goes)
-  healthLogs: [HealthLogSchema],
-  financeLogs: [FinanceLogSchema],
-  careerLogs: [CareerLogSchema],
-  
-  // Gamification State
-  totalPoints: { type: Number, default: 0 },
-  currentStreak: { type: Number, default: 0 }
-}, { timestamps: true });
+// 4. Model Export (with Next.js hot-reload protection)
+const User = models.User || mongoose.model<IUser>("User", UserSchema);
 
-// Prevents Mongoose from recompiling the model if it's already registered
-export default mongoose.models.User || mongoose.model('User', UserSchema);
+export default User;

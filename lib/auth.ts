@@ -1,6 +1,8 @@
-// src/lib/auth.ts
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { NextAuthOptions, getServerSession } from "next-auth";
+
+export const authOptions: NextAuthOptions = {
+  providers: [], // Add your NextAuth providers here
+};
 
 /**
  * Helper function to securely fetch the current user's session on the server.

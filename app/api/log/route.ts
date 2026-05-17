@@ -1,20 +1,19 @@
-// src/app/api/log/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next"; 
-import { authOptions } from "@/lib/auth";
+import { getSession } from "@/lib/auth"; 
 import { connectDB } from "@/lib/mongodb"; 
 import User from "@/models/User";
+import Log from "@/models/Log"; 
 import { 
   calculateHealthScore, 
   calculateFinanceScore, 
   calculateCareerScore, 
-  calculateTotalPoints 
+  calculateEarnedXP 
 } from "@/lib/scoring";
 
 export async function POST(req: Request) {
   try {
-    // 1. SECURE VAULT: We keep the NextAuth session active
-    const session = await getServerSession(authOptions);
+    // 1. SECURE VAULT
+    const session = await getSession();
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
     }
@@ -26,50 +25,51 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing domain or data payload" }, { status: 400 });
     }
 
-    // 2. CONNECT TO DB (Safely)
+    // 2. CONNECT TO DB
     await connectDB();
-
     const user = await User.findOne({ email: session.user.email });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // 3. DOMAIN LOGIC: Use "=" instead of "+=" to respect the 1-100 scale cap
+    // 3. CREATE STANDALONE LOG
+    const newLog = await Log.create({
+      userId: user._id,
+      domain: domain,
+      domainData: data
+    });
+
+    // 4. DOMAIN LOGIC
     switch (domain) {
       case "health":
-        user.healthLogs.push(data);
-        user.healthScore = calculateHealthScore(data.sleepHours, data.workoutMinutes, data.stressLevel);
+        user.scores.health = calculateHealthScore(data.sleepHours, data.workoutMinutes, data.stressLevel);
         break;
       case "finance":
-        user.financeLogs.push(data);
-        user.financeScore = calculateFinanceScore(data.amountSaved, data.discretionarySpent);
+        user.scores.finance = calculateFinanceScore(data.amountSaved, data.discretionarySpent);
         break;
       case "career":
-        user.careerLogs.push(data);
-        user.careerScore = calculateCareerScore(data.hoursStudied, data.productivityRating);
+        user.scores.career = calculateCareerScore(data.hoursStudied, data.productivityRating);
         break;
       default:
         return NextResponse.json({ error: "Invalid domain specified" }, { status: 400 });
     }
 
-    // 4. GAMIFICATION UPDATES
-    user.totalPoints = calculateTotalPoints(user.healthScore, user.financeScore, user.careerScore);
-    user.currentStreak += 1; 
+    // 5. GAMIFICATION UPDATES
+    const updatedScore = domain === "health" ? user.scores.health : domain === "finance" ? user.scores.finance : user.scores.career;
+    user.gamification.totalPoints += calculateEarnedXP(updatedScore);
+    user.gamification.currentStreak += 1; 
 
-    // 5. SAVE TO DB
+    // 6. SAVE USER STATE
     await user.save();
 
-    // 6. FRONTEND-FRIENDLY RESPONSE
+    // 7. FRONTEND-FRIENDLY RESPONSE
     return NextResponse.json({ 
       success: true, 
       message: `Successfully updated ${domain}!`,
       state: {
-        healthScore: user.healthScore,
-        financeScore: user.financeScore,
-        careerScore: user.careerScore,
-        totalPoints: user.totalPoints,
-        currentStreak: user.currentStreak
+        scores: user.scores,
+        gamification: user.gamification
       }
     }, { status: 200 });
 

@@ -1,64 +1,68 @@
-// src/app/api/dashboard/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next"; 
-import { authOptions } from "@/lib/auth";
+import { getSession } from "@/lib/auth"; 
 import { connectDB } from "@/lib/mongodb"; 
 import User from "@/models/User";
-import { decryptData } from "@/lib/encryption";
-
-// Helper function to safely decrypt and parse logs for the UI
-const decryptLogs = (logs: any[]) => {
-  return logs.map(log => {
-    try {
-      const decryptedString = decryptData(log.encryptedData);
-      return {
-        timestamp: log.timestamp,
-        data: JSON.parse(decryptedString)
-      };
-    } catch (error) {
-      console.error("Failed to decrypt a log entry:", error);
-      return null;
-    }
-  }).filter(Boolean); 
-};
+import Log from "@/models/Log"; 
+import { calculateSyntraCore } from "@/lib/scoring";
 
 export async function GET(req: Request) {
   try {
-    // 1. Check Authentication
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) {
-      return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
+    // 1. Instant Security Check
+    const session = await getSession();
+    
+    // Explicitly checking for session.user.id ensures TypeScript is happy
+    if (!session || !session.user?.email || !(session.user as any)?.id) {
+      return NextResponse.json({ error: "Unauthorized neural link." }, { status: 401 });
     }
 
     // 2. Connect to Database
     await connectDB();
-    const user = await User.findOne({ email: session.user.email });
+
+    // 3. CONCURRENT FETCHING
+    // Fetches the User and the 15 most recent logs simultaneously for maximum speed
+    const [user, recentLogs] = await Promise.all([
+      User.findOne({ email: session.user.email }),
+      Log.find({ userId: (session.user as any).id }) 
+         .sort({ date: -1 })
+         .limit(15)
+         .lean() // Strips heavy Mongoose metadata to send pure JSON instantly
+    ]);
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ error: "Twin architecture not found." }, { status: 404 });
     }
 
-    // 3. Structure the Dashboard Payload for the UI
+    // 4. Calculate the Global Dashboard Metric
+    const syntraCoreScore = calculateSyntraCore(
+      user.scores.health, 
+      user.scores.finance, 
+      user.scores.career
+    );
+
+    // 5. Structure the God Payload perfectly for Khwaish's UI Components
     const dashboardData = {
       user: {
         name: user.name,
         email: user.email,
+        avatarId: user.avatarId,
+        age: user.age,
       },
+      // The main Hero widget metric
+      syntraCore: syntraCoreScore, 
+      
       scorecards: {
-        health: user.healthScore,
-        finance: user.financeScore,
-        career: user.careerScore,
+        health: user.scores.health,
+        finance: user.scores.finance,
+        career: user.scores.career,
       },
       gamification: {
-        totalPoints: user.totalPoints,
-        currentStreak: user.currentStreak,
+        totalPoints: user.gamification.totalPoints,
+        currentStreak: user.gamification.currentStreak,
       },
-      // Send the last 10 decrypted logs for the "Digital Twin Today" activity feed
-      timeline: {
-        health: decryptLogs(user.healthLogs.slice(-10)),
-        finance: decryptLogs(user.financeLogs.slice(-10)),
-        career: decryptLogs(user.careerLogs.slice(-10))
-      }
+      goals: user.goals,
+      
+      // The standalone logs fetched concurrently
+      timeline: recentLogs 
     };
 
     return NextResponse.json({ 

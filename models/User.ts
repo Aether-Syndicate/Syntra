@@ -1,55 +1,74 @@
-// src/models/User.ts
 import mongoose, { Schema, Document, models } from "mongoose";
 
-// 1. TypeScript Interface for strict type checking
+// 1. Goal Interface
+export interface IGoal {
+  title: string;
+  domain: string;
+  priority: string;
+}
+
+// 2. Main User Interface
 export interface IUser extends Document {
   email: string;
   name: string;
   password?: string;
-  healthScore: number;
-  financeScore: number;
-  careerScore: number;
-  totalPoints: number;
-  currentStreak: number;
-  healthLogs: { encryptedData: string; timestamp: Date }[];
-  financeLogs: { encryptedData: string; timestamp: Date }[];
-  careerLogs: { encryptedData: string; timestamp: Date }[];
+  age?: number;
+  avatarId: number;
+  scores: {
+    health: number;
+    finance: number;
+    career: number;
+  };
+  gamification: {
+    totalPoints: number;
+    currentStreak: number;
+  };
+  goals: IGoal[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-// 2. Reusable Log Schema for the encrypted payloads
-const EncryptedLogSchema = new Schema(
+// 3. Goal Schema (Embedded)
+const GoalSchema = new Schema<IGoal>(
   {
-    encryptedData: { type: String, required: true },
-    timestamp: { type: Date, default: Date.now },
+    title: { type: String, required: true },
+    domain: { type: String, required: true },
+    priority: { type: String, required: true },
   },
-  { _id: false } // Prevents Mongoose from creating a 24-character ID for every single log to save DB space
+  { _id: false }
 );
 
-// 3. The Main User Schema
+// 4. Main User Schema
 const UserSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     password: { type: String, required: true },
     
-    // Gamification State
-    healthScore: { type: Number, default: 0 },
-    financeScore: { type: Number, default: 0 },
-    careerScore: { type: Number, default: 0 },
-    totalPoints: { type: Number, default: 0 },
-    currentStreak: { type: Number, default: 0 },
-    
-    // Encrypted Log Arrays
-    healthLogs: [EncryptedLogSchema],
-    financeLogs: [EncryptedLogSchema],
-    careerLogs: [EncryptedLogSchema],
+    // New Onboarding Fields
+    age: { type: Number },
+    avatarId: { type: Number, default: 1 },
+
+    // Grouped Scores (Defaults to neutral 50/100 to prevent frontend crashes)
+    scores: {
+      health: { type: Number, default: 50 },
+      finance: { type: Number, default: 50 },
+      career: { type: Number, default: 50 },
+    },
+
+    // Grouped Gamification State
+    gamification: {
+      totalPoints: { type: Number, default: 0 },
+      currentStreak: { type: Number, default: 0 },
+    },
+
+    // Goals Array
+    goals: [GoalSchema],
   },
   { timestamps: true }
 );
 
-// 4. Model Export (with Next.js hot-reload protection)
+// 5. Model Export (with Next.js hot-reload protection)
 const User = models.User || mongoose.model<IUser>("User", UserSchema);
 
 export default User;

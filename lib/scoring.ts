@@ -1,5 +1,3 @@
-// lib/scoring.ts
-
 /**
  * Calculates a health score based on sleep, workout, and stress.
  * Max baseline score per entry ~100.
@@ -58,9 +56,20 @@ export const calculateCareerScore = (hoursStudied: number, productivityRating: n
   return Math.max(0, Math.min(100, score));
 };
 
-/**
- * Recalculates total points based on domain scores.
+/**Instead of resetting the user's lifetime total points, this returns how much 
+ * they just earned so you can add it to their running total in the database.
  */
-export const calculateTotalPoints = (healthScore: number, financeScore: number, careerScore: number): number => {
-  return healthScore + financeScore + careerScore;
+export const calculateEarnedXP = (domainScore: number): number => {
+  // If they got a high score on this entry, they earn more lifetime points
+  if (domainScore >= 80) return 50; 
+  if (domainScore >= 50) return 25;
+  return 10; // Even for a bad day, they get 10 points just for logging
+};
+
+/**
+ * Syntra Core Calculator
+*/
+export const calculateSyntraCore = (healthScore: number, financeScore: number, careerScore: number): number => {
+  const core = (healthScore + financeScore + careerScore) / 3;
+  return Math.round(core); // Returns a clean integer like 82 instead of 82.333
 };

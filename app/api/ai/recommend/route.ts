@@ -1,38 +1,36 @@
-// src/app/api/ai/recommend/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai"; 
 
-// Initialize Gemini (Make sure GEMINI_API_KEY is in your .env file)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function GET(req: Request) {
   try {
-    // 1. Secure Route
-    const session = await getServerSession(authOptions);
-    const userEmail = session?.user?.email || "test@syntra.com";
-
-    // 2. Fetch User Context (We skip decryption here just to grab the raw scores/streaks for the MVP)
-    await connectDB();
-    const user = await User.findOne({ email: userEmail });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    // 1. Strict Security Check
+    const session = await getSession();
+    if (!session || !session.user?.email) {
+      return NextResponse.json({ error: "Unauthorized neural link." }, { status: 401 });
     }
 
-    // In a production app, you'd fetch the output of your /api/twin route here.
-    // For the hackathon MVP, we will pass the current scores and streak directly.
+    // 2. Fetch User Context
+    await connectDB();
+    const user = await User.findOne({ email: session.user.email });
+
+    if (!user) {
+      return NextResponse.json({ error: "Twin architecture not found" }, { status: 404 });
+    }
+
+    // FIXED: Upgraded to use your new nested MongoDB schema paths
     const twinContext = {
-      healthScore: user.healthScore,
-      financeScore: user.financeScore,
-      careerScore: user.careerScore,
-      currentStreak: user.currentStreak,
+      healthScore: user.scores.health,
+      financeScore: user.scores.finance,
+      careerScore: user.scores.career,
+      currentStreak: user.gamification.currentStreak,
     };
 
-    // 3. The Prompt Engineer (Enforcing Cross-Domain & Strict Schema)
+    // 3. The Prompt Engineer
     const prompt = `
       You are the Syntra Digital Twin AI. You analyze a user's life metrics and provide highly actionable, cross-domain insights.
       
@@ -65,8 +63,8 @@ export async function GET(req: Request) {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
 
-    // 5. Clean and Parse the JSON (Fallback handling for markdown backticks)
-    const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+    // 5. Clean and Parse the JSON 
+    const cleanedText = responseText.replace(/```json\n?/gi, "").replace(/```\n?/gi, "").trim();
     const parsedData = JSON.parse(cleanedText);
 
     // 6. Return the Strict Contract to the Frontend
@@ -77,7 +75,7 @@ export async function GET(req: Request) {
 
   } catch (error: any) {
     console.error("GEMINI INTEGRATION ERROR:", error);
-    // Graceful fallback (Priority 5) so the frontend doesn't crash if Gemini rate-limits
+    // Fallback so frontend UI doesn't crash if Gemini rate-limits
     return NextResponse.json({ 
       success: false,
       ai: {

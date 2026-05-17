@@ -6,7 +6,7 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import { encryptData } from "@/lib/encryption";
 
-// A fast, native CSV-to-JSON parser for the hackathon MVP
+// A fast, native CSV-to-JSON parser
 const parseCSV = (csvText: string) => {
   const lines = csvText.split('\n').filter(line => line.trim() !== '');
   if (lines.length < 2) return []; // Needs at least a header and one data row

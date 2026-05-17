@@ -9,38 +9,44 @@ import {
   calculateCareerScore, 
   calculateEarnedXP 
 } from "@/lib/scoring";
+import { IngestionSchema } from "@/lib/validators";
 
 export async function POST(req: Request) {
   try {
     // 1. SECURE VAULT
     const session = await getSession();
     if (!session || !session.user?.email) {
-      return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
+      return NextResponse.json({ success: false, message: "Unauthorized access" }, { status: 401 });
     }
 
+    // 2. ZOD VALIDATION (Moved safely inside the execution context)
     const body = await req.json();
-    const { domain, data } = body; 
+    const result = IngestionSchema.safeParse(body);
 
-    if (!domain || !data) {
-      return NextResponse.json({ error: "Missing domain or data payload" }, { status: 400 });
+    if (!result.success) {
+      // Zod caught bad data (e.g., strings instead of numbers)
+      return NextResponse.json({ success: false, message: "Invalid data format detected by Syntra Core." }, { status: 400 });
     }
+    
+    // Zod guarantees these variables are perfectly typed
+    const { domain, data } = result.data; 
 
-    // 2. CONNECT TO DB
+    // 3. CONNECT TO DB
     await connectDB();
     const user = await User.findOne({ email: session.user.email });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ success: false, message: "Twin architecture not found." }, { status: 404 });
     }
 
-    // 3. CREATE STANDALONE LOG
-    const newLog = await Log.create({
+    // 4. CREATE STANDALONE LOG
+    await Log.create({
       userId: user._id,
       domain: domain,
       domainData: data
     });
 
-    // 4. DOMAIN LOGIC
+    // 5. DOMAIN LOGIC
     switch (domain) {
       case "health":
         user.scores.health = calculateHealthScore(data.sleepHours, data.workoutMinutes, data.stressLevel);
@@ -51,19 +57,17 @@ export async function POST(req: Request) {
       case "career":
         user.scores.career = calculateCareerScore(data.hoursStudied, data.productivityRating);
         break;
-      default:
-        return NextResponse.json({ error: "Invalid domain specified" }, { status: 400 });
     }
 
-    // 5. GAMIFICATION UPDATES
+    // 6. GAMIFICATION UPDATES
     const updatedScore = domain === "health" ? user.scores.health : domain === "finance" ? user.scores.finance : user.scores.career;
     user.gamification.totalPoints += calculateEarnedXP(updatedScore);
     user.gamification.currentStreak += 1; 
 
-    // 6. SAVE USER STATE
+    // 7. SAVE USER STATE
     await user.save();
 
-    // 7. FRONTEND-FRIENDLY RESPONSE
+    // 8. FRONTEND-FRIENDLY RESPONSE
     return NextResponse.json({ 
       success: true, 
       message: `Successfully updated ${domain}!`,
@@ -74,7 +78,14 @@ export async function POST(req: Request) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error("DATA INGESTION ERROR:", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    // DEV SEES THIS:
+    console.error("[CRITICAL] /api/log failed:", error);
+    
+    // UI SEES THIS: 
+    // Applying the strict Error-State Philosophy so the frontend never receives a raw backend crash
+    return NextResponse.json({ 
+      success: false, 
+      message: "Twin architecture encountered an anomaly. Safe mode engaged." 
+    }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+//src/lib/scoring.ts
 /**
  * Calculates a health score based on sleep, workout, and stress.
  * Max baseline score per entry ~100.

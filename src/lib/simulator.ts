@@ -1,4 +1,4 @@
-// src/lib/simulator.ts
+//src/lib/simulator.ts
 
 // Define the shape of the projected output
 export interface SimulationResult {
@@ -15,6 +15,10 @@ export function runSimulation(
   scenario: { domain: "health" | "finance" | "career"; percentageChange: number }
 ): SimulationResult {
   
+  // ADD THIS LINE: Clamp the input so it can never exceed +/- 90%
+  const clampedChange = Math.max(-0.9, Math.min(0.9, scenario.percentageChange));
+  const change = clampedChange; 
+
   const timeline = [];
   const tradeOffs = [];
   let riskAssessment = "Low Risk";
@@ -32,24 +36,24 @@ export function runSimulation(
     
     // Apply the user's proposed change incrementally
     if (scenario.domain === "health") {
-        h += (h * scenario.percentageChange * 0.1); // Small incremental growth
+        h += (h * clampedChange * 0.1); // Small incremental growth
         
         // CROSS-DOMAIN IMPACT: Huge health focus might cost career time
-        if (scenario.percentageChange > 0.3) { 
+        if (clampedChange > 0.3) { 
            c -= (c * 0.05); 
         }
     } else if (scenario.domain === "finance") {
-        f += (f * scenario.percentageChange * 0.1);
+        f += (f * clampedChange * 0.1);
         
         // CROSS-DOMAIN IMPACT: Aggressive saving might increase stress (lower health)
-        if (scenario.percentageChange > 0.4) {
+        if (clampedChange > 0.4) {
            h -= (h * 0.08);
         }
     } else if (scenario.domain === "career") {
-        c += (c * scenario.percentageChange * 0.1);
+        c += (c * clampedChange * 0.1);
         
         // CROSS-DOMAIN IMPACT: Extreme career focus might cost health and increase spending
-        if (scenario.percentageChange > 0.3) {
+        if (clampedChange > 0.3) {
             h -= (h * 0.05);
             f -= (f * 0.02); // Buying takeout because no time to cook
         }
@@ -64,11 +68,11 @@ export function runSimulation(
   }
 
   // Generate Trade-Off Insights based on the final math
-  if (scenario.domain === "health" && scenario.percentageChange > 0.3) {
+  if (scenario.domain === "health" && clampedChange > 0.3) {
       tradeOffs.push("Increasing workout frequency heavily will slightly reduce available study time, causing a projected dip in Career Score.");
       riskAssessment = "Medium Risk: Monitor career progress.";
   }
-  if (scenario.domain === "career" && scenario.percentageChange > 0.3) {
+  if (scenario.domain === "career" && clampedChange > 0.3) {
       tradeOffs.push("Aggressive career upskilling correlates with a dip in Health Score due to reduced sleep and exercise.");
       riskAssessment = "High Risk: Burnout potential detected.";
   }

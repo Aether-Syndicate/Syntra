@@ -1,7 +1,9 @@
+//src/app/signup/page.tsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 // The 4 Core Twin Avatars mapped out in Phase 1
 const AVATAR_OPTIONS = [
@@ -46,8 +48,18 @@ export default function SignupPage() {
         throw new Error(data.error || "Failed to initialize Twin.");
       }
 
-      // Successful Registration - Redirect to the God Endpoint Dashboard
-      router.push("/dashboard");
+      // Successful Registration - Auto login user
+      const signInResult = await signIn("credentials", {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      });
+
+      if (signInResult?.error) {
+        throw new Error("Registration successful, but auto-login failed. Please sign in manually.");
+      } else {
+        router.push("/dashboard");
+      }
       
     } catch (err: any) {
       setError(err.message);

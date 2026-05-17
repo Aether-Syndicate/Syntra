@@ -1,3 +1,4 @@
+//src/models/User.ts
 import mongoose, { Schema, Document, models } from "mongoose";
 
 // 1. Goal Interface
@@ -22,6 +23,7 @@ export interface IUser extends Document {
   gamification: {
     totalPoints: number;
     currentStreak: number;
+    lastLogDate: Date;
   };
   goals: IGoal[];
   createdAt: Date;
@@ -43,7 +45,7 @@ const UserSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true },
     name: { type: String, required: true },
-    password: { type: String, required: true },
+    password: { type: String, required: true, select: false },
     
     // New Onboarding Fields
     age: { type: Number },
@@ -60,6 +62,7 @@ const UserSchema = new Schema<IUser>(
     gamification: {
       totalPoints: { type: Number, default: 0 },
       currentStreak: { type: Number, default: 0 },
+      lastLogDate: { type: Date, default: null },
     },
 
     // Goals Array

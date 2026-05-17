@@ -1,3 +1,4 @@
+//src/lib/encryption.ts
 import crypto from "crypto";
 
 // We use an environment variable for the encryption key, 

@@ -1,8 +1,9 @@
+//src/lib/auth.ts
 import { NextAuthOptions, getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-// import dbConnect from "@/lib/db";
-// import User from "@/models/User";
+import { connectDB } from "@/lib/mongodb";
+import User from "@/models/User";
 
 export const authOptions: NextAuthOptions = {
   // Use JSON Web Tokens for secure session storage
@@ -19,41 +20,32 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Missing authentication credentials.");
+          throw new Error("Missing credentials.");
         }
 
-        // await dbConnect();
+        await connectDB();
 
         // 1. Locate the User Profile
-        // const user = await User.findOne({ email: credentials.email.toLowerCase() }).select("+password");
-        
-        // MOCK DATABASE USER LOOKUP FOR THE DEMO PLATFORM
-        const user = credentials.email === "demo@syntra.com" ? {
-          _id: "demo_user_id",
-          name: "Aana",
-          email: "demo@syntra.com",
-          password: "$2a$10$dQxH76a/ittxvoZRbYvkNegRPW06uEZlCCqCoE2z3eT8JJTR2n1hG", // Pre-computed hash for 'password123'
-          avatarId: 2,
-          streak: 14
-        } : null;
+        const user = await User.findOne({ 
+          email: credentials.email.toLowerCase()
+        }).select("+password");
 
         if (!user) {
-          throw new Error("No Digital Twin mapped to this email address.");
+          throw new Error("No Digital Twin mapped to this email.");
         }
 
         // 2. Validate Secure Password Encryption
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
         if (!isPasswordValid) {
-          throw new Error("Invalid neural handshake. Incorrect password.");
+          throw new Error("Invalid password.");
         }
 
         // 3. Pass Authorized Data to the JWT Lifecycle
         return {
-          id: user._id,
+          id: user._id.toString(),
           name: user.name,
           email: user.email,
           avatarId: user.avatarId,
-          streak: user.streak,
         };
       }
     })

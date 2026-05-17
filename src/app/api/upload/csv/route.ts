@@ -1,10 +1,10 @@
-// src/app/api/upload/csv/route.ts
+//src/app/api/upload/csv/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
-import { encryptData } from "@/lib/encryption";
+import Log from "@/models/Log";
 
 // A fast, native CSV-to-JSON parser
 const parseCSV = (csvText: string) => {
@@ -50,37 +50,26 @@ export async function POST(req: Request) {
     const parsedData = parseCSV(csvText);
 
     if (parsedData.length === 0) {
-      return NextResponse.json({ error: "CSV appears to be empty or invalid" }, { status: 400 });
+      return NextResponse.json({ error: "CSV appears empty or invalid" }, { status: 400 });
     }
 
-    // 5. Connect to DB and find user
     await connectDB();
     const user = await User.findOne({ email: userEmail });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // 6. Encrypt the entire parsed batch and save to the correct domain
-    const encryptedPayload = encryptData(JSON.stringify({
-      source: `CSV Upload: ${file.name}`,
-      batchData: parsedData
-    }));
-
-    if (domain === "health") {
-      user.healthLogs.push({ encryptedData: encryptedPayload, timestamp: new Date() });
-    } else if (domain === "finance") {
-      user.financeLogs.push({ encryptedData: encryptedPayload, timestamp: new Date() });
-    } else if (domain === "career") {
-      user.careerLogs.push({ encryptedData: encryptedPayload, timestamp: new Date() });
-    } else {
-      return NextResponse.json({ error: "Invalid domain specified" }, { status: 400 });
-    }
-
-    await user.save();
+    await Log.create({
+      userId: user._id,
+      domain: domain,
+      domainData: {
+        source: `CSV Upload: ${file.name}`,
+        records: parsedData,
+        uploadedAt: new Date(),
+      }
+    });
 
     return NextResponse.json({ 
       success: true, 
-      message: `Successfully parsed and encrypted ${parsedData.length} records from ${file.name}` 
+      message: `Parsed and saved ${parsedData.length} records.` 
     }, { status: 200 });
 
   } catch (error: any) {

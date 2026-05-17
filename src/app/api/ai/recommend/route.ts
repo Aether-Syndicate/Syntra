@@ -1,7 +1,10 @@
+//src/app/api/ai/recommend/route.ts
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import Log from "@/models/Log";
+import { buildTwinContext } from "@/lib/aiContextBuilder";
 import { GoogleGenerativeAI } from "@google/generative-ai"; 
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -22,41 +25,37 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Twin architecture not found" }, { status: 404 });
     }
 
-    // FIXED: Upgraded to use your new nested MongoDB schema paths
-    const twinContext = {
-      healthScore: user.scores.health,
-      financeScore: user.scores.finance,
-      careerScore: user.scores.career,
-      currentStreak: user.gamification.currentStreak,
-    };
+    const recentLogs = await Log.find({ userId: user._id })
+      .sort({ date: -1 })
+      .limit(21) // Last 7 days × 3 domains
+      .lean();
+
+    const twinContext = buildTwinContext(recentLogs);
 
     // 3. The Prompt Engineer
     const prompt = `
-      You are the Syntra Digital Twin AI. You analyze a user's life metrics and provide highly actionable, cross-domain insights.
-      
-      USER CONTEXT:
-      Health Score: ${twinContext.healthScore}/100
-      Finance Score: ${twinContext.financeScore}/100
-      Career Score: ${twinContext.careerScore}/100
-      Current Activity Streak: ${twinContext.currentStreak} days
+You are the Syntra Digital Twin AI. Analyze this user's behavioral data:
 
-      YOUR DIRECTIVES:
-      1. Analyze the cross-domain impacts (e.g., how their health score might be dragging down their career score).
-      2. Provide actionable recommendations.
-      3. Project their future state.
-      4. Suggest SMART goals.
-      
-      CRITICAL: You MUST respond in pure, valid JSON matching the exact schema below. Do not include markdown formatting like \`\`\`json. 
-      
-      SCHEMA:
-      {
-        "insights": ["string"],
-        "recommendations": ["string"],
-        "futureProjection": { "health": "string", "finance": "string", "career": "string" },
-        "smartGoals": ["string"],
-        "confidence": number
-      }
-    `;
+SCORES: Health ${user.scores.health}/100 | Finance ${user.scores.finance}/100 | Career ${user.scores.career}/100
+STREAK: ${user.gamification.currentStreak} days
+
+BEHAVIORAL PATTERNS (last 7 days):
+- Avg Sleep: ${twinContext.weeklyAverages.sleep}hrs (trend: ${twinContext.trends.sleep})
+- Avg Stress: ${twinContext.weeklyAverages.stress}/10 (trend: ${twinContext.trends.stress})
+- Avg Daily Spending: $${twinContext.weeklyAverages.spending} (trend: ${twinContext.trends.spending})
+- Avg Study: ${twinContext.weeklyAverages.studyHours}hrs/day (trend: ${twinContext.trends.study})
+
+DETECTED FLAGS: ${twinContext.behaviorFlags.join(", ") || "none"}
+
+Generate insights with CROSS-DOMAIN analysis. Return ONLY valid JSON:
+{
+  "insights": ["string"],
+  "recommendations": ["string"],
+  "futureProjection": { "health": "string", "finance": "string", "career": "string" },
+  "smartGoals": ["string"],
+  "confidence": number,
+  "dailyChallenge": "string"
+}`;
 
     // 4. Call Gemini
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -83,7 +82,8 @@ export async function GET(req: Request) {
         recommendations: ["Maintain your current streak across all domains."],
         futureProjection: { health: "Stable", finance: "Stable", career: "Stable" },
         smartGoals: ["Log your data for 3 consecutive days."],
-        confidence: 0
+        confidence: 0,
+        dailyChallenge: "Complete a single log today."
       }
     }, { status: 200 }); 
   }

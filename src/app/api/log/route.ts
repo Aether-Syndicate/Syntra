@@ -1,3 +1,4 @@
+//src/app/api/log/route.ts
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth"; 
 import { connectDB } from "@/lib/mongodb"; 
@@ -62,7 +63,31 @@ export async function POST(req: Request) {
     // 6. GAMIFICATION UPDATES
     const updatedScore = domain === "health" ? user.scores.health : domain === "finance" ? user.scores.finance : user.scores.career;
     user.gamification.totalPoints += calculateEarnedXP(updatedScore);
-    user.gamification.currentStreak += 1; 
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const lastLog = user.gamification.lastLogDate 
+      ? new Date(user.gamification.lastLogDate) 
+      : null;
+
+    if (lastLog) lastLog.setHours(0, 0, 0, 0);
+
+    const todayStr = today.toDateString();
+    const lastLogStr = lastLog?.toDateString();
+
+    if (lastLogStr !== todayStr) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      // If last log was yesterday, increment. Otherwise, reset to 1.
+      user.gamification.currentStreak = 
+        lastLogStr === yesterday.toDateString() 
+          ? user.gamification.currentStreak + 1 
+          : 1;
+          
+      user.gamification.lastLogDate = new Date();
+    }
 
     // 7. SAVE USER STATE
     await user.save();

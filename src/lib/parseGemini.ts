@@ -1,3 +1,4 @@
+//src/lib/parseGemini.ts
 /**
  * Utility function to clean and parse JSON responses from Gemini AI.
  * It removes markdown code blocks and attempts to parse the remaining string.

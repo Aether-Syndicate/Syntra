@@ -1,3 +1,4 @@
+//src/models/Log.ts
 import mongoose, { Schema, Document, models } from "mongoose";
 
 export interface ILog extends Document {

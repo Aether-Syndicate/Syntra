@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import { runSimulation } from "@/lib/simulator"; 
 import { GoogleGenerativeAI } from "@google/generative-ai"; // The Brain
+import { buildSimulatorPrompt } from "@/lib/prompts/simulatorPrompt";
 
 // Initialize the AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -43,22 +44,19 @@ export async function POST(req: Request) {
     // 5. THE AI LAYER: Translate the math into an emotional projection
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
     
-    const prompt = `
-      You are Syntra, a Digital Twin AI.
-      The user is simulating a life change: ${scenario.percentageChange > 0 ? '+' : ''}${scenario.percentageChange * 100}% in their ${scenario.domain} domain.
-      
-      Current Baseline Scores:
-      Health: ${user.scores.health}, Finance: ${user.scores.finance}, Career: ${user.scores.career}
-      
-      Projected 30-Day Simulation Scores:
-      Health: ${simulationResult.timeline[1].health}, Finance: ${simulationResult.timeline[1].finance}, Career: ${simulationResult.timeline[1].career}
-      
-      Analyze this projection. Return a STRICT JSON object with exactly two keys:
-      - "insight": A short, 2-sentence explanation of how this specific change impacts their overall system.
-      - "warning": A 1-sentence warning if any projected score drops below 45, otherwise return null.
-      
-      Return ONLY JSON. Do not use markdown wrapping.
-    `;
+    const prompt = buildSimulatorPrompt({
+      currentScores: {
+        health: user.scores.health,
+        finance: user.scores.finance,
+        career: user.scores.career
+      },
+      projectedScores: {
+        health: simulationResult.timeline[1].health,
+        finance: simulationResult.timeline[1].finance,
+        career: simulationResult.timeline[1].career
+      },
+      scenario
+    });
 
     const result = await model.generateContent(prompt);
     let aiText = result.response.text();

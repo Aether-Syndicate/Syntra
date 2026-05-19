@@ -1,19 +1,20 @@
-//src/models/Log.ts
+// src/models/Log.ts
 import mongoose, { Schema, Document, models } from "mongoose";
 
 export interface ILog extends Document {
-  userId: string;
+  userId: mongoose.Types.ObjectId; // FIXED: Must be ObjectId
   date: Date;
   domain: string;
-  domainData: Record<string, any>; // Flexible object to catch whatever sliders Khwaish builds
+  domainData: Record<string, any>; 
 }
 
 const LogSchema = new Schema<ILog>(
   {
-    userId: { type: String, required: true, index: true }, // index: true makes finding logs for the Dashboard lightning fast
+    // FIXED: Must use Schema.Types.ObjectId and reference the User model
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true }, 
     date: { type: Date, default: Date.now },
     domain: { type: String, required: true },
-    domainData: { type: Schema.Types.Mixed, required: true } // Schema.Types.Mixed allows diverse JSON shapes
+    domainData: { type: Schema.Types.Mixed, required: true } 
   },
   { timestamps: true }
 );

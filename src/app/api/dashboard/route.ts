@@ -1,3 +1,4 @@
+//src/app/api/dashboard/route.ts
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth"; 
 import { connectDB } from "@/lib/mongodb"; 

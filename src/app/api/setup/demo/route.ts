@@ -1,8 +1,9 @@
+// src/app/api/setup/demo/route.ts
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import User from '@/models/User';
 import Log from '@/models/Log';
-import bcrypt from "bcryptjs"; // Needed to pass Mongoose validation
+import bcrypt from "bcryptjs"; 
 
 export async function GET(request: Request) {
   try {
@@ -20,27 +21,33 @@ export async function GET(request: Request) {
     // 2. Wipe the Slate Clean (Ensures a fresh demo every time you run it)
     const existingUser = await User.findOne({ email: demoEmail });
     if (existingUser) {
-        await Log.deleteMany({ userId: existingUser._id });
+        await Log.deleteMany({ userId: existingUser.id });
         await User.deleteOne({ email: demoEmail });
     }
 
     // 3. Create the Perfect Profile
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
     const demoUser = await User.create({
-      // Mongoose auto-generates the _id here
       name: "Aana",
       email: demoEmail,
-      password: await bcrypt.hash("password123", 10), // Satisfies the strict schema
+      password: await bcrypt.hash("password123", 10), 
       avatarId: 2,
       scores: { health: 78, finance: 82, career: 88 },
-      gamification: { totalPoints: 1450, currentStreak: 14 },
+      gamification: { 
+        totalPoints: 1450, 
+        currentStreak: 14,
+        lastLogDate: yesterday
+      },
       goals: [
         { title: "Hit LeetCode Knight", domain: "career", priority: "high" },
         { title: "Cap Zomato spending", domain: "finance", priority: "med" }
       ]
     });
 
-    // 4. Engineer the "Anomaly" Data
-    const today = new Date();
+    // 4. Engineer the "Anomaly" Data (Now strictly typed to match IngestionSchema)
     const demoLogs = [];
 
     // Loop through the last 14 days
@@ -52,35 +59,35 @@ export async function GET(request: Request) {
 
       // Health Log
       demoLogs.push({
-        userId: demoUser._id, // Tied directly to the newly created user
+        userId: demoUser.id,
         date: d,
         domain: "health",
         domainData: {
           sleepHours: isRecentDip ? 4.5 : 7.5, // 📉 The Sleep Dip
           workoutMinutes: isRecentDip ? 0 : 45,
-          stressScore: isRecentDip ? 8 : 3
+          stressLevel: isRecentDip ? 8 : 3       // FIXED: Matches validator & context builder
         }
       });
 
       // Finance Log
       demoLogs.push({
-        userId: demoUser._id,
+        userId: demoUser.id,
         date: d,
         domain: "finance",
         domainData: {
-          dailySpending: isRecentDip ? 120 : 15, // 📈 The Spending Spike
-          impulseBuyUrge: isRecentDip ? 9 : 2
+          amountSaved: isRecentDip ? 0 : 50,         // ADDED: Matches FinanceDataSchema
+          discretionarySpent: isRecentDip ? 120 : 15 // FIXED: Matches validator & context builder
         }
       });
 
       // Career Log
       demoLogs.push({
-        userId: demoUser._id,
+        userId: demoUser.id,
         date: d,
         domain: "career",
         domainData: {
-          studyHours: isRecentDip ? 6 : 3, // 📈 Pushing hard on career
-          focusQuality: isRecentDip ? 5 : 8  
+          hoursStudied: isRecentDip ? 6 : 3,         // 📈 Pushing hard on career
+          productivityRating: isRecentDip ? 5 : 8    // FIXED: Matches validator & context builder
         }
       });
     }
@@ -90,7 +97,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      message: "Golden Demo Data injected successfully.",
+      message: "Golden Demo Data injected successfully. Data shape strictly matches validation schemas.",
       dataStory: "Injected 14 days. Engineered a recent sleep dip and spending spike alongside high study hours."
     });
 

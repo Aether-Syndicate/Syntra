@@ -29,8 +29,10 @@ export async function POST(req: Request) {
   try {
     // 1. Authenticate Request
     const session = await getServerSession(authOptions);
-    // Temporary Hackathon Bypass:
-    const userEmail = session?.user?.email || "test@syntra.com";
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userEmail = session.user.email;
 
     // 2. Extract the file and domain from the form data
     const formData = await req.formData();

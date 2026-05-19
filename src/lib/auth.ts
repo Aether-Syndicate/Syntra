@@ -1,4 +1,4 @@
-//src/lib/auth.ts
+// src/lib/auth.ts
 import { NextAuthOptions, getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -41,11 +41,13 @@ export const authOptions: NextAuthOptions = {
         }
 
         // 3. Pass Authorized Data to the JWT Lifecycle
+        // FIXED: Explicitly mapping the nested gamification streak to the root return object
         return {
           id: user._id.toString(),
           name: user.name,
           email: user.email,
           avatarId: user.avatarId,
+          streak: user.gamification?.currentStreak ?? 0, 
         };
       }
     })
@@ -56,7 +58,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.avatarId = (user as any).avatarId;
-        token.streak = (user as any).streak;
+        token.streak = (user as any).streak; // Now correctly grabs the value!
       }
       return token;
     },
@@ -71,7 +73,7 @@ export const authOptions: NextAuthOptions = {
     }
   },
   pages: {
-    signIn: "/login", // Redirect target if authentication challenges fail
+    signIn: "/login", 
     error: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,

@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json();
+    const { name, email, password, age, avatarId } = await req.json();
 
     // Basic Validation
     if (!name || !email || !password) {
@@ -25,12 +25,16 @@ export async function POST(req: Request) {
     // 3. Hash Password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Guard: Prevent empty string "age" input from converting to 0 in Number()
+    const parsedAge = age && age !== "" ? Number(age) : undefined;
+
     // 4. Create User in MongoDB (Uncommented and structure verified!)
     const newUser = await User.create({
       name,
       email,
       password: hashedPassword,
-      avatarId: 1, // Default Avatar
+      age: parsedAge,
+      avatarId: Number(avatarId) || 1, 
       scores: { health: 50, finance: 50, career: 50 }, // Starting baseline
       gamification: { totalPoints: 0, currentStreak: 0 },
       goals: []

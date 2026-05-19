@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     // 2. Wipe the Slate Clean (Ensures a fresh demo every time you run it)
     const existingUser = await User.findOne({ email: demoEmail });
     if (existingUser) {
-        await Log.deleteMany({ userId: existingUser.id });
+        await Log.deleteMany({ userId: existingUser._id });
         await User.deleteOne({ email: demoEmail });
     }
 
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
 
       // Health Log
       demoLogs.push({
-        userId: demoUser.id,
+        userId: demoUser._id,
         date: d,
         domain: "health",
         domainData: {
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
 
       // Finance Log
       demoLogs.push({
-        userId: demoUser.id,
+        userId: demoUser._id,
         date: d,
         domain: "finance",
         domainData: {
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
 
       // Career Log
       demoLogs.push({
-        userId: demoUser.id,
+        userId: demoUser._id,
         date: d,
         domain: "career",
         domainData: {

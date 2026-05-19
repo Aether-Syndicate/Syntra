@@ -57,17 +57,17 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.avatarId = (user as any).avatarId;
-        token.streak = (user as any).streak; // Now correctly grabs the value!
+        token.avatarId = user.avatarId;
+        token.streak = user.streak; // Now correctly grabs the value!
       }
       return token;
     },
     // Expose those token details so Khwaish can read them on the client via useSession()
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).avatarId = token.avatarId;
-        (session.user as any).streak = token.streak;
+        session.user.id = token.id;
+        session.user.avatarId = token.avatarId;
+        session.user.streak = token.streak;
       }
       return session;
     }

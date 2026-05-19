@@ -13,11 +13,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Missing required fields." }, { status: 400 });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // 1. Connect to Database (Uncommented!)
     await connectDB();
 
     // 2. Check for existing user (Uncommented!)
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return NextResponse.json({ success: false, message: "Email already registered." }, { status: 409 });
     }
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
     // 4. Create User in MongoDB (Uncommented and structure verified!)
     const newUser = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       age: parsedAge,
       avatarId: Number(avatarId) || 1, 

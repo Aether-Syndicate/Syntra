@@ -3,6 +3,7 @@ import mongoose, { Schema, Document, models } from "mongoose";
 
 // 1. Goal Interface
 export interface IGoal {
+  _id?: mongoose.Types.ObjectId;
   title: string;
   domain: string;
   priority: string;
@@ -37,7 +38,7 @@ const GoalSchema = new Schema<IGoal>(
     domain: { type: String, required: true },
     priority: { type: String, required: true },
   },
-  { _id: false }
+  { _id: true }
 );
 
 // 4. Main User Schema

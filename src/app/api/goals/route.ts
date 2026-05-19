@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import mongoose from "mongoose";
 
 export async function POST(req: Request) {
   try {
@@ -60,17 +61,20 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { goalTitle } = await req.json();
+    const { goalId } = await req.json(); // Changed from goalTitle to goalId
+
+    if (!goalId) {
+      return NextResponse.json({ error: "goalId is required" }, { status: 400 });
+    }
 
     await connectDB();
     const user = await User.findOneAndUpdate(
       { email: session.user.email },
-      { $pull: { goals: { title: goalTitle } } },
+      { $pull: { goals: { _id: new mongoose.Types.ObjectId(goalId) } } },
       { new: true }
     );
 
     return NextResponse.json({ success: true, goals: user?.goals });
-
   } catch (error) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

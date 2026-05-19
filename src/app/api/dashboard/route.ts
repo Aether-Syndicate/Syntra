@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import Log from "@/models/Log"; 
 import { calculateSyntraCore } from "@/lib/scoring";
+import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
     const session = await getSession();
     
     // Explicitly checking for session.user.id ensures TypeScript is happy
-    if (!session || !session.user?.email || !(session.user as any)?.id) {
+    if (!session || !session.user?.email || !session.user.id) {
       return NextResponse.json({ error: "Unauthorized neural link." }, { status: 401 });
     }
 
@@ -23,10 +24,10 @@ export async function GET(req: Request) {
     // Fetches the User and the 15 most recent logs simultaneously for maximum speed
     const [user, recentLogs] = await Promise.all([
       User.findOne({ email: session.user.email }),
-      Log.find({ userId: (session.user as any).id }) 
-         .sort({ date: -1 })
-         .limit(15)
-         .lean() // Strips heavy Mongoose metadata to send pure JSON instantly
+      Log.find({ userId: new mongoose.Types.ObjectId(session.user.id) })
+        .sort({ date: -1 })
+        .limit(15)
+        .lean() // Strips heavy Mongoose metadata to send pure JSON instantly
     ]);
 
     if (!user) {

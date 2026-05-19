@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   try {
     // 1. Authenticate Request using our custom typed helper
     const session = await getSession();
-    if (!session || !session.user?.email || !(session.user as any)?.id) {
+    if (!session || !session.user?.email || !session.user.id) {
       return NextResponse.json({ error: "Unauthorized neural link." }, { status: 401 });
     }
 

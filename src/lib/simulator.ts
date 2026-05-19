@@ -17,7 +17,6 @@ export function runSimulation(
   
   // ADD THIS LINE: Clamp the input so it can never exceed +/- 90%
   const clampedChange = Math.max(-0.9, Math.min(0.9, scenario.percentageChange));
-  const change = clampedChange; 
 
   const timeline = [];
   const tradeOffs = [];

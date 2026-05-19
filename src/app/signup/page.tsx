@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 
 // The 4 Core Twin Avatars mapped out in Phase 1
@@ -13,6 +14,7 @@ const AVATAR_OPTIONS = [
 ];
 
 export default function SignupPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   

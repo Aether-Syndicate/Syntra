@@ -1,15 +1,23 @@
-//src/models/User.ts
+// src/models/User.ts
 import mongoose, { Schema, Document, models } from "mongoose";
 
-// 1. Goal Interface
+// 1. Milestone Interface (NEW)
+export interface IMilestone {
+  text: string;
+  completed: boolean;
+}
+
+// 2. Goal Interface (UPDATED)
 export interface IGoal {
   _id?: mongoose.Types.ObjectId;
   title: string;
   domain: string;
   priority: string;
+  targetDate?: Date; // NEW: Timeline tracking
+  milestones: IMilestone[]; // NEW: Milestone tracking
 }
 
-// 2. Main User Interface
+// 3. Main User Interface (UPDATED)
 export interface IUser extends Document {
   email: string;
   name: string;
@@ -26,33 +34,42 @@ export interface IUser extends Document {
     currentStreak: number;
     lastLogDate: Date;
   };
+  badges: string[]; // NEW: Gamification Badges
   goals: IGoal[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-// 3. Goal Schema (Embedded)
+// 4. Milestone Schema (NEW)
+const MilestoneSchema = new Schema<IMilestone>({
+  text: { type: String, required: true },
+  completed: { type: Boolean, default: false }
+});
+
+// 5. Goal Schema (Embedded & UPDATED)
 const GoalSchema = new Schema<IGoal>(
   {
     title: { type: String, required: true },
     domain: { type: String, required: true },
     priority: { type: String, required: true },
+    targetDate: { type: Date }, // NEW
+    milestones: [MilestoneSchema], // NEW
   },
   { _id: true }
 );
 
-// 4. Main User Schema
+// 6. Main User Schema (UPDATED)
 const UserSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     password: { type: String, required: true, select: false },
     
-    // New Onboarding Fields
+    // Onboarding Fields
     age: { type: Number },
     avatarId: { type: Number, default: 1 },
 
-    // Grouped Scores (Defaults to neutral 50/100 to prevent frontend crashes)
+    // Grouped Scores
     scores: {
       health: { type: Number, default: 50 },
       finance: { type: Number, default: 50 },
@@ -66,13 +83,16 @@ const UserSchema = new Schema<IUser>(
       lastLogDate: { type: Date, default: null },
     },
 
+    // Gamification Badges Array (NEW)
+    badges: { type: [String], default: [] }, 
+
     // Goals Array
     goals: [GoalSchema],
   },
   { timestamps: true }
 );
 
-// 5. Model Export (with Next.js hot-reload protection)
+// 7. Model Export (with Next.js hot-reload protection)
 const User = models.User || mongoose.model<IUser>("User", UserSchema);
 
 export default User;

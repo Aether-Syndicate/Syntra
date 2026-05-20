@@ -12,7 +12,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { title, domain, priority } = await req.json();
+    // UPDATED: Destructure the new targetDate and milestones fields
+    const { title, domain, priority, targetDate, milestones } = await req.json();
 
     if (!title || !domain || !priority) {
       return NextResponse.json({ error: "Missing fields: title, domain, priority required" }, { status: 400 });
@@ -23,9 +24,23 @@ export async function POST(req: Request) {
     }
 
     await connectDB();
+    
+    // UPDATED: Push the new fields into the goals array
     const user = await User.findOneAndUpdate(
       { email: session.user.email },
-      { $push: { goals: { title, domain, priority } } },
+      { 
+        $push: { 
+          goals: { 
+            title, 
+            domain, 
+            priority,
+            // Convert to a real MongoDB Date object if it exists
+            targetDate: targetDate ? new Date(targetDate) : undefined, 
+            // Default to an empty array if the frontend doesn't send any
+            milestones: milestones || [] 
+          } 
+        } 
+      },
       { new: true }
     );
 
@@ -61,7 +76,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { goalId } = await req.json(); // Changed from goalTitle to goalId
+    const { goalId } = await req.json(); // Safely uses goalId
 
     if (!goalId) {
       return NextResponse.json({ error: "goalId is required" }, { status: 400 });

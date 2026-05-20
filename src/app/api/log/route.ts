@@ -89,6 +89,30 @@ export async function POST(req: Request) {
       user.gamification.lastLogDate = new Date();
     }
 
+    // 6.5 CHECK AND AWARD BADGES (The Gamification Engine)
+    const newBadges: string[] = [];
+    const currentBadges = user.badges || [];
+
+    if (user.gamification.currentStreak >= 7 && !currentBadges.includes("Week Warrior")) {
+      newBadges.push("Week Warrior");
+    }
+    if (user.gamification.currentStreak >= 30 && !currentBadges.includes("Month Master")) {
+      newBadges.push("Month Master");
+    }
+    if (user.gamification.totalPoints >= 500 && !currentBadges.includes("Rising Twin")) {
+      newBadges.push("Rising Twin");
+    }
+    if (domain === "finance" && user.scores.finance >= 80 && !currentBadges.includes("Savings Streak")) {
+      newBadges.push("Savings Streak");
+    }
+    if (domain === "career" && user.scores.career >= 80 && !currentBadges.includes("Learning Machine")) {
+      newBadges.push("Learning Machine");
+    }
+
+    if (newBadges.length > 0) {
+      user.badges.push(...newBadges);
+    }
+    
     // 7. SAVE USER STATE
     await user.save();
 

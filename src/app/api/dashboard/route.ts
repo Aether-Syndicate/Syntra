@@ -1,4 +1,4 @@
-//src/app/api/dashboard/route.ts
+// src/app/api/dashboard/route.ts
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth"; 
 import { connectDB } from "@/lib/mongodb"; 
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     const session = await getSession();
     
     // Explicitly checking for session.user.id ensures TypeScript is happy
-    if (!session || !session.user?.email || !session.user.id) {
+    if (!session || !session.user?.email || !(session.user as any)?.id) {
       return NextResponse.json({ error: "Unauthorized neural link." }, { status: 401 });
     }
 
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     // Fetches the User and the 15 most recent logs simultaneously for maximum speed
     const [user, recentLogs] = await Promise.all([
       User.findOne({ email: session.user.email }),
-      Log.find({ userId: new mongoose.Types.ObjectId(session.user.id) })
+      Log.find({ userId: new mongoose.Types.ObjectId((session.user as any).id) })
         .sort({ date: -1 })
         .limit(15)
         .lean() // Strips heavy Mongoose metadata to send pure JSON instantly
@@ -60,6 +60,7 @@ export async function GET(req: Request) {
       gamification: {
         totalPoints: user.gamification.totalPoints,
         currentStreak: user.gamification.currentStreak,
+        badges: user.badges || [] // NEW: Serving the unlocked badges to the UI
       },
       goals: user.goals,
       

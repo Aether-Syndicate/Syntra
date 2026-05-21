@@ -15,7 +15,7 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: ".env" });
 
 import { callGemini } from "../src/lib/gemini";
-import { generateaitwinReflection } from "../src/lib/prompts/aiaitwinReflection";
+import { generateaitwinReflection } from "../src/lib/prompts/aitwinReflection";
 import { generateSimulatorInsight } from "../src/lib/prompts/aisimulatorPrompt";
 import { generateDailyChallenge } from "../src/lib/prompts/challengePrompt";
 import { generateHealthAnalysis, generateFinanceAnalysis, generateCareerAnalysis } from "../src/lib/prompts/domainPrompts";

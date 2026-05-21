@@ -42,8 +42,8 @@
 //
 // ================================================================
 
-import { TwinContext, DomainScores, TwinReflectionResponse } from "../../types/ai";
-import { callGemini } from "../../lib/gemini";
+import { TwinContext, DomainScores, aitwinReflectionResponse } from "../../types/ai";
+import { callGemini } from "../gemini";
 import { z } from "zod";
 
 // ================================================================
@@ -57,7 +57,7 @@ export const TWIN_REFLECTION_PROMPT_VERSION = "v2.1.0";
 // Every field has explicit constraints. Gemini cannot hallucinate
 // its way past this layer.
 // ================================================================
-const TwinReflectionSchema = z.object({
+const aitwinReflectionSchema = z.object({
   twinPrediction: z
     .string()
     .min(40, "twinPrediction too short — must be a complete predictive statement")
@@ -349,7 +349,7 @@ function interpretScore(score: number): string {
 // The prompt is assembled dynamically based on user state.
 // Not one static template — a system that composes intelligently.
 // ================================================================
-export function buildTwinReflectionPrompt(
+export function buildaitwinReflectionPrompt(
   context: TwinContext,
   scores: DomainScores,
   streak: number,
@@ -466,7 +466,7 @@ async function callWithValidation(
   confidence: number,
   attempt: number = 1,
   currentPromptToSend: string = "" 
-): Promise<TwinReflectionResponse> {
+): Promise<aitwinReflectionResponse> {
   const MAX_ATTEMPTS = 3;
   
   // Use the evolving prompt on retries, or the original on attempt 1
@@ -477,7 +477,7 @@ async function callWithValidation(
     maxTokens: 4096,
   });
 
-  const check = TwinReflectionSchema.safeParse(rawResponse);
+  const check = aitwinReflectionSchema.safeParse(rawResponse);
 
   if (check.success) {
     const safe = check.data;
@@ -510,12 +510,12 @@ Return ONLY valid JSON with no text outside the braces.
 // ================================================================
 // PUBLIC API
 // ================================================================
-export async function generateTwinReflection(
+export async function generateaitwinReflection(
   context: TwinContext,
   scores: DomainScores,
   streak: number,
   confidence: number
-): Promise<TwinReflectionResponse> {
-  const prompt = buildTwinReflectionPrompt(context, scores, streak, confidence);
+): Promise<aitwinReflectionResponse> {
+  const prompt = buildaitwinReflectionPrompt(context, scores, streak, confidence);
   return callWithValidation(prompt, confidence);
 }

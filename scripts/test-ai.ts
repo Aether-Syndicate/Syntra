@@ -15,8 +15,8 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: ".env" });
 
 import { callGemini } from "../src/lib/gemini";
-import { generateTwinReflection } from "../src/lib/prompts/twinReflection";
-import { generateSimulatorInsight } from "../src/lib/prompts/simulatorPrompt";
+import { generateaitwinReflection } from "../src/lib/prompts/aiaitwinReflection";
+import { generateSimulatorInsight } from "../src/lib/prompts/aisimulatorPrompt";
 import { generateDailyChallenge } from "../src/lib/prompts/challengePrompt";
 import { generateHealthAnalysis, generateFinanceAnalysis, generateCareerAnalysis } from "../src/lib/prompts/domainPrompts";
 import type { TwinContext, DomainScores, ChallengeContext } from "../src/types/ai";
@@ -108,8 +108,8 @@ async function task1() {
 async function task2() {
   header("TASK 2 — Strict JSON Contract Validation");
 
-  await test("twinReflection returns all 7 required fields", async () => {
-    const r = await generateTwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
+  await test("aitwinReflection returns all 7 required fields", async () => {
+    const r = await generateaitwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
     const required = ["twinPrediction", "dailyReflection", "explainability", "dailyChallenge", "recommendations", "riskAlerts", "confidence"];
     for (const field of required) {
       if (!(field in r)) throw new Error(`Missing field: ${field}`);
@@ -117,13 +117,13 @@ async function task2() {
   });
 
   await test("Confidence is capped at ceiling (72)", async () => {
-    const r = await generateTwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
+    const r = await generateaitwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
     if (r.confidence > 72) throw new Error(`Confidence ${r.confidence} exceeds ceiling of 72`);
     console.log(C.dim(`    → confidence: ${r.confidence}`));
   });
 
   await test("recommendations has all 3 domain keys", async () => {
-    const r = await generateTwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
+    const r = await generateaitwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
     if (!r.recommendations.health || !r.recommendations.finance || !r.recommendations.career)
       throw new Error("Missing domain key in recommendations");
   });
@@ -133,8 +133,8 @@ async function task2() {
 async function task3() {
   header("TASK 3 — Prompt Architecture (All Prompt Files)");
 
-  await test("twinReflection.ts — generates daily twin card", async () => {
-    const r = await generateTwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
+  await test("aitwinReflection.ts — generates daily twin card", async () => {
+    const r = await generateaitwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
     if (!r.twinPrediction) throw new Error("No twinPrediction");
     console.log(C.dim(`    → "${r.twinPrediction.slice(0, 80)}..."`));
   });
@@ -195,7 +195,7 @@ async function task4() {
 
   for (const { name, ctx } of correlations) {
     await test(`Correlation: ${name}`, async () => {
-      const r = await generateTwinReflection(ctx, TEST_SCORES, 3, 70);
+      const r = await generateaitwinReflection(ctx, TEST_SCORES, 3, 70);
       if (!r.riskAlerts) throw new Error("No riskAlerts field");
       const hasCorrelation = r.riskAlerts.length > 0 || r.explainability.length >= 2;
       if (!hasCorrelation) throw new Error("No cross-domain signal detected in output");
@@ -208,8 +208,8 @@ async function task4() {
 async function task5() {
   header("TASK 5 — Explainable AI Response Verification");
 
-  await test("twinReflection has explainability array (min 2 items)", async () => {
-    const r = await generateTwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
+  await test("aitwinReflection has explainability array (min 2 items)", async () => {
+    const r = await generateaitwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
     if (!r.explainability || r.explainability.length < 2) throw new Error("Need at least 2 explainability items");
     console.log(C.dim(`    → ${r.explainability.length} items: "${r.explainability[0].slice(0, 70)}..."`));
   });

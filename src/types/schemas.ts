@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-// This exactly mirrors your TwinReflectionResponse interface, 
+// This exactly mirrors your aitwinReflectionResponse interface, 
 // but Zod can actually enforce it at runtime!
-export const TwinReflectionSchema = z.object({
+export const aitwinReflectionSchema = z.object({
   twinPrediction: z.string(),
   dailyReflection: z.string(),
   explainability: z.array(z.string()).min(2), // Forces at least 2 items!

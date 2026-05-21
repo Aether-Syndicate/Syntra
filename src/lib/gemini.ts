@@ -121,8 +121,8 @@ export async function callGemini<T>(
   // If the loop finishes without returning, all retries failed.
   throw new Error(`Gemini API failed after ${maxRetries} attempts. Last error: ${lastError?.message}`);
 }
-import { TwinReflectionSchema } from "../types/schemas";
+import { aitwinReflectionSchema } from "../types/schemas";
 
 export function validateSyntraResponse(data: unknown) {
-  return TwinReflectionSchema.parse(data);
+  return aitwinReflectionSchema.parse(data);
 }

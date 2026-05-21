@@ -40,9 +40,9 @@ export interface DomainScores {
 }
 
 // ── STRICT JSON CONTRACT (Phase 4 of architecture doc) ──────────
-// This is what twinReflection.ts MUST return from Gemini.
+// This is what aitwinReflection.ts MUST return from Gemini.
 // The frontend will crash if any field is missing or renamed.
-export interface TwinReflectionResponse {
+export interface aitwinReflectionResponse {
   twinPrediction: string;          // predictive statement about tomorrow
   dailyReflection: string;         // empathetic summary of current state
   explainability: string[];        // 2–4 data-backed reason strings

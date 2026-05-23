@@ -48,47 +48,55 @@ export async function GET(request: Request) {
     });
 
     // 4. Engineer the "Anomaly" Data (Now strictly typed to match IngestionSchema)
-    const demoLogs = [];
+    const demoLogs: any[] = [];
+    const logs = demoLogs;
 
     // Loop through the last 14 days
     for (let i = 0; i < 14; i++) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      
-      const isRecentDip = i < 3; // The anomaly triggers on the last 3 days
+      const logDate = d;
 
-      // Health Log
-      demoLogs.push({
+      // Health — progressive collapse with mood and energy
+      logs.push({
         userId: demoUser._id,
-        date: d,
         domain: "health",
+        date: logDate,
         domainData: {
-          sleepHours: isRecentDip ? 4.5 : 7.5, // 📉 The Sleep Dip
-          workoutMinutes: isRecentDip ? 0 : 45,
-          stressLevel: isRecentDip ? 8 : 3       // FIXED: Matches validator & context builder
-        }
+          sleepHours: i > 7 ? 7.5 : Math.max(4.0, 7.5 - (8 - i) * 0.5),
+          workoutMinutes: i > 7 ? 45 : 0,
+          stressLevel: i > 7 ? 4 : Math.min(9, 4 + (8 - i)),
+          moodScore: i > 7 ? 7 : Math.max(3, 7 - (8 - i)),
+          energyLevel: i > 7 ? 8 : Math.max(2, 8 - (8 - i)),
+          caloriesConsumed: i > 7 ? 2000 : 2600, // stress eating during burnout
+          calorieGoal: 2100,
+        },
       });
 
-      // Finance Log
-      demoLogs.push({
+      // Finance — stress-linked spending spike + late night pattern
+      logs.push({
         userId: demoUser._id,
-        date: d,
         domain: "finance",
+        date: logDate,
         domainData: {
-          amountSaved: isRecentDip ? 0 : 50,         // ADDED: Matches FinanceDataSchema
-          discretionarySpent: isRecentDip ? 120 : 15 // FIXED: Matches validator & context builder
-        }
+          amountSaved: i > 7 ? 50 : 0,
+          discretionarySpent: i > 7 ? 20 : 20 + (8 - i) * 25,
+          spendingCategory: i > 7 ? "food" : "entertainment",
+          spendingTime: i > 7 ? 14 : 23, // afternoon vs late night
+        },
       });
 
-      // Career Log
-      demoLogs.push({
+      // Career — aggressive overload (the trigger)
+      logs.push({
         userId: demoUser._id,
-        date: d,
         domain: "career",
+        date: logDate,
         domainData: {
-          hoursStudied: isRecentDip ? 6 : 3,         // 📈 Pushing hard on career
-          productivityRating: isRecentDip ? 5 : 8    // FIXED: Matches validator & context builder
-        }
+          hoursStudied: i > 7 ? 4 : 4 + (8 - i) * 0.5,
+          productivityRating: i > 7 ? 8 : Math.max(3, 8 - (8 - i)),
+          sessionsCompleted: i > 7 ? 2 : 1,
+          courseName: "DSA Mastery",
+        },
       });
     }
 

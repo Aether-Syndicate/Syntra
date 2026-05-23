@@ -24,6 +24,11 @@ export interface IUser extends Document {
   password?: string;
   age?: number;
   avatarId: number;
+  profile: {
+    monthlyIncome: number;
+    monthlyBudget: number;
+    targetSavingsRate: number;
+  };
   scores: {
     health: number;
     finance: number;
@@ -88,6 +93,12 @@ const UserSchema = new Schema<IUser>(
 
     // Goals Array
     goals: [GoalSchema],
+
+    profile: {
+      monthlyIncome: { type: Number, default: 0 },
+      monthlyBudget: { type: Number, default: 0 },
+      targetSavingsRate: { type: Number, default: 20 },
+    },
   },
   { timestamps: true }
 );

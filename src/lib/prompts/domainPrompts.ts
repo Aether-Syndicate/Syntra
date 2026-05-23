@@ -261,7 +261,7 @@ RETURN ONLY THIS JSON - NO TEXT OUTSIDE THE BRACES:
 export async function generateHealthAnalysis(input: HealthDomainInput): Promise<HealthDomainResponse> {
   return callGemini<HealthDomainResponse>(buildHealthPrompt(input), {
     temperature: 0.3,
-    maxTokens: 4096,
+    maxTokens: 8000,
   });
 }
 
@@ -482,7 +482,7 @@ RETURN ONLY THIS JSON:
 export async function generateFinanceAnalysis(input: FinanceDomainInput): Promise<FinanceDomainResponse> {
   return callGemini<FinanceDomainResponse>(buildFinancePrompt(input), {
     temperature: 0.25,
-    maxTokens: 4096,
+    maxTokens: 8000,
   });
 }
 
@@ -737,6 +737,6 @@ RETURN ONLY THIS JSON:
 export async function generateCareerAnalysis(input: CareerDomainInput): Promise<CareerDomainResponse> {
   return callGemini<CareerDomainResponse>(buildCareerPrompt(input), {
     temperature: 0.35,
-    maxTokens: 4096,
+    maxTokens: 8000,
   });
 }

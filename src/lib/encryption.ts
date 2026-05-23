@@ -2,8 +2,6 @@
 import crypto from "crypto";
 
 // We use an environment variable for the encryption key, 
-// falling back to a dummy key for development purposes.
-// In production, ENCRYPTION_KEY MUST be a 32-character string.
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "syntra-default-secret-key-32chars";
 const IV_LENGTH = 16; // For AES, this is always 16
 

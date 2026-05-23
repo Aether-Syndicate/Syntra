@@ -32,6 +32,10 @@ export async function POST(req: Request) {
     // Zod guarantees these variables are perfectly typed
     const { domain, data } = result.data; 
 
+    if (domain === "finance") {
+      (data as any).spendingTime = new Date().getHours();
+    }
+
     // 3. CONNECT TO DB
     await connectDB();
     const user = await User.findOne({ email: session.user.email });

@@ -53,6 +53,16 @@ export async function POST(req: Request) {
     // Build the exact behavioral context for the current user
     const twinContext = buildTwinContext(recentLogs);
 
+    // Map behavior flags to terminal snake_case strings
+    const activeFlags: string[] = [];
+    if (twinContext) {
+      if (twinContext.behaviorFlags.stressSpendingCorrelation) activeFlags.push("stress_linked_spending");
+      if (twinContext.behaviorFlags.sleepCareerCorrelation) activeFlags.push("chronic_sleep_deprivation");
+      if (twinContext.behaviorFlags.workoutMoodCorrelation) activeFlags.push("workout_mood_correlation");
+      if (twinContext.behaviorFlags.lateNightSpending) activeFlags.push("late_night_spending");
+      if (twinContext.behaviorFlags.weekendDropoff) activeFlags.push("weekend_dropoff");
+    }
+
     // 4. Command Router
     const lowerCommand = command.toLowerCase();
 
@@ -119,7 +129,7 @@ GAMIFICATION ENGINE STATE:
 
     // Command: SCAN
     if (lowerCommand === "scan") {
-      const flags = twinContext?.behaviorFlags ?? [];
+      const flags = activeFlags;
       const scanOutput = `
 ==================================================
            BEHAVIORAL ANOMALY SCAN
@@ -315,8 +325,8 @@ The current user is named "${user.name}".
 Digital Twin Metrics: Health=${user.scores.health}/100, Finance=${user.scores.finance}/100, Career=${user.scores.career}/100.
 Gamification: Streak=${user.gamification?.currentStreak ?? 0} days, Points=${user.gamification?.totalPoints ?? 0} PT.
 
-Behavior Flags: ${twinContext.behaviorFlags.join(", ") || "none"}
-Weekly Averages: Sleep ${twinContext.weeklyAverages.sleep}hrs, Stress ${twinContext.weeklyAverages.stress}/10
+Behavior Flags: ${activeFlags.join(", ") || "none"}
+Weekly Averages: Sleep ${twinContext.weeklyAverages.sleep}hrs, Stress ${twinContext.weeklyAverages.stressLevel}/10
 
 Address the user as 'Operator'. Speak in a concise, command-line system-report format. Keep your response under 100 words. Provide helpful, actionable advice about their goals, scores, or behavioral flags. Respond as if printing directly to a hacker terminal.
 `;

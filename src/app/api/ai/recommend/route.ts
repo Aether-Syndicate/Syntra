@@ -7,7 +7,7 @@ import Log from "@/models/Log";
 import { buildTwinContext } from "@/lib/aiContextBuilder";
 import { calculateConfidence } from "@/lib/confidenceScore";
 import { generateaitwinReflection } from "@/lib/prompts/aitwinReflection";
-import { parseGemini } from "@/lib/parseGemini";
+import { parseGemini } from "@/lib/parseGemini"; 
 
 export async function GET(req: Request) {
   try {

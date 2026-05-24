@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
@@ -171,45 +172,52 @@ const aiData = await aiRes.json();
 
   if (loading || !dashboard) return <TerminalLoading />;
 
-  const scores = [
-  {
-    label: "Health.Score",
-    value: dashboard.dashboard?.scorecards?.health ?? 0,
-    icon: <HeartPulse size={18} />,
-    color: "#ff7676",
-  },
-  {
-    label: "Finance.Score",
-    value: dashboard.dashboard?.scorecards?.finance ?? 0,
-    icon: <Wallet size={18} />,
-    color: "#47e6a1",
-  },
-  {
-    label: "Career.Score",
-    value: dashboard.dashboard?.scorecards?.career ?? 0,
-    icon: <Briefcase size={18} />,
-    color: "#68a8ff",
-  },
-  {
-     label: "Twin.Sync",
-  value: dashboard.dashboard?.syntraCore ?? 0,
-  icon: <Activity size={18} />,
-  color: "#ffffff",
-  },
-  {
-  label: "XP.Points",
-  value: dashboard.dashboard?.gamification?.totalPoints ?? 0,
-  icon: <BrainCircuit size={18} />,
-  color: "#facc15",
-},
-
-{
-  label: "Daily.Streak",
-  value: dashboard.dashboard?.gamification?.currentStreak ?? 0,
-  icon: <Clock size={18} />,
-  color: "#fb7185",
-},
-];
+  const scores: {
+    label: string;
+    value: number;
+    icon: React.ReactNode;
+    color: string;
+    suffix?: string;
+  }[] = [
+    {
+      label: "Health.Score",
+      value: dashboard.dashboard?.scorecards?.health ?? 0,
+      icon: <HeartPulse size={18} />,
+      color: "#ff7676",
+    },
+    {
+      label: "Finance.Score",
+      value: dashboard.dashboard?.scorecards?.finance ?? 0,
+      icon: <Wallet size={18} />,
+      color: "#47e6a1",
+    },
+    {
+      label: "Career.Score",
+      value: dashboard.dashboard?.scorecards?.career ?? 0,
+      icon: <Briefcase size={18} />,
+      color: "#68a8ff",
+    },
+    {
+      label: "Twin.Sync",
+      value: dashboard.dashboard?.syntraCore ?? 0,
+      icon: <Activity size={18} />,
+      color: "#ffffff",
+    },
+    {
+      label: "XP.Points",
+      value: dashboard.dashboard?.gamification?.totalPoints ?? 0,
+      icon: <BrainCircuit size={18} />,
+      color: "#facc15",
+      suffix: " XP",
+    },
+    {
+      label: "Daily.Streak",
+      value: dashboard.dashboard?.gamification?.currentStreak ?? 0,
+      icon: <Clock size={18} />,
+      color: "#fb7185",
+      suffix: " days",
+    },
+  ];
 
   return (
     <div className={lightMode ? "light-theme" : ""}>
@@ -524,25 +532,29 @@ const aiData = await aiRes.json();
         <div className="content">
           <div className="cards">
             {scores.map((s) => (
-              <div className="card" key={s.label} style={s.core ? { background: "var(--text-main)", color: "var(--cta-primary-text)" } : undefined}>
+              <div className="card" key={s.label}>
                 <div className="score-label">
                   <span>{s.label}</span>
-                  <span style={{ color: s.core ? "var(--cta-primary-text)" : s.color }}>{s.icon}</span>
+                  <span style={{ color: s.color }}>{s.icon}</span>
                 </div>
+                
                 <div className="score-value">
                   <span className="score-num">{s.value}</span>
-                  <span className="score-den">/100</span>
+                  <span className="score-den">{s.suffix ? s.suffix : "/100"}</span>
                 </div>
-                <div className="progress">
-                  <div
-                    className="progress-fill"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, s.value))}%`,
-                      background: s.core ? "var(--cta-primary-text)" : "var(--text-main)",
-                      opacity: s.core ? 0.9 : 1,
-                    }}
-                  />
-                </div>
+                
+                {!s.suffix && (
+                  <div className="progress">
+                    <div
+                      className="progress-fill"
+                      style={{
+                        width: `${Math.max(0, Math.min(100, s.value))}%`,
+                        background: "var(--text-main)",
+                        opacity: 1,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -568,12 +580,42 @@ const aiData = await aiRes.json();
                 </div>
               </div>
 
-              <div className="panel-body">
-                <div style={{ textAlign: "center" }}>
-                  <BrainCircuit size={64} style={{ margin: "0 auto 12px", color: "var(--text-muted)" }} />
-                  <div className="sys" style={{ letterSpacing: "0.3em" }}>Processing behavioral patterns…</div>
-                </div>
-              </div>
+              {(() => {
+                const chartData = (dashboard?.dashboard?.timeline || [])
+                  .slice(0, 7)
+                  .reverse()
+                  .map((log: any, i: number) => ({
+                    day: `D${i + 1}`,
+                    health: log.domain === "health" ? log.domainData?.sleepHours * 10 : null,
+                  }))
+                  .filter((d: any) => d.health);
+
+                return (
+                  <div className="panel-body" style={{ height: 140 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="healthGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <Area 
+                          type="monotone" 
+                          dataKey="health" 
+                          stroke="#6366f1" 
+                          fill="url(#healthGrad)"
+                          strokeWidth={1.5}
+                          dot={false}
+                        />
+                        <Tooltip 
+                          contentStyle={{ background: "#111", border: "1px solid #333", fontSize: 11 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })()}
 
               <div className="panel-foot">
                 <div style={{ display: "flex", gap: 28 }}>

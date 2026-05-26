@@ -89,10 +89,8 @@ export async function GET(req: Request) {
         monthlyIncome: user.profile?.monthlyIncome || 50000,
         monthlyExpenses: {
           discretionary: Math.round(
-            twinContext.weeklyAverages.spendingVsBudget > 0
-              ? (user.profile?.monthlyBudget || 0) *
-                (1 + twinContext.weeklyAverages.spendingVsBudget / 100)
-              : 0
+            (user.profile?.monthlyBudget || 0) *
+              (1 + (twinContext.weeklyAverages.spendingVsBudget || 0) / 100)
           ),
         },
         currentSavingsRate: twinContext.weeklyAverages.savingsRate,
@@ -136,7 +134,16 @@ export async function GET(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: true, domain, analysis }, { status: 200 });
+    return NextResponse.json(
+      { success: true, domain, analysis },
+      { 
+        status: 200,
+        headers: {
+          // Tell CDN to cache for 5 minutes (300s), but serve stale data for 10 minutes (600s) while refetching in background
+          "Cache-Control": "private, s-maxage=300, stale-while-revalidate=600",
+        }
+      }
+    );
 
   } catch (error: any) {
     console.error("[DOMAIN ANALYSIS ERROR]", error);

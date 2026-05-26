@@ -1,4 +1,4 @@
-//src/app/api/upload/csv/route.ts
+// src/app/api/upload/excel/route.ts
 import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { getServerSession } from "next-auth/next";
@@ -6,63 +6,10 @@ import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import Log from "@/models/Log";
+import * as xlsx from "xlsx";
 import { generateAndStoreSnapshot } from "@/lib/snapshotService";
 import { apiHandler } from "@/lib/apiHandler";
 import { ApiError } from "@/lib/apiError";
-
-// A robust, RFC-4180 compliant CSV parser
-const parseCSV = (csvText: string): string[][] => {
-  const result: string[][] = [];
-  let row: string[] = [];
-  let value = "";
-  let insideQuotes = false;
-
-  for (let i = 0; i < csvText.length; i++) {
-    const char = csvText[i];
-    const nextChar = csvText[i + 1];
-
-    if (insideQuotes) {
-      if (char === '"') {
-        if (nextChar === '"') {
-          value += '"';
-          i++; // Skip next quote
-        } else {
-          insideQuotes = false;
-        }
-      } else {
-        value += char;
-      }
-    } else {
-      if (char === '"') {
-        insideQuotes = true;
-      } else if (char === ',') {
-        row.push(value.trim());
-        value = "";
-      } else if (char === '\r' || char === '\n') {
-        row.push(value.trim());
-        value = "";
-        if (row.length > 0 && row.some(cell => cell !== "")) {
-          result.push(row);
-        }
-        row = [];
-        if (char === '\r' && nextChar === '\n') {
-          i++; // Skip \n
-        }
-      } else {
-        value += char;
-      }
-    }
-  }
-
-  if (value || row.length > 0) {
-    row.push(value.trim());
-    if (row.some(cell => cell !== "")) {
-      result.push(row);
-    }
-  }
-
-  return result;
-};
 
 export const POST = apiHandler(async (req: Request) => {
   // 1. Authenticate Request
@@ -72,7 +19,7 @@ export const POST = apiHandler(async (req: Request) => {
   }
   const userEmail = session.user.email;
 
-  // 2. Extract the file and domain from the form data
+  // 2. Extract the file and domain from standard Form Data
   const formData = await req.formData();
   const file = formData.get("file") as File;
   const domain = formData.get("domain") as string; // "health", "finance", or "career"
@@ -81,26 +28,36 @@ export const POST = apiHandler(async (req: Request) => {
     throw new ApiError(400, "Missing file or domain");
   }
 
-  // 3. Convert the uploaded file buffer to readable text
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  const csvText = buffer.toString("utf-8");
-
-  // 4. Parse the CSV into structured JSON
-  const parsedRows = parseCSV(csvText);
-
-  if (parsedRows.length < 2) {
-    throw new ApiError(400, "CSV appears empty or invalid");
+  if (!["health", "finance", "career"].includes(domain)) {
+    throw new ApiError(400, "Invalid domain");
   }
 
-  const headers = parsedRows[0].map(h => h.toLowerCase().trim());
+  // 3. Read the uploaded file stream into an ArrayBuffer and Buffer
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
 
+  // 4. Parse workbook worksheets via SheetJS
+  const workbook = xlsx.read(buffer, { type: "buffer" });
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) {
+    throw new ApiError(400, "Excel sheet appears empty or invalid");
+  }
+  
+  const worksheet = workbook.Sheets[sheetName];
+  const rawRows = xlsx.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: "" });
+
+  if (rawRows.length === 0) {
+    throw new ApiError(400, "Excel worksheet is empty");
+  }
+
+  // 5. Query user to seed logs
   await connectDB();
   const user = await User.findOne({ email: userEmail });
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
+  // 6. Define numeric parsing variables and mappings
   const numericFields = [
     "sleephours", "workoutminutes", "stresslevel", "moodscore", "energylevel",
     "caloriesconsumed", "caloriegoal", "amountsaved", "discretionaryspent",
@@ -128,18 +85,17 @@ export const POST = apiHandler(async (req: Request) => {
 
   const parsedLogs = [];
 
-  for (let i = 1; i < parsedRows.length; i++) {
-    const row = parsedRows[i];
+  // 7. Parse and accumulate each spreadsheet row
+  for (const row of rawRows) {
     const record: Record<string, any> = {};
     
-    for (let j = 0; j < headers.length; j++) {
-      const header = headers[j];
-      if (!header) continue;
-      const val = row[j] || "";
-      
-      const standardHeader = camelCaseMap[header] || header;
+    for (const [key, rawVal] of Object.entries(row)) {
+      // Strip spaces, dashes, and underscores in headers for extreme matching tolerance
+      const normalizedKey = key.replace(/[\s_-]+/g, "").toLowerCase().trim();
+      const standardHeader = camelCaseMap[normalizedKey] || key.trim();
+      const val = String(rawVal).trim();
 
-      if (numericFields.includes(header)) {
+      if (numericFields.includes(normalizedKey)) {
         const num = Number(val);
         record[standardHeader] = !isNaN(num) && val !== "" ? num : undefined;
       } else {

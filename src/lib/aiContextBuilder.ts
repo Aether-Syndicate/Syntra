@@ -1,7 +1,8 @@
 // src/lib/aiContextBuilder.ts
 import type { TwinContext } from "@/types/ai";
+import { memoize } from "@/lib/memoize";
 
-export function buildTwinContext(
+function calculateTwinContext(
   logs: any[],
   userProfile?: { monthlyIncome?: number; monthlyBudget?: number }
 ): TwinContext {
@@ -113,11 +114,64 @@ export function buildTwinContext(
   const lateNightSpending = spendingTimes.length > 0 &&
     spendingTimes.filter(t => t >= 22).length > spendingTimes.length * 0.3;
 
-  // ─── Correlation flags ───────────────────────────────────────────
-  const stressSpendingCorrelation = avgStress > 7 && avgSpent > 100;
-  const sleepCareerCorrelation = avgSleep < 6 && avgProductivity < 5;
-  const workoutMoodCorrelation = weeklyWorkouts < 2 &&
-    moodValues.length > 0 && avgMood < 5;
+  // ─── Correlation flags (Paired Day-by-Day Anomaly Detection) ──────
+  const logsByDate: Record<string, any[]> = {};
+  for (const log of logs) {
+    if (!log.date) continue;
+    const d = new Date(log.date);
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (!logsByDate[dateKey]) {
+      logsByDate[dateKey] = [];
+    }
+    logsByDate[dateKey].push(log);
+  }
+
+  let stressSpendingDays = 0;
+  let sleepCareerDays = 0;
+  let lowMoodNoWorkoutDays = 0;
+  let loggedMoodDays = 0;
+
+  for (const dateKey of Object.keys(logsByDate)) {
+    const dailyLogs = logsByDate[dateKey];
+    const healthLog = dailyLogs.find(l => l.domain === "health");
+    const financeLog = dailyLogs.find(l => l.domain === "finance");
+    const careerLog = dailyLogs.find(l => l.domain === "career");
+
+    if (healthLog && financeLog) {
+      const stress = healthLog.domainData?.stressLevel;
+      const spent = financeLog.domainData?.discretionarySpent;
+      if (typeof stress === "number" && typeof spent === "number") {
+        if (stress > 7 && spent > 100) {
+          stressSpendingDays++;
+        }
+      }
+    }
+
+    if (healthLog && careerLog) {
+      const sleep = healthLog.domainData?.sleepHours;
+      const prod = careerLog.domainData?.productivityRating;
+      if (typeof sleep === "number" && typeof prod === "number") {
+        if (sleep < 6 && prod < 5) {
+          sleepCareerDays++;
+        }
+      }
+    }
+
+    if (healthLog) {
+      const workout = healthLog.domainData?.workoutMinutes || 0;
+      const mood = healthLog.domainData?.moodScore;
+      if (typeof mood === "number") {
+        loggedMoodDays++;
+        if (workout === 0 && mood < 5) {
+          lowMoodNoWorkoutDays++;
+        }
+      }
+    }
+  }
+
+  const stressSpendingCorrelation = stressSpendingDays > 0;
+  const sleepCareerCorrelation = sleepCareerDays > 0;
+  const workoutMoodCorrelation = loggedMoodDays > 0 && lowMoodNoWorkoutDays > 0;
 
   return {
     weeklyAverages: {
@@ -151,3 +205,6 @@ export function buildTwinContext(
     daysActive: Math.min(Math.floor(logs.length / 3), 14),
   };
 }
+
+// Caches the math for 5 minutes.
+export const buildTwinContext = memoize(calculateTwinContext, { ttlMs: 1000 * 60 * 5 });

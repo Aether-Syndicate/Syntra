@@ -41,6 +41,10 @@ export interface IUser extends Document {
   };
   badges: string[]; // NEW: Gamification Badges
   goals: IGoal[];
+  aiSnapshot?: {
+    dailyReflection: any;
+    lastGeneratedAt: Date | null;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -98,6 +102,11 @@ const UserSchema = new Schema<IUser>(
       monthlyIncome: { type: Number, default: 0 },
       monthlyBudget: { type: Number, default: 0 },
       targetSavingsRate: { type: Number, default: 20 },
+    },
+
+    aiSnapshot: {
+      dailyReflection: { type: Object, default: null }, // Stores the parsed JSON
+      lastGeneratedAt: { type: Date, default: null },   // Timestamp of last run
     },
   },
   { timestamps: true }

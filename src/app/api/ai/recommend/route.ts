@@ -34,6 +34,32 @@ export async function GET(req: Request) {
 
     const confidence = calculateConfidence(twinContext.logCount);
 
+    // ── Smart Dynamic AI Snapshot Caching ──
+    const hasValidSnapshot = 
+      user.aiSnapshot?.dailyReflection && 
+      user.aiSnapshot.lastGeneratedAt &&
+      new Date(user.aiSnapshot.lastGeneratedAt).toDateString() === new Date().toDateString();
+
+    let isSnapshotStale = false;
+    if (hasValidSnapshot && user.aiSnapshot?.lastGeneratedAt) {
+      const snapshotTime = new Date(user.aiSnapshot.lastGeneratedAt).getTime();
+      // Invalidate if any biometric log is newer than our snapshot generation time
+      isSnapshotStale = recentLogs.some(log => new Date(log.date).getTime() > snapshotTime);
+    }
+
+    if (hasValidSnapshot && !isSnapshotStale) {
+      return NextResponse.json(
+        { success: true, ai: user.aiSnapshot!.dailyReflection },
+        { 
+          status: 200,
+          headers: {
+            "Cache-Control": "private, s-maxage=300, stale-while-revalidate=600",
+          }
+        }
+      );
+    }
+
+    // Cache is missing or stale — invoke the AI Twin Reflection Core
     const aiResponse = await generateaitwinReflection(
       twinContext,
       {
@@ -49,7 +75,22 @@ export async function GET(req: Request) {
       throw new Error("Gemini returned invalid structure.");
     }
 
-    return NextResponse.json({ success: true, ai: aiResponse }, { status: 200 });
+    // Persist the pre-generated AI snapshot reflection to DB
+    user.aiSnapshot = {
+      dailyReflection: aiResponse,
+      lastGeneratedAt: new Date(),
+    };
+    await user.save();
+
+    return NextResponse.json(
+      { success: true, ai: aiResponse },
+      { 
+        status: 200,
+        headers: {
+          "Cache-Control": "private, s-maxage=300, stale-while-revalidate=600",
+        }
+      }
+    );
 
   } catch (error: any) {
     console.error("GEMINI INTEGRATION ERROR:", error);

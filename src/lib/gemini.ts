@@ -1,11 +1,4 @@
-// ================================================================
-// SYNTRA — Gemini API Client (TASK 1)
-// Central client used by all prompt files.
-// Enforces strict JSON on every call — no plain text ever.
-// Model: gemini-2.5-flash (current stable as of 2025)
-// ================================================================
-const GEMINI_ENDPOINT =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+// src/lib/gemini.ts
 
 // ── PII Anonymization — strip before sending to external API ────
 const PII_KEYS = [
@@ -14,11 +7,13 @@ const PII_KEYS = [
   "fullname", "firstname", "lastname",
 ];
 
+const piiSet = new Set(PII_KEYS);
+
 export function anonymizePII(obj: Record<string, unknown>): Record<string, unknown> {
   const clone = JSON.parse(JSON.stringify(obj));
   function strip(o: Record<string, unknown>) {
     for (const key of Object.keys(o)) {
-      if (PII_KEYS.some((p) => key.toLowerCase().includes(p))) {
+      if (piiSet.has(key.toLowerCase())) {
         o[key] = "[REDACTED]";
       } else if (typeof o[key] === "object" && o[key] !== null) {
         strip(o[key] as Record<string, unknown>);
@@ -29,98 +24,76 @@ export function anonymizePII(obj: Record<string, unknown>): Record<string, unkno
   return clone;
 }
 
-// ── Core Gemini caller ───────────────────────────────────────────
-// src/lib/gemini.ts (or src/providers/gemini.ts)
+export interface GeminiOptions {
+  maxRetries?: number;
+  baseDelayMs?: number;
+  temperature?: number;
+  maxTokens?: number;
+}
 
-export async function callGemini<T>(
+/**
+ * Centralized, unified gateway for all Google Gemini API calls.
+ * Enforces exponential backoff parameters, model specifications, and fallback parsing.
+ */
+export async function callGemini<T = any>(
   prompt: string,
-  options: { 
-    temperature?: number; 
-    maxTokens?: number;
-    maxRetries?: number;   // New parameter
-    baseDelayMs?: number;  // New parameter
-  } = {}
+  options: GeminiOptions = {}
 ): Promise<T> {
+  const { maxRetries = 2, baseDelayMs = 500, temperature = 0.4, maxTokens } = options;
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set in .env");
 
-  // We default to 3 retries, starting with a 2-second wait
-  const { 
-    temperature = 0.4, 
-    maxTokens = 4600,
-    maxRetries = 3, 
-    baseDelayMs = 2000 
-  } = options;
+  const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
   let lastError: any;
 
-  // ── THE RETRY LOOP ────────────────────────────────────────────
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(GEMINI_ENDPOINT, {
+      const res = await fetch(ENDPOINT, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
+        headers: { 
+          "Content-Type": "application/json", 
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature,
-            maxOutputTokens: maxTokens,
+          generationConfig: { 
+            temperature, 
             responseMimeType: "application/json",
-          },
-        }),
+            ...(maxTokens ? { maxOutputTokens: maxTokens } : {})
+          }
+        })
       });
-
-      // ── ERROR HANDLING ──────────────────────────────────────────
-      if (!response.ok) {
-        const errText = await response.text();
-        
-        // If it is a 429 (Rate Limit) or 5xx (Server Error), we throw a "Retryable" error
-        if (response.status === 429 || response.status >= 500) {
-          throw new Error(`Retryable Error ${response.status}: ${errText}`);
-        }
-        
-        // If it is a 400 (Bad Request, like a malformed prompt), retrying won't help. Fail immediately.
-        throw new Error(`Fatal Error ${response.status}: ${errText}`);
+      
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`API Error ${res.status}: ${errText}`);
       }
-
-      // ── SUCCESS ───────────────────────────────────────────────
-      const raw = await response.json();
-      const text: string = raw?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-      if (!text) throw new Error("Retryable Error: Gemini returned an empty response.");
+      const raw = await res.json();
+      const text = raw?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      
+      if (!text) throw new Error("Empty response returned from Gemini API.");
 
       const cleaned = text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
-      return JSON.parse(cleaned) as T;
-
-    } catch (error: any) {
-      lastError = error;
-
-      // If we hit a Fatal Error, do not retry. Break the loop and crash safely.
-      if (error.message.startsWith("Fatal")) {
-        throw error;
-      }
-
-      // If we have reached our max attempts, stop trying.
-      if (attempt === maxRetries) {
-        break; 
-      }
-
-      // ── EXPONENTIAL BACKOFF ───────────────────────────────────
-      // Attempt 1 fails -> wait 2s. Attempt 2 fails -> wait 4s.
-      const waitTime = baseDelayMs * Math.pow(2, attempt - 1);
-      console.warn(`⚠️ Gemini API busy (Attempt ${attempt}/${maxRetries}). Retrying in ${waitTime / 1000}s...`);
       
-      // Force the code to pause before looping again
-      await new Promise((resolve) => setTimeout(resolve, waitTime));
+      try {
+        return JSON.parse(cleaned) as T;
+      } catch {
+        // Fallback for plain-text prompts
+        return cleaned as unknown as T;
+      }
+
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxRetries) throw error;
+      const delay = baseDelayMs * Math.pow(2, attempt - 1);
+      console.warn(`⚠️ Gemini call failed (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-
-  // If the loop finishes without returning, all retries failed.
-  throw new Error(`Gemini API failed after ${maxRetries} attempts. Last error: ${lastError?.message}`);
+  
+  throw new Error(`Gemini call failed: ${lastError?.message || "Unknown error"}`);
 }
+
 import { aitwinReflectionSchema } from "../types/schemas";
 
 export function validateSyntraResponse(data: unknown) {

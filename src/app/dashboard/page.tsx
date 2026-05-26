@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 import { useEffect, useRef, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import {
   ArrowUpRight,
   Wallet,
@@ -58,10 +60,10 @@ function TypewriterGreeting({ name, isLight }: { name: string; isLight: boolean 
     } else if (hour >= 12 && hour < 17) {
       timeText = "GOOD AFTERNOON";
     } else if (hour >= 17 && hour < 21) {
-       timeText = "GOOD EVENING";
+      timeText = "GOOD EVENING";
     }
-    const phrases = [ `${timeText}, ${name || "User"}`,
-  "Tracking your growth in real time",];
+    const phrases = [`${timeText}, ${name || "User"}`,
+      "Tracking your growth in real time",];
 
     const current = phrases[phase];
     let i = 0;
@@ -103,72 +105,49 @@ function TypewriterGreeting({ name, isLight }: { name: string; isLight: boolean 
 }
 
 export default function DashboardPage() {
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [lightMode, setLightMode] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Synchronize twin states concurrently using SWR caching & revalidation options
+  const { data: dbData, error: dbError, isLoading: dbLoading } = useSWR<any>("/api/dashboard", fetcher, {
+    dedupingInterval: 300000, // 5 minutes: exact duplicate requests are blocked
+    revalidateOnFocus: false, // Prevents refetching when switching browser tabs
+    errorRetryCount: 1,
+  });
+
+  const { data: aiData, error: aiError, isLoading: aiLoading } = useSWR<any>("/api/ai/recommend", fetcher, {
+    dedupingInterval: 300000, // 5 minutes: exact duplicate requests are blocked
+    revalidateOnFocus: false, // Prevents refetching when switching browser tabs
+    errorRetryCount: 1,
+  });
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener("scroll", onScroll);
-
-    const fetchDashboard = async () => {
-
-  try {
-
-    const res = await fetch("/api/dashboard", {
-      cache: "no-store",
-      credentials: "include",
-    });
-
-    if (!res.ok) {
-      throw new Error("Failed to fetch dashboard");
-    }
-
-    const data = await res.json();
-    const aiRes = await fetch("/api/ai/recommend", {
-  cache: "no-store",
-  credentials: "include",
-    });
-
-const aiData = await aiRes.json();
-
-    console.log("BACKEND DATA:", data);
-
-    setDashboard({
-  dashboard: data.dashboard,
-  success: data.success,
-
-  insights: [
-    {
-      tag: "Twin Prediction",
-      text: aiData.ai?.twinPrediction || "AI analysis initializing.",
-    },
-    {
-      tag: "Daily Reflection",
-      text: aiData.ai?.dailyReflection || "Reflection unavailable.",
-    },
-    {
-      tag: "Daily Challenge",
-      text: aiData.ai?.dailyChallenge || "No challenge generated.",
-    },
-  ],
-});
-
-  } catch (error) {
-
-    console.error("Dashboard Fetch Error:", error);
-
-  } finally {
-
-    setLoading(false);
-  }
-};
-
-    fetchDashboard();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const loading = dbLoading || aiLoading;
+
+  const dashboard: DashboardData | null = dbData && aiData ? {
+    dashboard: dbData.dashboard,
+    success: dbData.success,
+    insights: [
+      {
+        tag: "Twin Prediction",
+        text: aiData.ai?.twinPrediction || "AI analysis initializing.",
+      },
+      {
+        tag: "Daily Reflection",
+        text: aiData.ai?.dailyReflection || "Reflection unavailable.",
+      },
+      {
+        tag: "Daily Challenge",
+        text: aiData.ai?.dailyChallenge || "No challenge generated.",
+      },
+    ],
+  } : null;
 
   if (loading || !dashboard) return <TerminalLoading />;
 
@@ -179,45 +158,45 @@ const aiData = await aiRes.json();
     color: string;
     suffix?: string;
   }[] = [
-    {
-      label: "Health.Score",
-      value: dashboard.dashboard?.scorecards?.health ?? 0,
-      icon: <HeartPulse size={18} />,
-      color: "#ff7676",
-    },
-    {
-      label: "Finance.Score",
-      value: dashboard.dashboard?.scorecards?.finance ?? 0,
-      icon: <Wallet size={18} />,
-      color: "#47e6a1",
-    },
-    {
-      label: "Career.Score",
-      value: dashboard.dashboard?.scorecards?.career ?? 0,
-      icon: <Briefcase size={18} />,
-      color: "#68a8ff",
-    },
-    {
-      label: "Twin.Sync",
-      value: dashboard.dashboard?.syntraCore ?? 0,
-      icon: <Activity size={18} />,
-      color: "#ffffff",
-    },
-    {
-      label: "XP.Points",
-      value: dashboard.dashboard?.gamification?.totalPoints ?? 0,
-      icon: <BrainCircuit size={18} />,
-      color: "#facc15",
-      suffix: " XP",
-    },
-    {
-      label: "Daily.Streak",
-      value: dashboard.dashboard?.gamification?.currentStreak ?? 0,
-      icon: <Clock size={18} />,
-      color: "#fb7185",
-      suffix: " days",
-    },
-  ];
+      {
+        label: "Health.Score",
+        value: dashboard.dashboard?.scorecards?.health ?? 0,
+        icon: <HeartPulse size={18} />,
+        color: "#ff7676",
+      },
+      {
+        label: "Finance.Score",
+        value: dashboard.dashboard?.scorecards?.finance ?? 0,
+        icon: <Wallet size={18} />,
+        color: "#47e6a1",
+      },
+      {
+        label: "Career.Score",
+        value: dashboard.dashboard?.scorecards?.career ?? 0,
+        icon: <Briefcase size={18} />,
+        color: "#68a8ff",
+      },
+      {
+        label: "Twin.Sync",
+        value: dashboard.dashboard?.syntraCore ?? 0,
+        icon: <Activity size={18} />,
+        color: "#ffffff",
+      },
+      {
+        label: "XP.Points",
+        value: dashboard.dashboard?.gamification?.totalPoints ?? 0,
+        icon: <BrainCircuit size={18} />,
+        color: "#facc15",
+        suffix: " XP",
+      },
+      {
+        label: "Daily.Streak",
+        value: dashboard.dashboard?.gamification?.currentStreak ?? 0,
+        icon: <Clock size={18} />,
+        color: "#fb7185",
+        suffix: " days",
+      },
+    ];
 
   return (
     <div className={lightMode ? "light-theme" : ""}>
@@ -506,11 +485,11 @@ const aiData = await aiRes.json();
           <div className="hero-vignette" />
           <div className="hero-content">
             <div className="dash-eyebrow">Syntra.OS — Personal Digital Twin</div>
-             <TypewriterGreeting
-                name={dashboard.dashboard?.user?.name || "OPERATOR"}
-                isLight={lightMode}
+            <TypewriterGreeting
+              name={dashboard.dashboard?.user?.name || "OPERATOR"}
+              isLight={lightMode}
             />
-         
+
             <div className="dash-sub"> • Health • Finance • Career</div>
 
             <div className="dash-meta" style={{ marginTop: 12 }}>
@@ -537,12 +516,12 @@ const aiData = await aiRes.json();
                   <span>{s.label}</span>
                   <span style={{ color: s.color }}>{s.icon}</span>
                 </div>
-                
+
                 <div className="score-value">
                   <span className="score-num">{s.value}</span>
                   <span className="score-den">{s.suffix ? s.suffix : "/100"}</span>
                 </div>
-                
+
                 {!s.suffix && (
                   <div className="progress">
                     <div
@@ -596,19 +575,19 @@ const aiData = await aiRes.json();
                       <AreaChart data={chartData}>
                         <defs>
                           <linearGradient id="healthGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <Area 
-                          type="monotone" 
-                          dataKey="health" 
-                          stroke="#6366f1" 
+                        <Area
+                          type="monotone"
+                          dataKey="health"
+                          stroke="#6366f1"
                           fill="url(#healthGrad)"
                           strokeWidth={1.5}
                           dot={false}
                         />
-                        <Tooltip 
+                        <Tooltip
                           contentStyle={{ background: "#111", border: "1px solid #333", fontSize: 11 }}
                         />
                       </AreaChart>

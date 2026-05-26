@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import {
   HeartPulse,
   Wallet,
@@ -32,7 +34,6 @@ export default function GoalsPage() {
   // Theme state synced with layout/ingestion styling
   const [isLight, setIsLight] = useState(false);
 
-  const [goals, setGoals] = useState<Goal[]>([]);
   const [title, setTitle] = useState("");
   const [domain, setDomain] = useState<Goal["domain"]>("health");
   const [priority, setPriority] = useState("medium");
@@ -43,25 +44,17 @@ export default function GoalsPage() {
   const [message, setMessage] = useState("");
 
   // =========================================================
-  // FETCH GOALS
+  // FETCH GOALS (Synchronized via SWR)
   // =========================================================
-  const fetchGoals = async () => {
-    try {
-      const res = await fetch("/api/goals", {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (data.success) {
-        setGoals(data.goals);
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  const { data, mutate } = useSWR<any>("/api/goals", fetcher, {
+    dedupingInterval: 300000, // 5 minutes: exact duplicate requests are blocked
+    revalidateOnFocus: false, // Prevents refetching when switching browser tabs
+    errorRetryCount: 1,
+  });
+  const goals: Goal[] = data?.goals || [];
 
   useEffect(() => {
     setMounted(true);
-    fetchGoals();
   }, []);
 
   // =========================================================
@@ -101,7 +94,7 @@ export default function GoalsPage() {
 
       const data = await res.json();
       if (data.success) {
-        setGoals(data.goals);
+        mutate(data); // Update SWR cache
         setTitle("");
         setPriority("medium");
         setDomain("health");
@@ -137,7 +130,7 @@ export default function GoalsPage() {
 
       const data = await res.json();
       if (data.success) {
-        setGoals(data.goals);
+        mutate(data); // Update SWR cache
         setMessage("Goal removed.");
       } else {
         setMessage("Failed to remove goal.");
@@ -382,13 +375,13 @@ export default function GoalsPage() {
       <div className="viewport">
         <div className="grain" />
         <div className="container">
-          
+
           {/* HEADER */}
           <section className="header-card">
             <div className="tag">Syntra Goal Matrix</div>
             <h1 className="title">Goals & Missions</h1>
             <p className="subtitle">
-              Define your health, financial, and career objectives. Syntra continuously aligns 
+              Define your health, financial, and career objectives. Syntra continuously aligns
               your behavioral intelligence matrix with your long-term optimal trajectory.
             </p>
           </section>
@@ -520,7 +513,7 @@ export default function GoalsPage() {
                 </p>
               </div>
             )}
-            
+
             {goals.map((goal, index) => {
               let iconBackground = "rgba(248, 113, 113, 0.18)";
               let iconElement = <HeartPulse color="#f87171" />;
@@ -551,7 +544,7 @@ export default function GoalsPage() {
                               Target: {new Date(goal.targetDate).toLocaleDateString()}
                             </div>
                           )}
-                          
+
                           {goal.milestones && goal.milestones.length > 0 && (
                             <div style={{ marginTop: 14 }}>
                               {goal.milestones.map((milestone, idx) => (
@@ -564,9 +557,9 @@ export default function GoalsPage() {
                           )}
                         </div>
                       </div>
-                      
-                      <button 
-                        className="btn-delete" 
+
+                      <button
+                        className="btn-delete"
                         onClick={() => {
                           if (!goal._id) return;
 
@@ -585,24 +578,24 @@ export default function GoalsPage() {
                     <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                       PRIORITY LEVEL:
                     </span>
-                    <span 
+                    <span
                       className="badge"
                       style={{
-                        background: goal.priority === "high" 
-                          ? "rgba(255, 107, 107, 0.15)" 
-                          : goal.priority === "medium" 
-                          ? "rgba(245, 158, 11, 0.15)" 
-                          : "rgba(16, 185, 129, 0.15)",
-                        color: goal.priority === "high" 
-                          ? "#ff8b8b" 
-                          : goal.priority === "medium" 
-                          ? "#fbbf24" 
-                          : "#34d399",
-                        border: goal.priority === "high" 
-                          ? "1px solid rgba(255, 107, 107, 0.2)" 
-                          : goal.priority === "medium" 
-                          ? "1px solid rgba(245, 158, 11, 0.2)" 
-                          : "1px solid rgba(16, 185, 129, 0.2)"
+                        background: goal.priority === "high"
+                          ? "rgba(255, 107, 107, 0.15)"
+                          : goal.priority === "medium"
+                            ? "rgba(245, 158, 11, 0.15)"
+                            : "rgba(16, 185, 129, 0.15)",
+                        color: goal.priority === "high"
+                          ? "#ff8b8b"
+                          : goal.priority === "medium"
+                            ? "#fbbf24"
+                            : "#34d399",
+                        border: goal.priority === "high"
+                          ? "1px solid rgba(255, 107, 107, 0.2)"
+                          : goal.priority === "medium"
+                            ? "1px solid rgba(245, 158, 11, 0.2)"
+                            : "1px solid rgba(16, 185, 129, 0.2)"
                       }}
                     >
                       {goal.priority}

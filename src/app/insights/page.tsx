@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import {
   AlertTriangle,
   TrendingUp,
@@ -30,36 +32,28 @@ interface AIResponse {
 
 export default function InsightsPage() {
   const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [ai, setAI] = useState<AIResponse | null>(null);
   const [isLight, setIsLight] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    fetchInsights();
   }, []);
 
-  const fetchInsights = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/ai/recommend");
-      const data = await res.json();
-      if (data?.ai) {
-        setAI(data.ai);
-      }
-    } catch (error) {
-      console.error("Insights fetch failed:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data, error, isLoading } = useSWR<any>("/api/ai/recommend", fetcher, {
+    dedupingInterval: 300000, // 5 minutes: exact duplicate requests are blocked
+    revalidateOnFocus: false, // Prevents refetching when switching browser tabs
+    errorRetryCount: 1,
+  });
+
+  const ai: AIResponse | null = data?.ai || null;
+  const loading = isLoading;
 
   if (!mounted) return null;
 
   if (loading) {
     return (
       <div className="viewport flex items-center justify-center" style={{ minHeight: "screen", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <style dangerouslySetInnerHTML={{ __html: `
+        <style dangerouslySetInnerHTML={{
+          __html: `
           body { background: #000; font-family: sans-serif; }
           .loading-text { font-size: 1.25rem; font-weight: 600; letter-spacing: 0.05em; color: #fff; text-align: center; }
         `}} />
@@ -109,7 +103,8 @@ export default function InsightsPage() {
 
   return (
     <div className={isLight ? "light-theme" : ""}>
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         :root {
           --bg-gradient: radial-gradient(1200px 800px at 10% -10%, rgba(255,255,255,0.06), transparent 50%), radial-gradient(1400px 900px at 110% 10%, rgba(255,255,255,0.05), transparent 55%), #000;
           --text-main: #fff;
@@ -317,9 +312,9 @@ export default function InsightsPage() {
       <div className="viewport">
         <div className="grain" />
         <div className="container">
-          
+
           {/* HERO HEADER */}
-          <motion.section 
+          <motion.section
             initial={{ opacity: 0, y: 25 }}
             animate={{ opacity: 1, y: 0 }}
             className="header-card"
@@ -332,11 +327,11 @@ export default function InsightsPage() {
                   <h1 className="title" style={{ margin: 0 }}>Twin Verdict</h1>
                 </div>
               </div>
-              <div 
-                className="badge" 
-                style={{ 
-                  background: "rgba(16,185,129,0.15)", 
-                  color: "#6ee7b7", 
+              <div
+                className="badge"
+                style={{
+                  background: "rgba(16,185,129,0.15)",
+                  color: "#6ee7b7",
                   border: "1px solid rgba(16,185,129,0.25)",
                   borderRadius: "999px",
                   padding: "8px 16px",
@@ -346,11 +341,11 @@ export default function InsightsPage() {
                 {ai.confidence}% AI Confidence
               </div>
             </div>
-            
+
             <p className="subtitle" style={{ marginTop: 20, fontSize: "1.15rem", color: "var(--text-main)" }}>
               {ai.twinPrediction}
             </p>
-            
+
             <div style={{ marginTop: 16, fontSize: "0.9rem", color: "#9AE6FF", fontWeight: 500, letterSpacing: "0.02em" }}>
               ✦ {ai.dailyReflection}
             </div>
@@ -393,11 +388,11 @@ export default function InsightsPage() {
                         <AlertTriangle color="#ff6b6b" size={20} />
                       )}
                     </div>
-                    
+
                     <div style={{ fontSize: "2.8rem", fontWeight: 800, color: isPositive ? "#7CFFB2" : "#ff6b6b", marginBottom: 10 }}>
                       {card.impact}
                     </div>
-                    
+
                     <p style={{ color: "var(--text-muted)", fontSize: "0.92rem", lineHeight: 1.6, margin: 0 }}>
                       {card.text}
                     </p>
@@ -409,15 +404,15 @@ export default function InsightsPage() {
 
           {/* MAIN INSIGHT LAYOUT ROW */}
           <section className="grid">
-            
+
             {/* LEFT SIDE: ACTIONABLE INTELLIGENCE & TRAJECTORY */}
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              
+
               {/* ACTION PANEL */}
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="card" 
+                className="card"
                 style={{
                   background: "linear-gradient(135deg, rgba(154,230,255,0.08) 0%, rgba(155,140,255,0.05) 100%)",
                   borderColor: "rgba(154,230,255,0.2)"
@@ -432,11 +427,11 @@ export default function InsightsPage() {
                     <div className="card-sub">Immediate ecosystem operations</div>
                   </div>
                 </div>
-                
+
                 <p style={{ fontSize: "1.1rem", lineHeight: 1.7, color: "var(--text-main)", marginBottom: 24 }}>
                   {ai.dailyChallenge}
                 </p>
-                
+
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <button className="btn">
                     Execute Plan
@@ -448,7 +443,7 @@ export default function InsightsPage() {
               </motion.div>
 
               {/* TRAJECTORY MAP */}
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="card"
@@ -486,10 +481,10 @@ export default function InsightsPage() {
             </div>
 
             {/* RIGHT SIDE: AI REASONING LOGS */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="card" 
+              className="card"
               style={{ background: "rgba(5, 5, 5, 0.85)", borderColor: "var(--stroke)" }}
             >
               <div className="card-header">

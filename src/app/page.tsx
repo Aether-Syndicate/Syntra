@@ -1,773 +1,933 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import{ useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-const TYPED_PHRASES = [
-  "One mind for your health, money, and growth.",
-  "See multiple futures — pick the one you want.",
-  "Recommendations that adapt as you do.",
-  "Your data, one intelligent twin.",
+const TESTIMONIALS = [
+  {
+    quote: '"Friendly, easy-to-use app that keeps me accountable."',
+    author: "Dinah L."
+  },
+  {
+    quote: '"Love this system. It keeps me instantly on track with my multi-domain personal metrics."',
+    author: "Annette B."
+  },
+  {
+    quote: '"Syntra completely changed how I plan my financial and career decisions scaling forward."',
+    author: "Marcus K."
+  }
 ];
 
-function TypewriterHero({ isLight }: { isLight: boolean }) {
-  const [phraseIndex, setPhraseIndex] = useState(0);
-  const [displayed, setDisplayed] = useState("");
-  const [typing, setTyping] = useState(true);
-  const [visible, setVisible] = useState(true);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+const HEADLINES = [
+  "See your future. Shape it smarter.",
+  "Predict outcomes. Act with confidence.",
+  "Your digital twin. Your edge.",
+];
 
-  useEffect(() => {
-    const phrase = TYPED_PHRASES[phraseIndex];
-
-    if (typing) {
-      if (displayed.length < phrase.length) {
-        timeoutRef.current = setTimeout(() => {
-          setDisplayed(phrase.slice(0, displayed.length + 1));
-        }, 32);
-      } else {
-        timeoutRef.current = setTimeout(() => setTyping(false), 1500);
-      }
-    } else {
-      timeoutRef.current = setTimeout(() => {
-        setVisible(false);
-        setTimeout(() => {
-          setDisplayed("");
-          setTyping(true);
-          setVisible(true);
-          setPhraseIndex((i) => (i + 1) % TYPED_PHRASES.length);
-        }, 360);
-      }, 360);
-    }
-
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [displayed, typing, phraseIndex]);
-
-  return (
-    <span
-      style={{
-        opacity: visible ? 1 : 0,
-        transition: "opacity 0.35s ease",
-        display: "inline-block",
-        minHeight: "1.4em",
-        fontFamily: "'Courier Prime', 'Courier New', monospace",
-        letterSpacing: "0.03em",
-        color: isLight ? "rgba(0,0,0,0.78)" : "rgba(255,255,255,0.78)",
-        fontSize: "clamp(0.95rem, 2vw, 1.2rem)",
-        fontWeight: 400,
-      }}
-    >
-      {displayed}
-      <span
-        style={{
-          display: "inline-block",
-          width: "2px",
-          height: "1.1em",
-          background: isLight ? "black" : "white",
-          marginLeft: "4px",
-          verticalAlign: "middle",
-          animation: "blink 1s step-end infinite",
-        }}
-      />
-    </span>
-  );
-}
-
-const FEATURES = [
+const FAQS = [
   {
-    icon: "◈",
-    title: "Neural Analytics",
-    desc: "Unify patterns across health, finance, and career in a single intelligence plane.",
+    q: "What is Syntra and how does it work?",
+    a: "Syntra is an AI-powered personal digital twin that analyzes your health, finances, and career data to provide personalized recommendations, predictions, and future simulations."
   },
   {
-    icon: "◉",
-    title: "Predictive Simulation",
-    desc: "Run what‑if timelines and compare outcomes before you commit.",
+    q: "How does Syntra predict future outcomes?",
+    a: 'Syntra uses your habits, goals, and historical data to simulate "what-if" scenarios and predict possible future results with AI-driven insights.'
   },
   {
-    icon: "◆",
-    title: "AI Recommendations",
-    desc: "From meals to investments — tailored to your goals and risk profile.",
-  },
-  {
-    icon: "◐",
-    title: "Unified Intelligence",
-    desc: "Every dimension of your life coalesced into one evolving twin.",
-  },
+    q: "Is my personal data secure on Syntra?",
+    a: "Yes. Syntra uses encrypted storage, secure authentication, and privacy-first AI processing to protect sensitive health and financial data."
+  }
 ];
 
 export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [lightMode, setLightMode] = useState(false);
   useEffect(() => {
-
   if (status === "authenticated") {
-
-    router.push("/dashboard");
+    router.replace("/dashboard");
   }
-
 }, [status, router]);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [typedText, setTypedText] = useState("");
+  const [headlineIndex, setHeadlineIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isFading, setIsFading] = useState(false);
 
+  // Handle Sticky Navbar
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
+    const handleScroll = () => setScrolled(window.scrollY > 80);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Continuous looping typewriter with fade
+  useEffect(() => {
+    const currentHeadline = HEADLINES[headlineIndex];
+    let timeout: ReturnType<typeof setTimeout>;
+
+    if (!isDeleting && typedText.length < currentHeadline.length) {
+      timeout = setTimeout(() => {
+        setTypedText(currentHeadline.slice(0, typedText.length + 1));
+      }, 72);
+    } else if (!isDeleting && typedText.length === currentHeadline.length) {
+      timeout = setTimeout(() => {
+        setIsFading(true);
+        setTimeout(() => {
+          setIsDeleting(true);
+          setIsFading(false);
+        }, 600);
+      }, 1800);
+    } else if (isDeleting && typedText.length > 0) {
+      timeout = setTimeout(() => {
+        setTypedText(currentHeadline.slice(0, typedText.length - 1));
+      }, 36);
+    } else if (isDeleting && typedText.length === 0) {
+      setIsDeleting(false);
+      setHeadlineIndex((prev) => (prev + 1) % HEADLINES.length);
+    }
+
+    return () => clearTimeout(timeout);
+  }, [typedText, isDeleting, headlineIndex]);
+
+  // Auto-advance testimonial slider
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % TESTIMONIALS.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleUserIconClick = () => {
+    if (status === "authenticated") {
+      router.push("/dashboard");
+    } else {
+      router.push("/signup");
+    }
+  };
+
+  if (status === "loading") {
+    return (
+      <div style={{ background: "#0066EE", height: "100vh", display: "grid", placeItems: "center", color: "#fff", fontFamily: "sans-serif" }}>
+        Loading Syntra Twin Environment...
+      </div>
+    );
+  }
+
   return (
-    <div className={lightMode ? "light-theme" : ""}>
+    <div style={{ background: "#ffffff", color: "#111111", fontFamily: '"Inter", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', overflowX: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
-        
-        body {
-          background: #000;
-          color: #fff;
-          font-family: 'Space Mono', monospace;
-          overflow-x: hidden;
-          transition: background 0.3s ease, color 0.3s ease;
-        }
 
-        /* Default Dark Mode Custom CSS variables */
-        :root {
-          --bg-gradient: radial-gradient(1200px 800px at 10% -10%, rgba(255,255,255,0.06), transparent 50%),
-                         radial-gradient(1400px 900px at 110% 10%, rgba(255,255,255,0.05), transparent 55%),
-                         #000;
-          --text-main: #fff;
-          --text-muted: rgba(255,255,255,0.64);
-          --text-semi: rgba(255,255,255,0.78);
-          --text-invisible: rgba(255,255,255,0.5);
-          --glass: rgba(15,15,15,0.55);
-          --glass-strong: rgba(15,15,15,0.72);
-          --stroke: rgba(255,255,255,0.14);
-          --stroke-weak: rgba(255,255,255,0.08);
-          --accent: #9AE6FF;
-          --accent-2: #9B8CFF;
-          --accent-grad: linear-gradient(90deg, #9AE6FF, #9B8CFF 45%, #FF7AE6 90%);
-          --cta-primary-bg: #fff;
-          --cta-primary-text: #000;
-          --cell-bg: rgba(255,255,255,0.03);
-          --cell-hover: rgba(255,255,255,0.06);
-          --nav-link-bg: rgba(255,255,255,0.04);
-          --nav-link-hover: rgba(255,255,255,0.1);
-          --nav-link-border: rgba(255,255,255,0.18);
-          --grid-line: rgba(255,255,255,0.04);
-          --vignette: radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(0,0,0,0.8) 100%);
-          --pulse-glow-0: rgba(255,255,255,0.06);
-          --pulse-glow-50: rgba(255,255,255,0.12);
-          --footer-bg: rgba(10,10,10,0.6);
-          --footer-hover-bg: rgba(20,20,20,0.72);
-        }
-
-        /* Translucent White Light Theme CSS variables */
-        .light-theme {
-          --bg-gradient: radial-gradient(1200px 800px at 10% -10%, rgba(0,0,0,0.04), transparent 50%),
-                         radial-gradient(1400px 900px at 110% 10%, rgba(0,0,0,0.03), transparent 55%),
-                         #fff;
-          --text-main: #000;
-          --text-muted: rgba(0,0,0,0.64);
-          --text-semi: rgba(0,0,0,0.78);
-          --text-invisible: rgba(0,0,0,0.5);
-          --glass: rgba(240,240,240,0.55);
-          --glass-strong: rgba(240,240,240,0.72);
-          --stroke: rgba(0,0,0,0.14);
-          --stroke-weak: rgba(0,0,0,0.08);
-          --accent-grad: linear-gradient(90deg, #005A78, #3B2D99 45%, #991682 90%);
-          --cta-primary-bg: #000;
-          --cta-primary-text: #fff;
-          
-          /* Updated structure: Translucent White bases turning to Translucent Black on Hover */
-          --cell-bg: rgba(0,0,0,0.02);
-          --cell-hover: rgba(0,0,0,0.06); 
-          --nav-link-bg: rgba(0,0,0,0.02);
-          --nav-link-hover: rgba(0,0,0,0.06);
-          
-          --nav-link-border: rgba(0,0,0,0.14);
-          --grid-line: rgba(0,0,0,0.04);
-          --vignette: radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(255,255,255,0.5) 100%);
-          --pulse-glow-0: rgba(0,0,0,0.03);
-          --pulse-glow-50: rgba(0,0,0,0.08);
-          --footer-bg: rgba(245,245,245,0.7);
-          --footer-hover-bg: rgba(0,0,0,0.04);
-        }
-
-        .theme-container {
-          background: var(--bg-gradient);
-          color: var(--text-main);
-          min-height: 100vh;
-          transition: background 0.3s ease, color 0.3s ease;
-        }
-
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0);} }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes glowPulse {
-          0%, 100% { box-shadow: 0 0 0 0 var(--pulse-glow-0); }
-          50%      { box-shadow: 0 0 42px 6px var(--pulse-glow-50); }
-        }
-        @keyframes marquee {
-          0% { transform: translateX(100%); }
-          100% { transform: translateX(-100%); }
-        }
-        @keyframes spin3d {
-          0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
-          100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(360deg); }
-        }
-
-        /* Subtle film grain overlay */
-        .grain::after {
-          content: '';
-          position: fixed; inset: -50%;
-          width: 200%; height: 200%;
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-          pointer-events: none; z-index: 9999; opacity: 0.16;
-        }
-
-        /* NAVIGATION BAR */
-        .nav {
-          position: fixed; top: 0; left: 0; right: 0;
+        .nav-wrapper {
+          position: absolute;
+          top: 0; left: 0;
+          width: 100%;
           z-index: 1000;
-          transition: background 0.35s, border-color 0.35s, backdrop-filter 0.35s;
-          border-bottom: 1px solid transparent;
+          transition: all 0.3s ease;
+        }
+        .nav-wrapper.sticky {
+          position: fixed;
+          background: #ffffff;
+          box-shadow: 0 1px 24px rgba(0,0,0,0.07);
+          border-bottom: 1px solid #eeeeee;
+        }
+        .nav-wrapper.sticky .logo { color: #0055EE; }
+        .nav-wrapper.sticky .user-icon-placeholder { border-color: #0055EE; color: #0055EE; }
+
+        .nav-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          height: 72px;
+          padding: 0 2rem;
+        }
+
+        .logo {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 1.75rem;
+          font-weight: 300;
+          color: #ffffff;
+          text-decoration: none;
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+          transition: color 0.3s ease;
+        }
+        .logo strong { font-weight: 800; letter-spacing: 0.1em; }
+
+        .user-icon-placeholder {
+          width: 38px; height: 38px;
+          border-radius: 50%;
+          border: 2px solid #ffffff;
+          display: flex; align-items: center; justify-content: center;
+          color: #ffffff;
+          font-weight: 600; font-size: 0.9rem;
+          cursor: pointer;
+          transition: all 0.25s ease;
           background: transparent;
         }
-        .nav.scrolled {
-          background: var(--glass-strong);
-          border-color: var(--stroke);
-          backdrop-filter: saturate(160%) blur(16px);
-        }
-        .nav-inner {
-          max-width: 1280px; margin: 0 auto; padding: 0 1.5rem;
-          height: 76px; display: flex; align-items: center; justify-content: space-between;
-        }
+        .user-icon-placeholder:hover { transform: scale(1.06); background: rgba(255,255,255,0.12); }
 
-        /* BRAND LOGO DESIGN */
-        .logo-area { display: flex; align-items: center; gap: 14px; text-decoration: none; }
-        .logo-icon {
-          width: 46px; height: 46px;
-          border: 1.5px solid var(--stroke);
-          border-radius: 12px;
-          display: grid; place-items: center;
-          flex-shrink: 0;
-          background: radial-gradient(120% 120% at 50% 0%, var(--nav-link-hover), transparent 60%);
+        /* HERO */
+        .hero-section {
+          background: linear-gradient(140deg, #0044DD 0%, #0066FF 55%, #3322EE 100%);
+          color: #ffffff;
+          padding: 140px 2rem 100px;
           position: relative;
-          perspective: 600px;
-          transition: border-color 0.2s, transform 0.2s, background 0.2s;
-          overflow: visible;
         }
-        .logo-icon:hover { border-color: var(--text-main); transform: translateY(-1px) scale(1.02); }
-        .logo-ring {
-          position: absolute; inset: -6px;
-          border-radius: 14px;
-          border: 1px dashed var(--stroke);
-          transform-style: preserve-3d;
-          animation: spin3d 8s linear infinite;
+        .hero-body {
+          max-width: 1200px;
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: 1.25fr 0.75fr;
+          gap: 48px;
+          align-items: center;
         }
-        .logo-letter {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 1.5rem; letter-spacing: 0.04em;
-          z-index: 2;
-          background: var(--accent-grad);
-          -webkit-background-clip: text; background-clip: text; color: transparent;
-          text-shadow: 0 0 22px rgba(154,230,255,0.15);
-        }
-
-        /* Brand Marquee Animation */
-        .brand-wrap {
-          width: min(34vw, 260px); height: 40px; overflow: hidden; position: relative;
-          mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
-          -webkit-mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
-        }
-        .brand-track {
-          position: absolute; white-space: nowrap;
-          display: inline-flex; align-items: center; gap: 28px;
-          animation: marquee 10s linear infinite;
-        }
-        .brand-word {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(1.6rem, 3.6vw, 2.4rem);
-          letter-spacing: 0.24em;
-          background: var(--accent-grad);
-          -webkit-background-clip: text; background-clip: text; color: transparent;
-          filter: drop-shadow(0 0 12px rgba(154,230,255,0.14));
-          text-transform: uppercase;
-        }
-        .brand-sep { color: var(--stroke); }
-
-        /* ACTIONS AND LINKS */
-        .nav-links { display: flex; align-items: center; gap: 8px; }
-        .nav-link {
-          padding: 9px 18px;
-          border-radius: 10px;
-          font-size: 0.82rem; letter-spacing: 0.08em;
-          text-decoration: none;
-          transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.15s;
-          border: 1.5px solid var(--nav-link-border);
-          color: var(--text-semi);
-          background: var(--nav-link-bg);
-          backdrop-filter: blur(6px);
-          cursor: pointer;
-        }
-        .nav-link:hover {
-          background: var(--nav-link-hover);
-          color: var(--text-main);
-          border-color: var(--text-invisible);
-          transform: translateY(-1px);
-        }
-        .nav-link-solid {
-          background: var(--cta-primary-bg); color: var(--cta-primary-text); border-color: var(--cta-primary-bg); font-weight: 700;
-        }
-        .nav-link-solid:hover { background: var(--text-semi); transform: translateY(-1px) scale(1.03); }
-
-        /* INTERACTION LAYOUTS (HAMBURGER) */
-        .hamburger {
-          display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 6px;
-          border: 1.5px solid var(--stroke);
-          border-radius: 8px; background: var(--nav-link-bg); transition: border-color 0.2s, background 0.2s;
-        }
-        .hamburger:hover { border-color: var(--text-main); background: var(--nav-link-hover); }
-        .hamburger span { display: block; width: 22px; height: 1.5px; background: var(--text-main); transition: transform 0.3s; }
-
-        .mobile-menu {
-          display: none; flex-direction: column; gap: 8px; padding: 16px 1.5rem 20px;
-          border-top: 1px solid var(--stroke-weak); background: var(--glass-strong); backdrop-filter: blur(14px);
-        }
-        .mobile-menu.open { display: flex; }
-
-        /* TERMINAL HERO ENVIRONMENT */
-        .hero {
-          min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-          text-align: center; padding: 120px 1.5rem 80px; position: relative; overflow: hidden;
-        }
-        .hero-gridlines {
-          position: absolute; inset: 0; pointer-events: none;
-          background-image:
-            linear-gradient(var(--grid-line) 1px, transparent 1px),
-            linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-          background-size: 80px 80px;
-          opacity: 0.35; mix-blend-mode: multiply;
-        }
-        .hero-vignette {
-          position: absolute; inset: 0; pointer-events: none;
-          background: var(--vignette);
-        }
-        .hero-content { position: relative; z-index: 2; max-width: 960px; animation: fadeUp 0.9s ease both; }
-
         .hero-eyebrow {
-          display: inline-flex; align-items: center; gap: 10px;
-          font-family: 'Courier Prime', monospace; font-size: 0.76rem; letter-spacing: 0.32em;
-          color: var(--text-invisible); text-transform: uppercase; margin-bottom: 24px;
-          padding: 8px 12px; border: 1px solid var(--stroke-weak); border-radius: 999px;
-          background: var(--nav-link-bg);
-          backdrop-filter: blur(6px);
+          font-family: 'Inter', sans-serif;
+          font-size: 0.85rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          opacity: 0.8;
+          margin-bottom: 20px;
+        }
+        .hero-title {
+          font-family: 'DM Sans', sans-serif;
+          font-size: clamp(2.6rem, 4.5vw, 4.2rem);
+          font-weight: 800;
+          line-height: 1.12;
+          letter-spacing: -0.03em;
+          margin-bottom: 28px;
+          min-height: 160px;
+          transition: opacity 0.4s ease;
+        }
+        .hero-title.fading { opacity: 0; }
+
+        .type-cursor {
+          display: inline-block;
+          width: 3px;
+          height: 0.85em;
+          background: #ffffff;
+          margin-left: 3px;
+          vertical-align: middle;
+          animation: blink 0.75s infinite;
+        }
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
         }
 
-        .hero-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(3.8rem, 10vw, 8.2rem);
-          line-height: 0.95; letter-spacing: 0.04em; color: var(--text-main); margin-bottom: 6px;
-          text-shadow: 0 0 36px rgba(154,230,255,0.12);
+        .hero-subtext {
+          font-family: 'Inter', sans-serif;
+          font-size: clamp(1rem, 1.4vw, 1.2rem);
+          line-height: 1.65;
+          opacity: 0.88;
+          margin-bottom: 44px;
+          max-width: 560px;
+          font-weight: 400;
         }
-        .hero-title-sub {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(2.4rem, 6vw, 5rem);
-          line-height: 1; letter-spacing: 0.04em;
-          background: var(--accent-grad);
-          -webkit-background-clip: text; background-clip: text; color: transparent;
+
+        .btn-capsule {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          background: #ffffff;
+          color: #0044DD;
+          text-decoration: none;
+          padding: 17px 40px;
+          border-radius: 9999px;
+          font-family: 'Inter', sans-serif;
+          font-weight: 700;
+          font-size: 0.9rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-capsule:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.16); }
+
+        .mockphone-frame {
+          width: 300px; height: 540px;
+          background: #ffffff;
+          border: 10px solid #0d0d0d;
+          border-radius: 40px;
+          box-shadow: 0 28px 56px rgba(0,0,0,0.22);
+          color: #111;
+          padding: 28px 22px;
+          margin: 0 auto;
+        }
+
+        /* TESTIMONIAL SLIDER */
+        .proof-section {
+          background: #0f1520;
+          color: #ffffff;
+          text-align: center;
+          padding: 80px 2rem;
+        }
+        .stars-row {
+          color: #FFBB00;
+          font-size: 1.3rem;
+          margin-bottom: 16px;
+          letter-spacing: 4px;
+        }
+        .proof-title {
+          font-family: 'DM Sans', sans-serif;
+          font-size: clamp(1.8rem, 3vw, 2.6rem);
+          font-weight: 700;
+          letter-spacing: -0.02em;
           margin-bottom: 28px;
         }
-        .hero-typewriter-box {
-          min-height: 48px; display: flex; align-items: center; justify-content: center; margin-bottom: 42px;
+        .slider-window {
+          max-width: 700px;
+          margin: 0 auto;
+          min-height: 100px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
-        .hero-cta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; }
-        
-        .cta-primary {
-          padding: 14px 30px; background: var(--cta-primary-bg); color: var(--cta-primary-text); border-radius: 14px;
-          font-size: 0.86rem; font-weight: 700; letter-spacing: 0.09em; text-decoration: none;
-          transition: transform 0.18s, background 0.18s; border: 2px solid var(--cta-primary-bg);
+        .proof-quote {
+          font-family: 'Inter', sans-serif;
+          font-size: 1.2rem;
+          line-height: 1.6;
+          opacity: 0.94;
+          margin-bottom: 14px;
+          font-weight: 400;
+          font-style: italic;
         }
-        .cta-primary:hover { transform: translateY(-2px) scale(1.04); background: var(--text-semi); border-color: var(--text-semi); }
-        
-        .cta-secondary {
-          padding: 14px 30px; border: 1.5px solid var(--stroke); border-radius: 14px;
-          font-size: 0.86rem; letter-spacing: 0.09em; color: var(--text-semi);
-          text-decoration: none; transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.18s;
-          background: var(--nav-link-bg);
+        .proof-author {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.9rem;
+          opacity: 0.6;
+          letter-spacing: 0.04em;
+          font-weight: 500;
         }
-        .cta-secondary:hover { background: var(--nav-link-hover); color: var(--text-main); border-color: var(--text-invisible); transform: translateY(-2px); }
+        .dots-track {
+          display: flex;
+          justify-content: center;
+          gap: 10px;
+          margin-top: 36px;
+        }
+        .dot {
+          width: 8px; height: 8px;
+          background: rgba(255,255,255,0.2);
+          border-radius: 50%;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          border: none;
+        }
+        .dot.active { background: #ffffff; transform: scale(1.3); }
 
-        .hero-scroll-hint {
-          margin-top: 56px; display: flex; flex-direction: column; align-items: center; gap: 8px;
-          opacity: 0.32; font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase; animation: fadeIn 2.2s ease both;
+        /* FEATURES */
+        .features-section {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 110px 2rem;
         }
-        .hero-scroll-line { width: 1px; height: 42px; background: linear-gradient(to bottom, var(--text-main), transparent); }
-
-        /* MODULAR ARCHITECTURE BLOCKS */
-        .about { max-width: 1100px; margin: 0 auto; padding: 80px 1.5rem 100px; }
-        .about-header { display: flex; align-items: center; gap: 18px; margin-bottom: 44px; }
-        .section-label {
-          font-family: 'Courier Prime', monospace; font-size: 0.72rem; letter-spacing: 0.3em; text-transform: uppercase;
-          color: var(--text-invisible); padding: 6px 10px; border: 1px solid var(--stroke-weak); border-radius: 8px; background: var(--cell-bg);
-          backdrop-filter: blur(6px);
-        }
-        .section-line { flex: 1; height: 1px; background: var(--stroke-weak); }
-        .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        
-        .about-cell {
-          border: 1px solid var(--stroke-weak); padding: 36px 32px; position: relative; overflow: hidden;
-          transition: background 0.25s, border-color 0.25s, transform 0.2s;
-          background: var(--cell-bg); border-radius: 16px; backdrop-filter: blur(6px);
-        }
-        .about-cell:hover { background: var(--cell-hover); border-color: var(--stroke); transform: translateY(-2px); }
-        .cell-num {
-          font-family: 'Courier Prime', monospace; font-size: 0.65rem; color: var(--text-invisible); letter-spacing: 0.2em; margin-bottom: 16px;
-        }
-        .cell-icon { font-size: 1.4rem; margin-bottom: 14px; color: var(--text-semi); display: block; }
-        .cell-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 0.1em; color: var(--text-main); margin-bottom: 10px; }
-        .cell-desc { font-family: 'Courier Prime', monospace; font-size: 0.92rem; line-height: 1.75; color: var(--text-muted); }
-        .cell-corner { position: absolute; bottom: 16px; right: 20px; font-size: 0.62rem; color: var(--text-invisible); letter-spacing: 0.15em; font-family: 'Courier Prime', monospace; }
-
-        /* TRACKER METRICS */
-        .stats-bar {
-          border-top: 1px solid var(--stroke-weak);
-          border-bottom: 1px solid var(--stroke-weak);
-          display: grid; grid-template-columns: repeat(3, 1fr); overflow: hidden; background: var(--cell-bg);
-          backdrop-filter: blur(4px);
-        }
-        .stat-item { padding: 44px 24px; border-right: 1px solid var(--stroke-weak); text-align: center; transition: background 0.22s; }
-        .stat-item:last-child { border-right: none; }
-        .stat-item:hover { background: var(--cell-hover); }
-        .stat-num { font-family: 'Bebas Neue', sans-serif; font-size: 3.1rem; letter-spacing: 0.06em; color: var(--text-main); }
-        .stat-label { font-family: 'Courier Prime', monospace; font-size: 0.72rem; letter-spacing: 0.22em; color: var(--text-invisible); text-transform: uppercase; margin-top: 6px; }
-
-        /* DOMAIN RECORDS */
-        .domains { max-width: 1100px; margin: 0 auto; padding: 80px 1.5rem; }
-        .domains-list { display: flex; flex-direction: column; gap: 10px; }
-        .domain-row {
-          display: flex; align-items: center; gap: 24px; padding: 22px 24px; border: 1px solid var(--stroke-weak);
-          transition: background 0.22s, border-color 0.22s, padding-left 0.22s, transform 0.2s;
-          background: var(--cell-bg); border-radius: 14px; cursor: default; backdrop-filter: blur(6px);
-        }
-        .domain-row:hover { background: var(--cell-hover); border-color: var(--stroke); padding-left: 34px; transform: translateY(-1px); }
-        .domain-idx { font-family: 'Courier Prime', monospace; font-size: 0.65rem; color: var(--text-invisible); letter-spacing: 0.18em; min-width: 36px; }
-        .domain-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.55rem; letter-spacing: 0.1em; color: var(--text-main); min-width: 160px; }
-        .domain-desc { font-family: 'Courier Prime', monospace; font-size: 0.88rem; color: var(--text-muted); flex: 1; }
-        .domain-tag {
-          font-family: 'Courier Prime', monospace; font-size: 0.68rem; letter-spacing: 0.14em; color: var(--text-semi);
-          border: 1px solid var(--stroke-weak); border-radius: 6px; padding: 4px 12px; white-space: nowrap;
-        }
-        .domain-arrow { opacity: 0; transform: translateX(-8px); transition: opacity 0.22s, transform 0.22s; color: var(--text-semi); font-size: 1rem; }
-        .domain-row:hover .domain-arrow { opacity: 1; transform: translateX(0); }
-
-        /* ACTIONS PANEL */
-        .cta-banner { max-width: 1100px; margin: 0 auto 80px; padding: 0 1.5rem; }
-        .cta-banner-inner {
-          border: 1px solid var(--stroke); border-radius: 24px; padding: 56px 40px; text-align: center; position: relative; overflow: hidden;
-          animation: glowPulse 5s ease-in-out infinite; background: var(--nav-link-bg); backdrop-filter: blur(8px);
-        }
-        .cta-banner-inner::before {
-          content: ''; position: absolute; inset: 0;
-          background: radial-gradient(ellipse at 50% -20%, var(--cell-hover) 0%, transparent 65%);
-          pointer-events: none;
-        }
-        .cta-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.3rem, 4.8vw, 3.8rem); letter-spacing: 0.08em; color: var(--text-main); margin-bottom: 12px; }
-        .cta-sub { font-family: 'Courier Prime', monospace; font-size: 0.96rem; color: var(--text-semi); margin-bottom: 28px; letter-spacing: 0.06em; }
-
-        /* TERMINAL FOOTER RUNTIME */
-        footer {
-          border-top: 1px solid var(--stroke-weak);
-          margin-top: 60px;
-          background: var(--footer-bg);
-          backdrop-filter: blur(10px);
-          transition: background 0.3s ease, border-color 0.3s ease;
-        }
-        footer:hover {
-          background: var(--footer-hover-bg);
-          border-top-color: var(--stroke);
-        }
-        .footer-inner {
-          max-width: 1280px; margin: 0 auto; padding: 40px 1.5rem 50px;
-          display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 26px; align-items: start;
-        }
-        .footer-brand {
-          display: flex; flex-direction: column; gap: 10px;
-        }
-        .footer-wordmark {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(1.8rem, 3.6vw, 2.6rem);
-          letter-spacing: 0.22em;
-          background: var(--accent-grad);
-          -webkit-background-clip: text; background-clip: text; color: transparent;
-          filter: drop-shadow(0 0 14px rgba(154,230,255,0.18));
+        .features-label {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.8rem;
+          font-weight: 700;
           text-transform: uppercase;
+          letter-spacing: 0.16em;
+          color: #0055EE;
+          margin-bottom: 16px;
         }
-        .footer-copy {
-          font-family: 'Courier Prime', monospace; font-size: 0.78rem; color: var(--text-invisible); letter-spacing: 0.08em;
+        .features-section-title {
+          font-family: 'DM Sans', sans-serif;
+          font-size: clamp(2rem, 3.5vw, 3rem);
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          margin-bottom: 80px;
+          max-width: 560px;
+          line-height: 1.15;
         }
-        .footer-links, .footer-social {
-          display: flex; flex-direction: column; gap: 10px;
+        .feature-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 80px;
+          align-items: center;
+          margin-bottom: 100px;
         }
-        .footer-heading {
-          font-family: 'Courier Prime', monospace; font-size: 0.76rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-semi);
+        .feature-row.reverse { direction: rtl; }
+        .feature-row.reverse > * { direction: ltr; }
+        .feature-num {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 5rem;
+          font-weight: 800;
+          color: #0055EE;
+          margin-bottom: 4px;
+          line-height: 1;
+          opacity: 0.12;
+        }
+        .feature-heading {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 2rem;
+          font-weight: 800;
+          letter-spacing: -0.025em;
+          margin-bottom: 18px;
+          line-height: 1.2;
+          margin-top: -20px;
+        }
+        .feature-desc {
+          font-family: 'Inter', sans-serif;
+          font-size: 1rem;
+          line-height: 1.75;
+          color: #5a5a6a;
+          font-weight: 400;
+        }
+        .feature-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #eff4ff;
+          color: #0044CC;
+          font-family: 'Inter', sans-serif;
+          font-size: 0.78rem;
+          font-weight: 600;
+          padding: 6px 14px;
+          border-radius: 999px;
+          margin-top: 24px;
+          letter-spacing: 0.04em;
+        }
+        .feature-graphic-box {
+          background: linear-gradient(145deg, #f7f8fc 0%, #eef1f8 100%);
+          border-radius: 28px;
+          padding: 44px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 360px;
+          border: 1px solid #e8ebf4;
+        }
+        .graphic-inner {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .graphic-bar-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .graphic-label {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.78rem;
+          color: #888;
+          width: 60px;
+          flex-shrink: 0;
+          font-weight: 500;
+        }
+        .graphic-bar {
+          height: 10px;
+          border-radius: 99px;
+          background: linear-gradient(90deg, #0055EE, #4499FF);
+        }
+        .graphic-val {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.78rem;
+          color: #0055EE;
+          font-weight: 600;
+          margin-left: 4px;
+        }
+        .graphic-card {
+          background: #fff;
+          border-radius: 16px;
+          padding: 20px;
+          border: 1px solid #e8ebf4;
+          box-shadow: 0 4px 16px rgba(0,68,220,0.06);
+        }
+        .graphic-card-title {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 0.8rem;
+          color: #999;
+          font-weight: 500;
+          margin-bottom: 6px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+        }
+        .graphic-card-value {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 1.9rem;
+          font-weight: 800;
+          color: #0044DD;
+          letter-spacing: -0.03em;
+        }
+        .graphic-card-sub {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.8rem;
+          color: #4CAF50;
+          font-weight: 600;
+          margin-top: 4px;
+        }
+        .graphic-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        .graphic-mini-card {
+          background: #fff;
+          border-radius: 14px;
+          padding: 16px;
+          border: 1px solid #e8ebf4;
+          text-align: center;
+        }
+        .graphic-mini-icon {
+          font-size: 1.5rem;
           margin-bottom: 6px;
         }
-        .footer-link, .social-link {
-          display: inline-flex; align-items: center; gap: 10px;
-          font-family: 'Courier Prime', monospace; font-size: 0.9rem; letter-spacing: 0.02em;
-          color: var(--text-semi); text-decoration: none; padding: 8px 10px; border-radius: 10px;
-          border: 1px solid transparent; transition: color 0.18s, background 0.18s, border-color 0.18s, transform 0.18s;
-          background: var(--cell-bg);
+        .graphic-mini-label {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.75rem;
+          color: #888;
+          font-weight: 500;
         }
-        .footer-link:hover, .social-link:hover {
-          color: var(--text-main); background: var(--cell-hover); border-color: var(--stroke); transform: translateY(-1px);
-        }
-        .social-icon {
-          width: 18px; height: 18px; display: inline-block;
-          filter: drop-shadow(0 0 8px rgba(154,230,255,0.22));
+        .graphic-mini-val {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 1.1rem;
+          font-weight: 800;
+          color: #111;
+          margin-top: 2px;
         }
 
-        /* SCREEN OPTIMIZATIONS */
-        @media (max-width: 1024px) {
-          .about-grid { grid-template-columns: 1fr; }
-          .stats-bar { grid-template-columns: 1fr 1fr; }
-          .brand-wrap { width: min(42vw, 300px); }
+        /* FAQ */
+        .qa-section {
+          background: #f7f8fc;
+          padding: 96px 2rem;
         }
-        @media (max-width: 768px) {
-          .nav-links { display: none; }
-          .hamburger { display: flex; }
-          .stats-bar { grid-template-columns: 1fr; }
-          .stat-item { border-right: none; border-bottom: 1px solid var(--stroke-weak); }
-          .stat-item:last-child { border-bottom: none; }
-          .domain-row { flex-wrap: wrap; gap: 12px; }
-          .hero-title { line-height: 1; }
-          .footer-inner { grid-template-columns: 1fr; }
+        .qa-container { max-width: 800px; margin: 0 auto; }
+        .qa-main-title {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 2.6rem;
+          font-weight: 800;
+          text-align: center;
+          margin-bottom: 52px;
+          letter-spacing: -0.03em;
         }
-        @media (max-width: 480px) {
-          .domain-row { padding: 18px 16px; }
-          .about-cell { padding: 28px 22px; }
+        .qa-item {
+          background: #ffffff;
+          border-radius: 14px;
+          margin-bottom: 10px;
+          border: 1px solid #ececf3;
+          overflow: hidden;
+        }
+        .qa-button {
+          width: 100%;
+          background: transparent;
+          border: none;
+          padding: 22px 28px;
+          text-align: left;
+          font-family: 'Inter', sans-serif;
+          font-size: 1rem;
+          font-weight: 600;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          cursor: pointer;
+          color: #111;
+          letter-spacing: -0.01em;
+        }
+        .qa-chevron {
+          font-size: 1.1rem;
+          transition: transform 0.25s ease;
+          color: #0055EE;
+          font-weight: 700;
+        }
+        .qa-item.open .qa-chevron { transform: rotate(180deg); }
+        .qa-content {
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.25s ease-out;
+          padding: 0 28px;
+          font-family: 'Inter', sans-serif;
+          font-size: 0.95rem;
+          line-height: 1.7;
+          color: #5a5a6a;
+        }
+        .qa-item.open .qa-content {
+          max-height: 160px;
+          padding-bottom: 22px;
+        }
+
+        /* FOOTER */
+        .footer-layer {
+          background: #0a0e18;
+          color: #ffffff;
+          padding: 80px 2rem 40px;
+        }
+        .footer-top {
+          max-width: 1100px;
+          margin: 0 auto 60px;
+          display: grid;
+          grid-template-columns: 1.5fr 1fr 1fr;
+          gap: 48px;
+        }
+        .footer-logo-area .logo {
+          display: inline-block;
+          margin-bottom: 20px;
+          font-size: 1.6rem;
+        }
+        .footer-brand-tag {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.95rem;
+          opacity: 0.7;
+          margin-bottom: 28px;
+          line-height: 1.6;
+          max-width: 280px;
+        }
+        .footer-layer .btn-capsule {
+          background: #ffffff;
+          color: #0044DD;
+          padding: 13px 28px;
+          font-size: 0.8rem;
+        }
+        .footer-col-title {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.8rem;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          margin-bottom: 22px;
+          opacity: 0.5;
+        }
+        .footer-ul { list-style: none; }
+        .footer-li { margin-bottom: 14px; }
+        .footer-link {
+          font-family: 'Inter', sans-serif;
+          color: #ffffff;
+          text-decoration: none;
+          font-size: 0.92rem;
+          opacity: 0.75;
+          font-weight: 400;
+          transition: opacity 0.2s;
+        }
+        .footer-link:hover { opacity: 1; }
+        .footer-bottom {
+          max-width: 1100px;
+          margin: 0 auto;
+          border-top: 1px solid rgba(255,255,255,0.07);
+          padding-top: 36px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 28px;
+        }
+        .footer-legal-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 16px;
+          font-family: 'Inter', sans-serif;
+          font-size: 0.82rem;
+          opacity: 0.5;
+          justify-content: center;
+        }
+        .footer-socials {
+          display: flex;
+          gap: 20px;
+          align-items: center;
+        }
+        .social-btn {
+          width: 38px; height: 38px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.07);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: background 0.2s, transform 0.2s;
+          border: none;
+          color: #fff;
+          text-decoration: none;
+        }
+        .social-btn:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+        .social-btn svg { width: 17px; height: 17px; fill: #ffffff; }
+
+        @media (max-width: 960px) {
+          .hero-body { grid-template-columns: 1fr; text-align: center; }
+          .feature-row { grid-template-columns: 1fr; gap: 40px; }
+          .feature-row.reverse { direction: ltr; }
+          .footer-top { grid-template-columns: 1fr; gap: 40px; }
         }
       `}</style>
 
-      <div className="theme-container">
-        <div className="grain" />
+      {/* NAVBAR */}
+      <div className={`nav-wrapper ${scrolled ? "sticky" : ""}`}>
+        <div className="nav-container">
+          <Link href="/" className="logo">syn<strong>tra</strong></Link>
+          <button onClick={handleUserIconClick} className="user-icon-placeholder" aria-label="Account Access">
+            👤
+          </button>
+        </div>
+      </div>
 
-        {/* NAVIGATION LAYER */}
-        <nav className={`nav${scrolled ? " scrolled" : ""}`}>
-          <div className="nav-inner">
-            <Link href="/" className="logo-area" aria-label="Home">
-              <div className="logo-icon" aria-hidden="true">
-                <div className="logo-ring" />
-                <span className="logo-letter">S</span>
-              </div>
-
-              {/* Dynamic brand path tracking */}
-              <div className="brand-wrap" aria-hidden="true">
-                <div className="brand-track">
-                  <span className="brand-word">Syntra</span>
-                  <span className="brand-sep">•</span>
-                  <span className="brand-word">Syntra</span>
-                  <span className="brand-sep">•</span>
-                  <span className="brand-word">Syntra</span>
-                  <span className="brand-sep">•</span>
-                  <span className="brand-word">Syntra</span>
-                </div>
-              </div>
+      {/* HERO */}
+      <section className="hero-section">
+        <div className="hero-body">
+          <div>
+            <div className="hero-eyebrow">#1 AI Digital Twin Platform</div>
+            <h1 className={`hero-title ${isFading ? "fading" : ""}`}>
+              {typedText}
+              <span className="type-cursor" />
+            </h1>
+            <p className="hero-subtext">
+              Syntra analyzes your health, finances, and career to deliver personalized insights, predictions, and what-if simulations — dynamically, in real time.
+            </p>
+            <Link href="/signup" className="btn-capsule">
+              Start Today →
             </Link>
-
-            {/* Desktop Link Actions */}
-            <div className="nav-links">
-              <button 
-                onClick={() => setLightMode(!lightMode)} 
-                className="nav-link"
-                style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                title="Change Environment Color Mode"
-              >
-                {lightMode ? "🌙 Dark Term" : "☀️ Light Term"}
-              </button>
-              <Link href="/login" className="nav-link">Login</Link>
-              <Link href="/signup" className="nav-link nav-link-solid">Sign In</Link>
-            </div>
-
-            {/* Responsive Actions Toggle */}
-            <button
-              className="hamburger"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-label="Menu"
-              aria-expanded={menuOpen}
-              aria-controls="mobile-menu"
-            >
-              <span />
-              <span />
-              <span />
-            </button>
           </div>
 
-          {/* Collapsible Mobile Terminal Links */}
-          <div id="mobile-menu" className={`mobile-menu${menuOpen ? " open" : ""}`}>
-            <button 
-              onClick={() => { setLightMode(!lightMode); setMenuOpen(false); }} 
-              className="nav-link"
-              style={{ textAlign: 'center' }}
-            >
-              {lightMode ? "🌙 Dark Terminal" : "☀️ Light Terminal"}
-            </button>
-            <Link href="/login" className="nav-link" onClick={() => setMenuOpen(false)}>Login</Link>
-            <Link href="/signup" className="nav-link nav-link-solid" onClick={() => setMenuOpen(false)}>Sign In</Link>
-          </div>
-        </nav>
-
-        {/* TERMINAL CANVAS HERO CONTAINER */}
-        <section className="hero">
-          <div className="hero-gridlines" />
-          <div className="hero-vignette" />
-
-          <div className="hero-content">
-            <div className="hero-eyebrow">AI Powered Personal Digital Twin</div>
-
-            <h1 className="hero-title">Design Your</h1>
-            <div className="hero-title-sub">Future, Intelligently</div>
-
-            <div className="hero-typewriter-box">
-              <TypewriterHero isLight={lightMode} />
-            </div>
-
-            <div className="hero-cta">
-              <Link href="/signup" className="cta-primary">Initialize Syntra</Link>
-              <Link href="/login" className="cta-secondary">Access Terminal</Link>
-            </div>
-
-            <div className="hero-scroll-hint">
-              <div className="hero-scroll-line" />
-              <span>Scroll</span>
+          <div>
+            <div className="mockphone-frame">
+                <img
+  src="/mockup.png"
+  alt="Syntra Mobile UI"
+  style={{
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    borderRadius: "28px",
+  }}
+/>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* METRICS ROW */}
-        <div className="stats-bar">
-          {[
-            { num: "3", label: "Core Domains" },
-            { num: "∞", label: "What‑If Scenarios" },
-            { num: "01", label: "Unified Platform" },
-          ].map((s) => (
-            <div className="stat-item" key={s.label}>
-              <div className="stat-num">{s.num}</div>
-              <div className="stat-label">{s.label}</div>
-            </div>
+      {/* TESTIMONIAL SLIDER */}
+      <section className="proof-section">
+        <div className="stars-row">★★★★★</div>
+        <h2 className="proof-title">3.5 Million 5-Star Ratings</h2>
+        <div className="slider-window">
+          <div>
+            <p className="proof-quote">{TESTIMONIALS[activeSlide].quote}</p>
+            <div className="proof-author">— {TESTIMONIALS[activeSlide].author}</div>
+          </div>
+        </div>
+        <div className="dots-track">
+          {TESTIMONIALS.map((_, i) => (
+            <button key={i} onClick={() => setActiveSlide(i)} className={`dot ${activeSlide === i ? "active" : ""}`} aria-label={`Go to slide ${i + 1}`} />
           ))}
         </div>
+      </section>
 
-        {/* DETAILED INFORMATION BLOCKS */}
-        <section className="about">
-          <div className="about-header">
-            <span className="section-label">[ System Architecture ]</span>
-            <div className="section-line" />
+      {/* FEATURES */}
+      <section className="features-section">
+        <div className="features-label">How it works</div>
+        <h2 className="features-section-title">Everything you need to own your future</h2>
+
+        {/* Feature 1 */}
+        <div className="feature-row">
+          <div>
+            <div className="feature-num">01</div>
+            <h3 className="feature-heading">Track health, finance &amp; life logs</h3>
+            <p className="feature-desc">Log information securely to adjust parameters. View unified updates where variance in budget configurations alters sleep modeling — tracks metrics concurrently across all life domains.</p>
+            <div className="feature-badge">
+              <span>📊</span> Unified Dashboard
+            </div>
           </div>
-
-          <div className="about-grid">
-            {FEATURES.map((f) => (
-              <div className="about-cell" key={f.title}>
-                <div className="cell-num">SYS</div>
-                <span className="cell-icon">{f.icon}</span>
-                <div className="cell-title">{f.title}</div>
-                <div className="cell-desc">{f.desc}</div>
-                <div className="cell-corner">SYNTRA.SYS</div>
+          <div className="feature-graphic-box">
+            <div className="graphic-inner">
+              <div className="graphic-card">
+                <div className="graphic-card-title">Net Worth</div>
+                <div className="graphic-card-value">$248,500</div>
+                <div className="graphic-card-sub">↑ +8.4% this month</div>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* OPERATIONS GRID ROWS */}
-        <section className="domains">
-          <div className="about-header">
-            <span className="section-label">[ Domain Coverage ]</span>
-            <div className="section-line" />
-          </div>
-
-          <div className="domains-list">
-            {[
-              { name: "Health", desc: "Workout, nutrition, sleep, and reports — fused into a single trajectory.", tag: "BODY.SYS" },
-              { name: "Finance", desc: "Spending, investing, saving, and risk — orchestrated for outcomes.", tag: "CAPITAL.SYS" },
-              { name: "Career", desc: "Skills, learning, projects, and salary benchmarking — mapped to your path.", tag: "GROWTH.SYS" },
-            ].map((d, i) => (
-              <div className="domain-row" key={d.name}>
-                <span className="domain-idx">0{i + 1}</span>
-                <span className="domain-name">{d.name}</span>
-                <span className="domain-desc">{d.desc}</span>
-                <span className="domain-tag">{d.tag}</span>
-                <span className="domain-arrow">→</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* INITIALIZATION PANEL */}
-        <div className="cta-banner">
-          <div className="cta-banner-inner">
-            <div className="cta-title">Your Digital Twin Awaits</div>
-            <div className="cta-sub">Step in. Simulate what’s possible, then make it real.</div>
-            <div style={{ display: "flex", gap: "14px", justifyContent: "center", flexWrap: "wrap" }}>
-              <Link href="/signup" className="cta-primary">Initialize Syntra</Link>
-              <Link href="/login" className="cta-secondary">Access Terminal</Link>
+              {[
+                { label: "Sleep", val: "87%", w: "87%" },
+                { label: "Budget", val: "72%", w: "72%" },
+                { label: "Fitness", val: "94%", w: "94%" },
+              ].map((bar) => (
+                <div className="graphic-bar-row" key={bar.label}>
+                  <span className="graphic-label">{bar.label}</span>
+                  <div style={{ flex: 1, height: "10px", borderRadius: "99px", background: "#e8edf8" }}>
+                    <div className="graphic-bar" style={{ width: bar.w }} />
+                  </div>
+                  <span className="graphic-val">{bar.val}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* MAIN TERMINAL RUNTIME FOOTER */}
-        <footer>
-          <div className="footer-inner">
-            <div className="footer-brand">
-              <span className="footer-wordmark">Syntra</span>
-              <span className="footer-copy">© 2026. Translucent structure, built for clarity.</span>
-              <span className="footer-copy">Get in touch: hello@syntra.ai</span>
-            </div>
-
-            <div className="footer-social">
-              <div className="footer-heading">Connect</div>
-
-              <a href="#" className="social-link" aria-label="Instagram Profile Link">
-                <svg className="social-icon" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.5" />
-                  <circle cx="12" cy="12" r="4.2" stroke="currentColor" strokeWidth="1.5" />
-                  <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
-                </svg>
-                Instagram
-              </a>
-
-              <a href="#" className="social-link" aria-label="Twitter Profile Link">
-                <svg className="social-icon" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 4l16 16M20 4L4 20" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
-                Twitter/X
-              </a>
-
-              <a href="#" className="social-link" aria-label="LinkedIn Company Page">
-                <svg className="social-icon" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M7 10v7M7 7h.01M11 17v-5a2 2 0 0 1 4 0v5" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
-                LinkedIn
-              </a>
-
-              <a href="#" className="social-link" aria-label="GitHub Repository Profile">
-                <svg className="social-icon" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.71-2.78.6-3.37-1.19-3.37-1.19-.45-1.14-1.11-1.45-1.11-1.45-.91-.63.07-.62.07-.62 1 .07 1.52 1.03 1.52 1.03 .89 1.52 2.34 1.08 2.91.83 .09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.84c.85.004 1.71.115 2.51.337 1.91-1.29 2.75-1.02 2.75-1.02 .55 1.38.2 2.4.1 2.65 .64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95 .36.31.68.92.68 1.86 0 1.34-.01 2.43-.01 2.76 0 .26.18.58.69.48A10 10 0 0 0 12 2z" stroke="currentColor" strokeWidth="1" />
-                </svg>
-                GitHub
-              </a>
+        {/* Feature 2 */}
+        <div className="feature-row reverse">
+          <div>
+            <div className="feature-num">02</div>
+            <h3 className="feature-heading">Simulate what-if scenarios instantly</h3>
+            <p className="feature-desc">Ask Syntra "what if I invest $500 more per month?" or "what if I sleep 8 hours instead of 6?" — and get AI-powered simulations showing exact projected outcomes across time horizons.</p>
+            <div className="feature-badge">
+              <span>⚡</span> Real-Time Simulations
             </div>
           </div>
-        </footer>
-      </div>
+          <div className="feature-graphic-box">
+            <div className="graphic-inner">
+              {[
+                { label: "Current path", color: "#cdd5e8", accent: "#8899cc" },
+                { label: "+$500/mo invest", color: "#c8e6ff", accent: "#0055EE" },
+                { label: "8h sleep routine", color: "#c8f4df", accent: "#1a9e55" },
+              ].map((scenario, i) => (
+                <div key={scenario.label} style={{
+                  background: "#fff",
+                  borderRadius: "14px",
+                  padding: "16px 18px",
+                  border: `1.5px solid ${scenario.color}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.75rem", color: "#999", fontWeight: "600", marginBottom: "3px" }}>Scenario {i + 1}</div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", fontWeight: "700", color: "#111" }}>{scenario.label}</div>
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "1.1rem", fontWeight: "800", color: scenario.accent }}>
+                    +{(22 + i * 18)}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Feature 3 */}
+        <div className="feature-row">
+          <div>
+            <div className="feature-num">03</div>
+            <h3 className="feature-heading">AI-driven career &amp; goal recommendations</h3>
+            <p className="feature-desc">Syntra cross-references your career velocity, income trajectory, and skills gap with market data — then delivers concrete next steps, upskilling paths, and timing windows tailored to your goals.</p>
+            <div className="feature-badge">
+              <span>🎯</span> Personalized Roadmaps
+            </div>
+          </div>
+          <div className="feature-graphic-box">
+            <div className="graphic-grid">
+              {[
+                { icon: "💼", label: "Career Score", val: "91/100" },
+                { icon: "📈", label: "Income Est.", val: "$128K" },
+                { icon: "🧠", label: "Skills Match", val: "78%" },
+                { icon: "⏱️", label: "Goal ETA", val: "14 mo" },
+              ].map((item) => (
+                <div className="graphic-mini-card" key={item.label}>
+                  <div className="graphic-mini-icon">{item.icon}</div>
+                  <div className="graphic-mini-label">{item.label}</div>
+                  <div className="graphic-mini-val">{item.val}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="qa-section">
+        <div className="qa-container">
+          <h2 className="qa-main-title">Common questions</h2>
+          <div>
+            {FAQS.map((faq, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div className={`qa-item ${isOpen ? "open" : ""}`} key={idx}>
+                  <button className="qa-button" onClick={() => setOpenFaq(isOpen ? null : idx)}>
+                    <span>{faq.q}</span>
+                    <span className="qa-chevron">⌃</span>
+                  </button>
+                  <div className="qa-content">
+                    <p>{faq.a}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="footer-layer">
+        <div className="footer-top">
+          <div className="footer-logo-area">
+            <Link href="/" className="logo">syn<strong>tra</strong></Link>
+            <div className="footer-brand-tag">Your AI-powered digital twin for health, finance, and career growth.</div>
+            <Link href="/signup" className="btn-capsule">
+              Start Today →
+            </Link>
+          </div>
+
+          <div>
+            <h4 className="footer-col-title">Resources</h4>
+            <ul className="footer-ul">
+              <li className="footer-li"><Link href="#" className="footer-link">Premium</Link></li>
+              <li className="footer-li"><Link href="#" className="footer-link">Blog</Link></li>
+              <li className="footer-li"><Link href="#" className="footer-link">Community</Link></li>
+              <li className="footer-li"><Link href="#" className="footer-link">Contact Us</Link></li>
+              <li className="footer-li"><Link href="#" className="footer-link">Support Center</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="footer-col-title">Company</h4>
+            <ul className="footer-ul">
+              <li className="footer-li"><Link href="#" className="footer-link">About Us</Link></li>
+              <li className="footer-li"><Link href="#" className="footer-link">Careers</Link></li>
+              <li className="footer-li"><Link href="#" className="footer-link">Press</Link></li>
+              <li className="footer-li"><Link href="#" className="footer-link">Advertise With Us</Link></li>
+              <li className="footer-li"><Link href="#" className="footer-link">For Employers</Link></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <div className="footer-legal-row">
+            <span>©2026 Syntra, Inc.</span>
+            <Link href="#" className="footer-link">Community Guidelines</Link>
+            <Link href="#" className="footer-link">Feedback</Link>
+            <Link href="#" className="footer-link">Terms</Link>
+            <Link href="#" className="footer-link">Privacy</Link>
+            <Link href="#" className="footer-link">API</Link>
+            <Link href="#" className="footer-link">Cookie Preferences</Link>
+          </div>
+
+          <div className="footer-socials">
+            {/* Instagram */}
+            <a href="#" className="social-btn" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 1.366.062 2.633.334 3.608 1.308.974.974 1.246 2.242 1.308 3.608.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.062 1.366-.334 2.633-1.308 3.608-.974.974-2.242 1.246-3.608 1.308-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.366-.062-2.633-.334-3.608-1.308-.974-.974-1.246-2.242-1.308-3.608C2.175 15.584 2.163 15.204 2.163 12s.012-3.584.07-4.85c.062-1.366.334-2.633 1.308-3.608.974-.974 2.242-1.246 3.608-1.308C8.416 2.175 8.796 2.163 12 2.163zm0-2.163C8.741 0 8.333.014 7.053.072 5.775.13 4.602.402 3.635 1.368 2.667 2.335 2.396 3.508 2.338 4.786 2.28 6.066 2.267 6.474 2.267 12c0 5.526.013 5.934.071 7.214.058 1.278.329 2.451 1.296 3.418.967.967 2.14 1.238 3.418 1.296C8.333 23.986 8.741 24 12 24s3.667-.014 4.947-.072c1.278-.058 2.451-.329 3.418-1.296.967-.967 1.238-2.14 1.296-3.418.058-1.28.071-1.688.071-7.214 0-5.526-.013-5.934-.071-7.214-.058-1.278-.329-2.451-1.296-3.418C19.398.402 18.225.13 16.947.072 15.667.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zm0 10.162a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/>
+              </svg>
+            </a>
+            {/* Facebook */}
+            <a href="#" className="social-btn" aria-label="Facebook">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.235 2.686.235v2.97h-1.514c-1.491 0-1.956.93-1.956 1.886v2.269h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
+              </svg>
+            </a>
+            {/* YouTube */}
+            <a href="#" className="social-btn" aria-label="YouTube">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+            </a>
+            {/* LinkedIn */}
+            <a href="#" className="social-btn" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+              </svg>
+            </a>
+            {/* X (Twitter) */}
+            <a href="#" className="social-btn" aria-label="X / Twitter">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

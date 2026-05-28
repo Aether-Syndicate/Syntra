@@ -199,40 +199,46 @@ export default function DashboardPage() {
 
     const fetchDashboard = async () => {
       try {
-        const res = await fetch("/api/dashboard", { cache: "no-store", credentials: "include" });
-        if (!res.ok) throw new Error("Failed to fetch dashboard");
-        const data = await res.json();
-        let aiData = null;
+        const [res, aiRes] = await Promise.all([
+          fetch("/api/dashboard", {
+            cache: "no-store",
+            credentials: "include",
+          }),
+          fetch("/api/ai/recommend", {
+            cache: "no-store",
+            credentials: "include",
+          }),
+        ]);
 
-          try {
-        const aiRes = await fetch("/api/ai/recommend", {
-        cache: "no-store",
-        credentials: "include",
-      });
+        let data: any = {};
+        if (res.ok) {
+          data = await res.json();
+        } else {
+          throw new Error("Failed to fetch dashboard");
+        }
 
-      if (aiRes.ok) {
-        aiData = await aiRes.json();
-      }
-    } catch (err) {
-        console.error("AI fetch failed:", err);
-    }
+        let aiData: any = null;
+        if (aiRes.ok) {
+          aiData = await aiRes.json();
+        }
+
         setDashboard({
           dashboard: data.dashboard,
           success: data.success,
           insights: [
-          {
-            tag: "Twin Prediction",
-            text: aiData?.ai?.twinPrediction || "AI analysis initializing.",
-          },
-          {
-          tag: "Daily Reflection",
-           text: aiData?.ai?.dailyReflection || "Reflection unavailable.",
-          },
-          {
-           tag: "Daily Challenge",
-            text: aiData?.ai?.dailyChallenge || "No challenge generated.",
-          },
-        ],
+            {
+              tag: "Twin Prediction",
+              text: aiData?.ai?.twinPrediction || "AI analysis initializing.",
+            },
+            {
+              tag: "Daily Reflection",
+              text: aiData?.ai?.dailyReflection || "Reflection unavailable.",
+            },
+            {
+              tag: "Daily Challenge",
+              text: aiData?.ai?.dailyChallenge || "No challenge generated.",
+            },
+          ],
         });
       } catch (e) {
         console.error(e);
@@ -421,7 +427,7 @@ export default function DashboardPage() {
     : null }))
                 .filter((d: any) => d.health !== null);
               return (
-                <div style={{ height: 200, marginBottom: 4 }}>
+                <div className="w-full min-h-[200px]" style={{ height: 200, marginBottom: 4 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
                       <defs>

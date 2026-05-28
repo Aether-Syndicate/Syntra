@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
@@ -427,7 +435,7 @@ export default function DashboardPage() {
     : null }))
                 .filter((d: any) => d.health !== null);
               return (
-                <div className="w-full min-h-[200px]" style={{ height: 200, marginBottom: 4 }}>
+                <div className="w-full h-[260px] min-h-[260px] mb-1">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
                       <defs>
@@ -436,8 +444,26 @@ export default function DashboardPage() {
                           <stop offset="95%" stopColor="#0055EE" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <Area type="monotone" dataKey="health" stroke="#0055EE" fill="url(#areaGrad)" strokeWidth={2} dot={false} />
-                      <Tooltip contentStyle={{ background: "#fff", border: "1px solid #e8ebf4", fontSize: 12, borderRadius: 10, fontFamily: "Inter, sans-serif" }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="day" />
+                      <YAxis />
+                      <Tooltip
+                        contentStyle={{
+                          background: "#fff",
+                          border: "1px solid #e8ebf4",
+                          fontSize: 12,
+                          borderRadius: 10,
+                          fontFamily: "Inter, sans-serif",
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="health"
+                        stroke="#0055EE"
+                        fill="url(#areaGrad)"
+                        strokeWidth={2}
+                        dot={false}
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

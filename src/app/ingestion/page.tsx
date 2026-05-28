@@ -297,11 +297,29 @@ export default function IngestionPage() {
       if (!cd.success) throw new Error(cd.message || "Career ingestion failed.");
 
       if (csv.file) {
-        const formData = new FormData();
-        formData.append("file", csv.file);
-        formData.append("domain", csv.domain);
-        await fetch("/api/upload/csv", { method: "POST", credentials: "include", body: formData });
-      }
+  const formData = new FormData();
+  formData.append("file", csv.file);
+  formData.append("domain", csv.domain);
+
+  const fileName = csv.file.name.toLowerCase();
+
+  const endpoint =
+    fileName.endsWith(".xlsx") || fileName.endsWith(".xls")
+      ? "/api/upload/excel"
+      : "/api/upload/csv";
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.message || "Batch upload failed.");
+  }
+}
 
       window.dispatchEvent(new Event("syntra-refresh"));
       setCompleted(new Set([0, 1, 2, 3]));
@@ -570,7 +588,7 @@ export default function IngestionPage() {
                     </div>
                     <div className="field">
                       <label className="form-label">Select Source Document <span className="opt-tag">(optional)</span></label>
-                      <input type="file" accept=".csv" onChange={e => setCsv(p => ({ ...p, file: e.target.files?.[0] || null }))} className="form-input" style={{ padding: "9px 12px", height: 42 }} />
+                      <input type="file" accept=".csv,.xlsx,.xls" onChange={e => setCsv(p => ({ ...p, file: e.target.files?.[0] || null }))} className="form-input" style={{ padding: "9px 12px", height: 42 }} />
                     </div>
                     {csv.file && (
                       <div style={{ fontSize: "0.8rem", color: "#0044DD", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>

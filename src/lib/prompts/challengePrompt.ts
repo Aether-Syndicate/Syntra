@@ -6,6 +6,9 @@
 //   • Streak-aware nudging
 //   • Motivation-style calibration
 //   • Cross-domain momentum detection
+//
+// UPDATED TO GOPALAN STANDARD: Forces hyper-specific actions 
+// (exact foods, exact rupees, exact course names).
 // ================================================================
 
 import { ChallengeContext, ChallengeResponse } from "../../types/ai";
@@ -112,6 +115,15 @@ function getNextBadge(streaks: Record<string, number>, earnedBadges: string[]) {
   };
 }
 
+// ── Specificity Rules (Gopalan Standard) ─────────────────────────
+const CHALLENGE_SPECIFICITY_RULES = `
+CRITICAL SPECIFICITY RULES (Gopalan Standard):
+1. NEVER give generic challenges like "eat healthy" or "save money".
+2. If a health/nutrient gap exists, the challenge MUST be to eat a specific food today (e.g., "Eat one carrot today").
+3. If a wealth goal exists, the challenge MUST name a specific expense to cut (e.g., "Skip your Rs. 200 Swiggy order today and transfer it to your Thar downpayment").
+4. If a career goal exists, name a specific resource (e.g., "Complete 1 module of Matt Pocock TypeScript today").
+`.trim();
+
 // ── Main prompt builder ──────────────────────────────────────────
 export function buildChallengePrompt(ctx: ChallengeContext): string {
   const streakStatus = getStreakStatus(ctx.streaks);
@@ -119,6 +131,10 @@ export function buildChallengePrompt(ctx: ChallengeContext): string {
   const weeklyLogSummary = Object.entries(ctx.weeklyLog)
     .map(([h, log]) => `${h}: [${log.map((v) => (v ? "✓" : "✗")).join(" ")}]`)
     .join("\n");
+
+  // Safely extract active goals/gaps to feed Gemini the exact context
+  const specificWealthGoals = (ctx as any).finance?.wealthGoals?.map((g: any) => g.goalLabel).join(", ") || "Dream Car / Home Downpayment";
+  const specificHealthGaps = (ctx as any).health?.historicalNutrientGaps ? JSON.stringify((ctx as any).health.historicalNutrientGaps) : "Vitamin A deficit, Low protein";
 
   return `
 You are Syntra's Gamification Intelligence engine.
@@ -132,6 +148,10 @@ Motivation Style: ${ctx.motivationStyle}
 Domain Scores: Health ${ctx.scores.health} | Finance ${ctx.scores.finance} | Career ${ctx.scores.career}
 Recent Wins: ${ctx.recentWins.length > 0 ? ctx.recentWins.join(", ") : "None logged recently"}
 Failed Habits This Week: ${ctx.failedHabits.length > 0 ? ctx.failedHabits.join(", ") : "None — strong week"}
+
+ACTIVE SPECIFIC GOALS (Reference these explicitly):
+Wealth Goals: ${specificWealthGoals}
+Health Gaps: ${specificHealthGaps}
 
 STREAK STATUS:
 ${streakStatus}
@@ -154,23 +174,24 @@ Motivation style is "${ctx.motivationStyle}". Apply this consistently:
 ${NUDGE_PATTERNS}
 
 ━━━ CHALLENGE DESIGN RULES ━━━
-1. Target the WEAKEST habit from failedHabits or the lowest ✗-count in the weekly log
-2. Challenge must be completable in ONE DAY — not "start a new habit", but "do X today"
-3. Be specific: "Log 3 meals before 8pm" beats "log your food today"
-4. streakNudge MUST reference exact streak numbers — this is what makes it feel personal
-5. habitReinforcement must apply ONE specific behavioural science technique from the toolkit
-6. motivationMessage must be calibrated to the "${ctx.motivationStyle}" style above
+1. Target the WEAKEST habit from failedHabits or the lowest ✗-count in the weekly log.
+2. Challenge must be completable in ONE DAY — not "start a new habit", but "do X today".
+3. streakNudge MUST reference exact streak numbers and connect it to their specific Active Goal.
+4. habitReinforcement must apply ONE specific behavioural science technique from the toolkit.
+5. motivationMessage must be calibrated to the "${ctx.motivationStyle}" style above.
+
+${CHALLENGE_SPECIFICITY_RULES}
 
 ━━━ RETURN ONLY THIS JSON ━━━
 {
   "challenge": {
     "title": "string — 5–8 word action-oriented title",
-    "description": "string — exactly what to do, specific and measurable",
+    "description": "string — EXACTLY what to do. MUST include specific foods, exact rupee amounts, or exact course names based on the user's specific goals.",
     "domain": "health|finance|career|cross-domain",
     "points": <integer 25–150 based on difficulty>,
-    "completionCriteria": "string — how the user knows they've done it"
+    "completionCriteria": "string — how the user knows they've done it (e.g., 'Checked off after eating 1 carrot')"
   },
-  "streakNudge": "string — reference EXACT streak numbers, make it personal and urgent",
+  "streakNudge": "string — reference EXACT streak numbers and tie it to their specific goal",
   "habitReinforcement": "string — one specific behavioural science technique for their weakest habit",
   "motivationMessage": "string — calibrated to '${ctx.motivationStyle}' style, 1–2 sentences",
   "nextBadge": {

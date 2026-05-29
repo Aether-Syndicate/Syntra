@@ -50,7 +50,7 @@ import { z } from "zod";
 // PROMPT VERSION (increment when making changes)
 // Used for A/B testing and output tracing in production
 // ================================================================
-export const TWIN_REFLECTION_PROMPT_VERSION = "v2.1.0";
+export const TWIN_REFLECTION_PROMPT_VERSION = "v2.2.0-gopalan-specificity";
 
 // ================================================================
 // ZOD RUNTIME SCHEMA — THE CONTRACT ENFORCER
@@ -184,6 +184,7 @@ function detectRisks(context: TwinContext, trajectory: TrajectorySignals): strin
 // DYNAMIC FEW-SHOT SELECTOR
 // Picks the most relevant example for the user's current state.
 // Gemini learns from the most analogous case, not a generic one.
+// Updated to reflect the Gopalan Specificity Standard.
 // ================================================================
 interface FewShotExample {
   condition: (ctx: TwinContext, scores: DomainScores) => boolean;
@@ -199,45 +200,21 @@ const FEW_SHOT_LIBRARY: FewShotExample[] = [
 INPUT: sleep 5.2h declining, study 4h/day stable, spending +15% over budget
 OUTPUT:
 {
-  "twinPrediction": "Your Twin forecasts a 25% drop in problem-solving speed tomorrow if tonight's sleep stays under 5 hours — your career momentum is masking a sleep debt that compounds daily.",
-  "dailyReflection": "You've maintained impressive study consistency this week, but you're running on borrowed energy. The question isn't whether the sleep debt will catch up — it's when.",
+  "twinPrediction": "Your Twin forecasts a 25% drop in problem-solving speed tomorrow if tonight's sleep stays under 5 hours — your career momentum is masking a sleep debt that actively risks your Tier 1 tech job timeline.",
+  "dailyReflection": "You've maintained impressive study consistency this week, but you're running on borrowed energy. The 15% budget overrun is a direct fatigue-driven response, directly delaying your Home Downpayment goal.",
   "explainability": [
     "Sleep has declined from 7.1h to 5.2h over the past 5 days — a 27% reduction in recovery time.",
     "Career activity has held at 4+ hours daily despite the deficit — momentum is real but fragile.",
-    "Spending is 15% over budget, consistent with fatigue-driven impulse purchasing patterns."
+    "Spending is 15% over budget, translating to Rs. 3,200 wasted this week on fatigue-driven impulse purchasing."
   ],
-  "dailyChallenge": "Hard stop: no screens after 10:30pm tonight. Log this as completed when you're in bed by 11pm. One night won't fix the debt, but it stops it from compounding.",
+  "dailyChallenge": "Eat one portion of spinach today to combat your Iron deficit, and log off all screens by 10:30pm to stop sleep debt from compounding.",
   "recommendations": {
-    "health": ["Set a 10:15pm wind-down alarm tonight — non-negotiable.", "5 minutes of box breathing before bed to lower cortisol for sleep onset."],
-    "finance": ["No discretionary spending after 8pm today to interrupt the fatigue-spending loop.", "Flag one unnecessary transaction from yesterday in your expense log."],
+    "health": ["Set a 10:15pm wind-down alarm tonight — non-negotiable.", "Eat one carrot today for Vitamin A, as your logs show 0 intake over 3 days."],
+    "finance": ["Cut all Swiggy orders after 8pm today to save Rs. 400 and keep your Home Downpayment on track.", "Flag one unnecessary transaction from yesterday in your expense log."],
     "career": ["Front-load your hardest cognitive task to before 11am when alertness peaks despite the deficit.", "Your study momentum is genuine — protect it by not scheduling deep work after 3pm today."]
   },
   "riskAlerts": ["Two more nights below 6h will produce measurable drops in financial decision quality and a study retention collapse."],
   "confidence": 84
-}`.trim(),
-  },
-  {
-    label: "Strong health, stalling career",
-    condition: (ctx, scores) => scores.health > 65 && scores.career < 50,
-    example: `
-INPUT: sleep 7.5h stable, workout 4x/week, study 1.5h/week declining, savings on track
-OUTPUT:
-{
-  "twinPrediction": "Your Twin projects your career score will drop below 50 within 10 days at current study velocity — your physical foundation is exceptional but it is not converting to career output.",
-  "dailyReflection": "You are in one of your strongest physical periods: consistent sleep, regular workouts, on-budget spending. The gap is stark — that energy is not being channelled into skill development right now.",
-  "explainability": [
-    "Weekly study hours dropped from 6h to 1.5h over the past 2 weeks — a 75% reduction in learning output.",
-    "Workout consistency is at a 4-week high of 4 sessions per week.",
-    "Savings rate is on target — financial stress is not the cause of the study decline."
-  ],
-  "dailyChallenge": "Use the 45-minute window immediately after today's workout for focused study. Post-exercise BDNF levels make this your highest neuroplasticity window of the day.",
-  "recommendations": {
-    "health": ["Your routine is a genuine competitive advantage right now — protect it as your foundation."],
-    "finance": ["Your financial runway is stable — this is the right time to invest in a course or resource."],
-    "career": ["Schedule one 90-minute deep work block today, placed directly after your workout.", "Choose one skill from your target list and commit 30 minutes to it exclusively — no multitasking."]
-  },
-  "riskAlerts": [],
-  "confidence": 79
 }`.trim(),
   },
   {
@@ -247,41 +224,41 @@ OUTPUT:
 INPUT: stress 8/10, spending +22% over budget, savings rate 12%, sleep 6h irregular
 OUTPUT:
 {
-  "twinPrediction": "Your Twin forecasts savings rate will fall below 8% within 3 weeks if the stress-spending pattern continues — the current trajectory is a direct path to financial stress compounding your mental health pressure.",
-  "dailyReflection": "High stress is not just a feeling right now — it's a spending trigger. The 22% budget overrun is not a discipline failure; it is a predictable cortisol response. Fixing the root (stress management) will fix the symptom (overspending).",
+  "twinPrediction": "Your Twin forecasts your savings rate will fall below 8% within 3 weeks if the stress-spending pattern continues — this trajectory adds a 4-month delay to your Mahindra Thar target.",
+  "dailyReflection": "High stress is not just a feeling right now — it's a spending trigger. The 22% budget overrun is a predictable cortisol response. Fixing the root (stress) will fix the symptom (overspending Rs. 4,500).",
   "explainability": [
-    "Stress at 8/10 correlates with discretionary spending spikes in your pattern data.",
+    "Stress at 8/10 correlates directly with the Rs. 4,500 discretionary spending spikes in your pattern data.",
     "Spending is 22% above budget — the highest overrun in your logged history.",
     "Sleep irregularity at 6h average is elevating baseline cortisol and reducing executive function."
   ],
-  "dailyChallenge": "Implement a 10-second rule for every non-essential purchase today: ask 'is this stress or genuine need?' Log the answer. Awareness alone reduces stress-spending by 30-40%.",
+  "dailyChallenge": "Skip your usual Rs. 250 Starbucks today and transfer that exact amount immediately into your Mahindra Thar fund.",
   "recommendations": {
-    "health": ["15 minutes of low-intensity walking today — this is a cortisol intervention, not exercise.", "Set a consistent 11pm bedtime tonight regardless of how tired you feel."],
-    "finance": ["Set a single daily spending limit of Rs.500 for discretionary items today only.", "Move Rs.2,000 to a separate savings account this evening to break the spending momentum."],
+    "health": ["15 minutes of low-intensity walking today to flush cortisol.", "Eat one egg today to fix your daily protein gap of 25g."],
+    "finance": ["Set a single daily spending limit of Rs. 500 for discretionary items today only to defend your car downpayment.", "Move Rs. 2,000 to a separate savings account this evening to break the spending momentum."],
     "career": ["If stress is work-related: schedule one 15-minute boundary-setting conversation this week.", "Protect your study block — it is a stress-relief mechanism, not just a career tool."]
   },
-  "riskAlerts": ["Stress-spending loop detected: elevated cortisol is driving discretionary purchases which create financial anxiety which elevates cortisol. This cycle must be broken at the stress level, not the spending level."],
+  "riskAlerts": ["Stress-spending loop detected: elevated cortisol is driving discretionary purchases which create financial anxiety which elevates cortisol."],
   "confidence": 81
 }`.trim(),
   },
   {
-    label: "New user / low data",
+    label: "New user / low data (Fallback)",
     condition: (ctx) => ctx.logCount < 10,
     example: `
 INPUT: 6 data points, all domains moderate, no behaviour flags active
 OUTPUT:
 {
-  "twinPrediction": "With 6 data points logged, your Twin is still calibrating — check back in 7 days for a fully personalised prediction. What's visible now: your baseline is solid, with no critical flags active.",
-  "dailyReflection": "You're in the early calibration phase — your Twin needs more data to speak with precision. What I can see already is promising: no critical scores and no active risk flags. Keep logging and the intelligence sharpens daily.",
+  "twinPrediction": "With 6 data points logged, your Twin is calibrating — check back in 7 days for a fully personalised prediction. Your baseline is solid, with no critical flags active.",
+  "dailyReflection": "You're in the early calibration phase — your Twin needs more data to speak with precision. Keep logging specific meals and expenses so we can map them to your car and house goals.",
   "explainability": [
     "6 data points logged — below the 14-point threshold for high-confidence pattern detection.",
     "No active behaviour flags across health, finance, or career domains.",
     "Baseline scores are in the moderate range — no immediate interventions required."
   ],
-  "dailyChallenge": "Log today's full data set: at least one entry each for health, finance, and career activity. Each log you add increases your Twin's prediction accuracy.",
+  "dailyChallenge": "Log today's full data set: exact foods eaten and exact rupees spent. Each log increases your Twin's prediction accuracy.",
   "recommendations": {
     "health": ["Log your sleep hours tonight — even a rough estimate helps establish your baseline."],
-    "finance": ["Log at least 2 transactions today to begin building your spending pattern."],
+    "finance": ["Log at least 2 specific transactions today to begin building your spending pattern."],
     "career": ["Log your study or work activity today — even 30 minutes of intentional skill time counts."]
   },
   "riskAlerts": [],
@@ -292,7 +269,7 @@ OUTPUT:
 
 function selectFewShotExample(context: TwinContext, scores: DomainScores): string {
   const match = FEW_SHOT_LIBRARY.find((ex) => ex.condition(context, scores));
-  return match ? match.example : FEW_SHOT_LIBRARY[0].example;
+  return match ? match.example : FEW_SHOT_LIBRARY[FEW_SHOT_LIBRARY.length - 1].example;
 }
 
 // ================================================================
@@ -312,22 +289,19 @@ function buildCriticalDomainSection(
 CRITICAL DOMAIN FOCUS — HEALTH (score: ${score}/100):
 The health domain is the most urgent lever right now.
 Key data: sleep ${context.weeklyAverages.sleep}h, ${context.weeklyAverages.workout} workouts/week, stress ${context.weeklyAverages.stressLevel}/10, mood ${context.weeklyAverages.moodScore}/10.
-Your health recommendations MUST be the most specific and detailed section of the response.
-Identify the single highest-leverage health action that would have the fastest positive cascade.
+Identify the single highest-leverage health action. If there is a nutrient gap, name the EXACT food to eat today (e.g., 'Eat a carrot for Vitamin A').
 `.trim(),
     finance: `
 CRITICAL DOMAIN FOCUS — FINANCE (score: ${score}/100):
 The finance domain is the most urgent lever right now.
 Key data: savings rate ${context.weeklyAverages.savingsRate}%, spending ${context.weeklyAverages.spendingVsBudget > 0 ? "+" : ""}${context.weeklyAverages.spendingVsBudget}% vs budget.
-Your finance recommendations MUST be the most specific and detailed section of the response.
-Identify whether this is a spending problem, an income problem, or a stress-triggered pattern.
+Identify whether this is a spending problem, an income problem, or a stress-triggered pattern. Name EXACT rupee amounts to cut and reference their specific wealth goal (e.g., 'save Rs. 2000 for your Thar downpayment').
 `.trim(),
     career: `
 CRITICAL DOMAIN FOCUS — CAREER (score: ${score}/100):
 The career domain is the most urgent lever right now.
 Key data: ${context.weeklyAverages.studyHours}h/week study, productivity trend ${context.trends.productivity}.
-Your career recommendations MUST be the most specific and detailed section of the response.
-Identify whether this is a consistency problem, a direction problem, or an energy availability problem.
+Identify whether this is a consistency problem, a direction problem, or an energy availability problem. Reference exact course/skill names.
 `.trim(),
   };
 
@@ -345,6 +319,16 @@ function interpretScore(score: number): string {
 }
 
 // ================================================================
+// SPECIFICITY RULES (Gopalan Standard)
+// ================================================================
+const REFLECTION_SPECIFICITY_RULES = `
+CRITICAL SPECIFICITY RULES (Gopalan Standard):
+1. Explicitly cite specific foods eaten/missed, specific rupee amounts saved/wasted, and exact hours studied.
+2. If trajectory dropped, name the EXACT root cause (e.g., "Rs. 2500 spent on impulse Zomato buys" or "0g of Vitamin A yesterday").
+3. Always connect current actions to their active long-term specific goals (Dream Car, Tech Tier 1 job, etc.).
+`.trim();
+
+// ================================================================
 // MAIN EXPORT — ADAPTIVE PROMPT BUILDER
 // The prompt is assembled dynamically based on user state.
 // Not one static template — a system that composes intelligently.
@@ -360,6 +344,10 @@ export function buildaitwinReflectionPrompt(
   const risks = detectRisks(context, trajectory);
   const selectedExample = selectFewShotExample(context, scores);
   const criticalSection = buildCriticalDomainSection(trajectory.criticalDomain, context, scores);
+
+  // Safely extract active goals/gaps to feed Gemini the exact context
+  const specificWealthGoals = (context as any).finance?.wealthGoals?.map((g: any) => g.goalLabel).join(", ") || "Dream Car / Home Downpayment";
+  const specificHealthGaps = (context as any).health?.historicalNutrientGaps ? JSON.stringify((context as any).health.historicalNutrientGaps) : "General nutrient gaps";
 
   const riskBlock = risks.length > 0
     ? `PRE-DETECTED RISK SIGNALS — address ALL of these in riskAlerts:\n${risks.map((r) => `  - ${r}`).join("\n")}`
@@ -394,6 +382,10 @@ Dominant strength: ${trajectory.dominantDomain.toUpperCase()}
 Most critical gap: ${trajectory.criticalDomain.toUpperCase()}
 Active streak: ${streak} consecutive days logged
 
+ACTIVE SPECIFIC GOALS (Reference these explicitly):
+  Wealth Goals: ${specificWealthGoals}
+  Health Gaps: ${specificHealthGaps}
+
 WEEKLY AVERAGES:
   Sleep:              ${context.weeklyAverages.sleep}h/night
   Sleep velocity:     ${trajectory.sleepVelocity}
@@ -422,21 +414,19 @@ ${riskBlock}
 ━━━ CRITICAL DOMAIN DIRECTIVE ━━━
 ${criticalSection}
 
+${REFLECTION_SPECIFICITY_RULES}
+
 ━━━ CALIBRATION EXAMPLE (match this specificity) ━━━
 ${selectedExample}
 
 ━━━ OUTPUT RULES ━━━
-1. twinPrediction: forward-looking (tomorrow or this week), must quantify the risk or opportunity
-2. dailyReflection: 2 sentences — sentence 1 names a genuine strength, sentence 2 names the concern
-3. explainability: EXACTLY 2 concise items, each must cite a specific number from the data above
-4. dailyChallenge: completable in ONE day, includes a specific success criterion
-5. recommendations: each domain gets 1-2 distinct, non-overlapping concrete actions
-6. riskAlerts: return ONLY the top 2-3 highest priority risks
-7. confidence: integer, must not exceed ${confidence} — this ceiling is absolute
-- Be concise and high-signal
-- Avoid long explanations
-- Each field should be short enough for a mobile card UI
-- Prioritize clarity over detail
+1. twinPrediction: forward-looking (tomorrow or this week), must quantify the risk or opportunity based on specific goals.
+2. dailyReflection: 2 sentences — sentence 1 names a genuine strength, sentence 2 names the concern referencing specific Rs. or foods.
+3. explainability: EXACTLY 2 concise items, each must cite a specific number from the data above.
+4. dailyChallenge: completable in ONE day, includes a specific success criterion (e.g. eat a specific food).
+5. recommendations: each domain gets 1-2 distinct, non-overlapping concrete actions with exact numbers/foods.
+6. riskAlerts: return ONLY the top 2-3 highest priority risks.
+7. confidence: integer, must not exceed ${confidence} — this ceiling is absolute.
 
 ━━━ RETURN ONLY THIS JSON — NO TEXT OUTSIDE THE BRACES ━━━
 {
@@ -455,9 +445,6 @@ ${selectedExample}
 `.trim();
 }
 
-// ================================================================
-// SMART RETRY — if Zod fails, tell Gemini exactly what broke
-// ================================================================
 // ================================================================
 // SMART RETRY — if Zod fails, tell Gemini exactly what broke
 // ================================================================
@@ -507,6 +494,7 @@ Return ONLY valid JSON with no text outside the braces.
   // Pass the newly constructed correctionPrompt back into the loop
   return callWithValidation(originalPrompt, confidence, attempt + 1, correctionPrompt);
 }
+
 // ================================================================
 // PUBLIC API
 // ================================================================

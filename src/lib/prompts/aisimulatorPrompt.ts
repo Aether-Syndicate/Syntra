@@ -35,26 +35,35 @@ RECOVERY TRADE-OFFS:
 - Extreme calorie restriction reduces mood score and cognitive performance within 5 days
 `.trim();
 
+// ── NEW: Gopalan Specificity Rules ──────────────────────────────
+const SIMULATOR_SPECIFICITY_RULES = `
+CRITICAL SPECIFICITY RULES (Gopalan Standard):
+1. Trade-offs MUST reference the user's specific long-term goals. If they lose/gain money, calculate exactly how many months it delays/accelerates their specific "Dream Car" or "Home" goal.
+2. If they change health metrics (sleep/workouts/food), reference specific physiological gaps (e.g., Vitamin A deficit) or calculate exact sleep debt hours.
+3. NEVER use vague words like "improves" or "worsens". Use hard numbers: "+Rs.4000/month", "-2.5h sleep debt", "Delays Thar down payment by 2 months".
+`.trim();
+
 // ── Simulator few-shot example ───────────────────────────────────
+// Updated to reflect the Gopalan standard (specific cars, specific meals, specific rupees)
 const SIMULATOR_EXAMPLE = `
 EXAMPLE: User simulates "+30% Career study time" from 2h/day to 2.6h/day
 
 OUTPUT:
 {
   "scenarioTitle": "+30% Career Focus: The Momentum Cost",
-  "primaryOutcome": "Your career score is projected to increase by 12–18 points over 3 weeks. However, this gain comes with a real cost to your health recovery window and may trigger a 15% increase in stress levels if sleep is not protected.",
+  "primaryOutcome": "Your career score is projected to increase by 12–18 points over 3 weeks, but the 36 extra daily minutes will deduct directly from your recovery window, potentially stalling your 7kg weight loss goal.",
   "tradeOffs": [
-    { "domain": "career", "impact": "positive", "magnitude": 8, "explanation": "An extra 36 minutes of daily focused study compounds significantly. Over 3 weeks, this adds ~12h of deliberate practice — enough to complete one meaningful skill module." },
-    { "domain": "health", "impact": "negative", "magnitude": 5, "explanation": "The 36 extra minutes must come from somewhere. Based on your current schedule, it's most likely to replace recovery time. If sleep drops below 6.5h as a result, cognitive gains from extra study will be partially offset." },
-    { "domain": "finance", "impact": "neutral", "magnitude": 2, "explanation": "No direct financial impact unless the extra career focus leads to reduced gym attendance (potential subscription waste) or increased food delivery spending due to time pressure." }
+    { "domain": "career", "impact": "positive", "magnitude": 8, "explanation": "An extra 36 minutes of daily focused study compounds significantly. Over 3 weeks, this adds ~12h of deliberate practice — enough to complete the advanced React module." },
+    { "domain": "health", "impact": "negative", "magnitude": 5, "explanation": "The 36 extra minutes replace recovery time. If sleep drops below 6.5h, your cortisol will rise, triggering refined-carb cravings and risking your 7kg weight loss target." },
+    { "domain": "finance", "impact": "negative", "magnitude": 3, "explanation": "Time pressure correlates with convenience spending. Expect a Rs. 1,500/month increase in Zomato orders, which delays your Mahindra Thar down payment by 0.5 months." }
   ],
   "timelineProjection": [
-    { "week": "Week 1", "projection": "Adjustment phase — expect mild fatigue as your schedule recalibrates. Career output stays flat before rising." },
-    { "week": "Week 2", "projection": "Career momentum builds. Health metrics stabilise if sleep is protected. This is the critical inflection point." },
-    { "week": "Week 3", "projection": "Career score rises 12–18 points if Week 2 held. Risk of burnout if health was compromised in Week 1–2." }
+    { "week": "Week 1", "projection": "Adjustment phase — expect mild fatigue. Career output stays flat before rising." },
+    { "week": "Week 2", "projection": "Career momentum builds. Risk of Rs. 500 convenience spending spike due to time pressure." },
+    { "week": "Week 3", "projection": "Career score rises 12–18 points. Burnout risk elevates if sleep fell below 6.5h." }
   ],
   "riskLevel": "medium",
-  "recommendedPath": "Execute this simulation but protect sleep aggressively. Set a hard cap of 2.6h/day study — not more. Use the post-workout window for the extra study time rather than cutting sleep or social recovery.",
+  "recommendedPath": "Set a hard cap of 2.6h/day study. To prevent the Rs. 1,500 food delivery tax, meal-prep on Sunday so your Thar down payment stays on track.",
   "confidence": 77
 }
 `.trim();
@@ -68,6 +77,11 @@ export function buildSimulatorPrompt(
 ): string {
   const direction = scenario.percentChange > 0 ? "increase" : "decrease";
   const magnitude = Math.abs(scenario.percentChange);
+
+  // Safely extract specific goals if they exist on the context (fallback to generic if not)
+  // This forces Gemini to pull the exact car/house from the user's data
+  const specificWealthGoals = (currentContext as any).finance?.wealthGoals?.map((g: any) => g.goalLabel).join(", ") || "Dream Car / Home Downpayment";
+  const specificHealthGaps = (currentContext as any).health?.historicalNutrientGaps ? JSON.stringify((currentContext as any).health.historicalNutrientGaps) : "Nutrient gaps / Weight goals";
 
   return `
 You are Syntra's What-If Simulator — the predictive engine of the Digital Twin system.
@@ -94,6 +108,9 @@ Study ${currentContext.weeklyAverages.studyHours}h/week,
 Savings Rate ${currentContext.weeklyAverages.savingsRate}%,
 Stress ${currentContext.weeklyAverages.stressLevel}/10
 
+Active Wealth Goals: ${specificWealthGoals}
+Active Health Gaps/Goals: ${specificHealthGaps}
+
 ━━━ TRADE-OFF KNOWLEDGE BASE ━━━
 ${DOMAIN_TRADEOFF_KNOWLEDGE}
 
@@ -104,6 +121,7 @@ ${DOMAIN_TRADEOFF_KNOWLEDGE}
 4. timelineProjection must have 3 distinct phases (Week 1, 2, 3)
 5. riskLevel: "low" if change <15%, "medium" if 15–35%, "high" if 35–60%, "critical" if >60%
 6. Confidence ceiling: ${confidence}%. Do not exceed this.
+${SIMULATOR_SPECIFICITY_RULES}
 
 ━━━ EXAMPLE OUTPUT ━━━
 ${SIMULATOR_EXAMPLE}
@@ -113,7 +131,7 @@ ${SIMULATOR_EXAMPLE}
   "scenarioTitle": "string — punchy title for this simulation",
   "primaryOutcome": "string — quantified projection with timeframe",
   "tradeOffs": [
-    { "domain": "health|finance|career", "impact": "positive|negative|neutral", "magnitude": <1-10>, "explanation": "string with specific numbers" },
+    { "domain": "health|finance|career", "impact": "positive|negative|neutral", "magnitude": <1-10>, "explanation": "string with specific numbers AND specific goal references" },
     { "domain": "health|finance|career", "impact": "positive|negative|neutral", "magnitude": <1-10>, "explanation": "string" },
     { "domain": "health|finance|career", "impact": "positive|negative|neutral", "magnitude": <1-10>, "explanation": "string" }
   ],
@@ -123,7 +141,7 @@ ${SIMULATOR_EXAMPLE}
     { "week": "Week 3", "projection": "string" }
   ],
   "riskLevel": "low|medium|high|critical",
-  "recommendedPath": "string — the smart way to execute this change with risk mitigation",
+  "recommendedPath": "string — the smart way to execute this change with risk mitigation referencing specific goals",
   "confidence": <integer max ${confidence}>
 }
 `.trim();
@@ -132,11 +150,11 @@ ${SIMULATOR_EXAMPLE}
 // ── Convenience wrapper ──────────────────────────────────────────
 export async function generateSimulatorInsight(
   scenario: SimulatorScenario,
-  context: TwinContext,
-  scores: DomainScores,
+  currentContext: TwinContext,
+  currentScores: DomainScores,
   confidence: number
 ): Promise<SimulatorResponse> {
-  const prompt = buildSimulatorPrompt(scenario, context, scores, confidence);
+  const prompt = buildSimulatorPrompt(scenario, currentContext, currentScores, confidence);
   return callGemini<SimulatorResponse>(prompt, {
     temperature: 0.35, // Lower = more consistent, numerical outputs
     maxTokens: 4600,

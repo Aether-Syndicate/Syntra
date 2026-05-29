@@ -70,6 +70,18 @@ If any check fails, fix it before outputting.
 // HEALTH DOMAIN PROMPT
 // ================================================================
 
+// ── Nutrition history entry (one per day logged) ────────────────
+// Each entry captures what the user actually ate for nutrient gap analysis.
+export interface DailyNutritionLog {
+  date: string;                          // "YYYY-MM-DD"
+  meals: Array<{
+    meal: "breakfast" | "lunch" | "dinner" | "snack";
+    foods: string[];                     // e.g. ["rice", "dal", "cucumber"]
+    estimatedCalories?: number;
+  }>;
+  waterLitres?: number;
+}
+
 export interface HealthDomainInput {
   avgSleepHours: number;
   sleepConsistency: "consistent" | "irregular" | "very_irregular";
@@ -86,6 +98,8 @@ export interface HealthDomainInput {
   weight?: number;
   height?: number;
   activityLevel?: "sedentary" | "lightly_active" | "moderately_active" | "very_active";
+  // ── NEW: past nutrition logs for personalised food gap analysis ──
+  nutritionHistory?: DailyNutritionLog[];  // Last 7 days of meal logs
 }
 
 export interface HealthDomainResponse {
@@ -117,6 +131,27 @@ export interface HealthDomainResponse {
     focusAreas: string[];
     estimatedCalorieBurn: number;
     progressionStrategy: string;
+  };
+  // ── NEW: personalised nutrient gap analysis from meal history ──
+  nutrientGapAnalysis: {
+    // What the AI detected was MISSING from the last 7 days of food logs
+    deficiencies: Array<{
+      nutrient: string;           // e.g. "Vitamin A", "Iron", "Protein"
+      severity: "mild" | "moderate" | "significant";
+      evidenceFromLogs: string;   // e.g. "No orange/yellow vegetables logged in 5 of 7 days"
+      todaysFoodFix: string;      // e.g. "Eat one medium carrot today — 835mcg Vitamin A (93% daily target)"
+      alternativeFoods: string[]; // e.g. ["sweet potato", "spinach", "mango"]
+      whyItMatters: string;       // short physiological impact
+    }>;
+    todaysMealPlan: Array<{
+      meal: "breakfast" | "lunch" | "dinner" | "snack";
+      suggestion: string;         // specific Indian meal addressing the gap
+      targetNutrient: string;     // what gap this meal fixes
+      estimatedCalories: number;
+      prepTimeMinutes: number;
+    }>;
+    weeklyNutritionSummary: string; // e.g. "Heavy in carbs, low in Vitamin A and Iron — 3 consecutive days without any leafy greens"
+    hydrationAssessment: string;
   };
   nutritionPlan: {
     dailyCalorieTarget: number;
@@ -170,6 +205,25 @@ BAD output (never do this):
 }
 `.trim();
 
+// ── Nutrition history summariser ─────────────────────────────────
+// Converts raw meal logs into a text summary Gemini can reason over.
+// This is what enables "eat a carrot today for Vitamin A" style output.
+function summariseNutritionHistory(history: DailyNutritionLog[]): string {
+  if (!history || history.length === 0) {
+    return "No meal history logged yet. Cannot perform nutrient gap analysis — advise user to log meals for 3+ days.";
+  }
+
+  const lines = history.map((day) => {
+    const meals = day.meals.map((m) =>
+      `  ${m.meal}: ${m.foods.join(", ")}${m.estimatedCalories ? ` (~${m.estimatedCalories} kcal)` : ""}`
+    ).join("\n");
+    const water = day.waterLitres ? ` | Water: ${day.waterLitres}L` : "";
+    return `${day.date}${water}\n${meals}`;
+  });
+
+  return lines.join("\n\n");
+}
+
 export function buildHealthPrompt(input: HealthDomainInput): string {
   const nightlyDeficit = Math.max(0, 7.5 - input.avgSleepHours);
   const weeklyDebt = +(nightlyDeficit * 7).toFixed(1);
@@ -201,6 +255,29 @@ Reported symptoms: ${input.recentSymptoms?.join(", ") || "none"}
 Goals: ${input.currentGoals.join(", ")}
 ${bmrNote}
 Data points: ${input.logCount} | Confidence ceiling: ${input.confidence}%
+
+━━━ PAST 7-DAY MEAL LOG (for nutrient gap analysis) ━━━
+${summariseNutritionHistory(input.nutritionHistory ?? [])}
+
+NUTRIENT GAP ANALYSIS INSTRUCTIONS:
+Scan the meal log above and identify which vitamins, minerals, or macronutrients are
+CONSISTENTLY ABSENT or under-represented across multiple days.
+
+Key Indian diet gaps to check for:
+- Vitamin A: found in carrots, sweet potato, mango, papaya, spinach — often missing from grain-heavy diets
+- Iron: found in lentils, spinach, ragi, beetroot — often deficient, especially in vegetarian diets
+- Vitamin C: found in amla, guava, lemon, tomato, capsicum — often low if no fresh produce logged
+- Calcium: found in milk, curd, ragi, sesame — often missed if dairy is absent
+- Protein: check if legumes/dal/eggs/paneer appear daily — gap very common in Indian diets
+- Vitamin B12: found in dairy, eggs, paneer — near-zero in fully vegan diets; flag if no animal products logged
+- Omega-3: found in flaxseed, walnuts, fish — almost always absent from typical Indian log
+- Zinc: found in pumpkin seeds, chickpeas, cashews — often missed
+
+For EACH deficiency you identify:
+1. Cite the EXACT days from the log where the nutrient was absent
+2. Give ONE specific food to eat TODAY that fixes it (be as specific as Mr. Gopalan's example: "eat a carrot for Vitamin A")
+3. Give 2-3 alternative foods in case the suggested food is unavailable
+4. Explain in one sentence WHY this nutrient matters for their health goals
 
 ANALYTICAL FRAMEWORK:
 SLEEP DEBT FORMULA: deficit_hours x 1.3 = recovery_hours_needed
@@ -235,6 +312,29 @@ RETURN ONLY THIS JSON - NO TEXT OUTSIDE THE BRACES:
     "currentDebtHours": <number - calculated weekly sleep debt>,
     "recoveryPlan": "string - specific nightly target and duration to recover",
     "cognitiveImpactEstimate": "string - estimated percentage cognitive capacity with explanation"
+  },
+  "nutrientGapAnalysis": {
+    "deficiencies": [
+      {
+        "nutrient": "string - e.g. Vitamin A",
+        "severity": "mild|moderate|significant",
+        "evidenceFromLogs": "string - cite specific dates from the meal log where this nutrient was absent",
+        "todaysFoodFix": "string - ONE specific food to eat today with portion and nutrient amount, e.g. 'Eat one medium carrot today — provides 835mcg Vitamin A (93% of daily target)'",
+        "alternativeFoods": ["string - 2-3 alternative foods if primary is unavailable"],
+        "whyItMatters": "string - one sentence on the physiological impact of this deficiency for this user's goals"
+      }
+    ],
+    "todaysMealPlan": [
+      {
+        "meal": "breakfast|lunch|dinner|snack",
+        "suggestion": "string - specific Indian meal that addresses the identified nutrient gaps",
+        "targetNutrient": "string - which gap this meal primarily fixes",
+        "estimatedCalories": <number>,
+        "prepTimeMinutes": <number>
+      }
+    ],
+    "weeklyNutritionSummary": "string - one sentence summarising the pattern across the 7-day log, e.g. 'Diet is carb-heavy with no orange/yellow vegetables in 5 of 7 days and protein below 40g/day'",
+    "hydrationAssessment": "string - assessment of water intake from logs with specific target"
   },
   "workoutPlan": {
     "weeklySchedule": [
@@ -285,6 +385,17 @@ export interface FinanceDomainInput {
   hasHealthInsurance?: boolean;
   existingSIPs?: Array<{ fund: string; amount: number }>;
   taxRegime?: "old" | "new";
+  // ── NEW: concrete wealth goals for goal-based spend planning ────
+  // Directly addresses Mr. Gopalan's request: "based on income data,
+  // recommend spend to achieve goal of buying home or dream car"
+  wealthGoals?: Array<{
+    goalType: "home" | "car" | "education" | "wedding" | "emergency_fund" | "retirement" | "other";
+    goalLabel: string;          // e.g. "Buy a 3BHK in Hyderabad", "Mahindra Thar"
+    targetAmount: number;       // total cost in INR
+    downPaymentPercent?: number; // e.g. 20 for 20% down (rest via loan)
+    targetYear?: number;        // e.g. 2028
+    priority: "high" | "medium" | "low";
+  }>;
 }
 
 export interface FinanceDomainResponse {
@@ -330,6 +441,42 @@ export interface FinanceDomainResponse {
   creditCardRecommendation: string | null;
   insuranceSuggestions: string[];
   debtStrategy: string | null;
+  // ── NEW: goal-by-goal wealth roadmap ──────────────────────────
+  // For each wealth goal the user has specified, the AI calculates
+  // exactly how much to save/invest per month and what to cut.
+  wealthGoalPlan: Array<{
+    goalLabel: string;           // e.g. "Buy a 3BHK in Hyderabad"
+    goalType: string;
+    targetAmount: number;
+    downPaymentRequired: number; // what user needs to save before loan
+    monthsToGoal: number;        // at current savings rate
+    monthsToGoalOptimised: number; // with recommended changes
+    requiredMonthlySaving: number; // how much to set aside each month
+    currentMonthlySurplus: number; // what is available right now
+    gap: number;                 // shortfall per month (0 if achievable)
+    // Specific spend changes to close the gap:
+    spendingAdjustments: Array<{
+      category: string;           // e.g. "food delivery", "subscriptions"
+      currentAmount: number;
+      recommendedAmount: number;
+      monthlySaving: number;
+      suggestion: string;         // specific actionable tip
+    }>;
+    investmentVehicle: string;    // where to park the monthly savings
+    loanDetails?: {               // if goal requires a loan (home/car)
+      estimatedEMI: number;
+      loanAmount: number;
+      tenureYears: number;
+      eligibilityNote: string;    // based on current income
+    };
+    milestones: Array<{
+      label: string;              // e.g. "Down payment ready"
+      targetDate: string;         // e.g. "March 2027"
+      amountNeeded: number;
+    }>;
+    feasibilityVerdict: "achievable" | "achievable_with_cuts" | "needs_income_growth" | "not_feasible";
+    oneLineSummary: string;       // e.g. "Save Rs.18,000/month for 28 months — cut food delivery by Rs.3,000 to close the gap."
+  }>;
 }
 
 const FINANCE_PERSONA = `
@@ -365,6 +512,46 @@ BAD output (never do this):
 }
 `.trim();
 
+// ── Wealth goal summariser ───────────────────────────────────────
+// Pre-calculates basic numbers for each goal so Gemini can reason
+// precisely rather than doing arithmetic mid-response.
+function summariseWealthGoals(
+  goals: FinanceDomainInput["wealthGoals"],
+  monthlyIncome: number,
+  totalSavings: number,
+  totalExpenses: number
+): string {
+  if (!goals || goals.length === 0) {
+    return "No specific wealth goals logged. Provide general wealth-building advice.";
+  }
+
+  const disposable = monthlyIncome - totalExpenses;
+  const lines = goals.map((g) => {
+    const downPayment = g.targetAmount * ((g.downPaymentPercent ?? 20) / 100);
+    const alreadySaved = Math.min(totalSavings, downPayment);
+    const stillNeeded = Math.max(0, downPayment - alreadySaved);
+    const monthsAtCurrentRate = disposable > 0 ? Math.ceil(stillNeeded / disposable) : 999;
+    const yearsToGoal = g.targetYear ? g.targetYear - new Date().getFullYear() : null;
+    const requiredMonthly = yearsToGoal && yearsToGoal > 0
+      ? Math.ceil(stillNeeded / (yearsToGoal * 12))
+      : null;
+
+    return [
+      `GOAL: "${g.goalLabel}" (${g.goalType}, priority: ${g.priority})`,
+      `  Total Cost: Rs.${g.targetAmount.toLocaleString("en-IN")}`,
+      `  Down Payment Needed (${g.downPaymentPercent ?? 20}%): Rs.${Math.round(downPayment).toLocaleString("en-IN")}`,
+      `  Already Saved: Rs.${Math.round(alreadySaved).toLocaleString("en-IN")}`,
+      `  Still Needed for Down Payment: Rs.${Math.round(stillNeeded).toLocaleString("en-IN")}`,
+      `  At current monthly surplus (Rs.${disposable.toLocaleString("en-IN")}): ${monthsAtCurrentRate} months`,
+      yearsToGoal !== null
+        ? `  Target Year: ${g.targetYear} (${yearsToGoal} years away) → requires Rs.${requiredMonthly?.toLocaleString("en-IN")}/month`
+        : "  No target year set",
+    ].join("\n");
+  });
+
+  return lines.join("\n\n");
+}
+
 export function buildFinancePrompt(input: FinanceDomainInput): string {
   const totalExpenses = Object.values(input.monthlyExpenses).reduce((a, b) => a + b, 0);
   const disposable = input.monthlyIncome - totalExpenses;
@@ -382,9 +569,10 @@ export function buildFinancePrompt(input: FinanceDomainInput): string {
     "Check insurance gaps first - term life and health insurance are the number one financial risk for Indians under 35",
     "If debt exceeds 2x monthly income: prioritise debt avalanche before any investment recommendation",
     "Apply 50-30-20 rule analysis to identify if needs/wants/savings are in healthy proportions",
+    "WEALTH GOAL ANALYSIS: For each goal in wealthGoals, calculate the required monthly saving, identify the gap vs current surplus, and name the specific expense categories to cut to close that gap",
     "Design investment allocation with specific Indian product names: ELSS fund names, specific index funds, PPF",
     "Calculate tax saving opportunity under 80C (1.5L limit) and 80D (health insurance premiums)",
-    "Run self-critique: are all rupee amounts realistic? Are product names real Indian financial products?",
+    "Run self-critique: are all rupee amounts realistic? Are product names real Indian financial products? Does each wealth goal plan include a specific monthly savings number?",
   ]);
 
   return `
@@ -407,6 +595,23 @@ Health Insurance: ${input.hasHealthInsurance ? "YES" : "NO - CRITICAL GAP"}
 Existing SIPs: ${input.existingSIPs?.map(s => `${s.fund} Rs.${s.amount}`).join(", ") || "none"}
 Age: ${input.age ?? "not provided"}
 Data Points: ${input.logCount} | Confidence Ceiling: ${input.confidence}%
+
+━━━ WEALTH GOALS — GOAL-BASED SPEND PLANNING ━━━
+${summariseWealthGoals(input.wealthGoals, input.monthlyIncome, input.totalSavings, totalExpenses)}
+
+WEALTH GOAL ANALYSIS INSTRUCTIONS:
+For EACH goal above, calculate:
+1. Exactly how much the user needs to save per month to hit the down payment by their target date
+2. Whether the current monthly surplus covers this — if not, identify the SPECIFIC expense categories to cut
+3. Which savings vehicle to use (liquid fund for <3 years, equity SIP for >3 years)
+4. If it's a home or car goal: estimate the loan EMI they'll face after the down payment
+5. Break the path into 2-3 concrete milestones with dates and amounts
+6. Give a one-line verdict: can they achieve this goal at current income? What is the single biggest lever?
+
+Example of the specificity required:
+"To buy a Mahindra Thar (Rs.17L) in 2 years: save Rs.8,500/month in a Zerodha Coin liquid fund.
+ Cut Zomato/Swiggy from Rs.4,000 to Rs.1,500/month to close the Rs.2,500 monthly gap.
+ By Month 8 you'll have Rs.68,000 — enough for road tax + insurance. By Month 24: full down payment."
 
 PRE-CALCULATED METRICS:
 Emergency Fund Coverage: ${emergencyFundMonths} months (target: 6 months minimum)
@@ -474,7 +679,41 @@ RETURN ONLY THIS JSON:
   ],
   "creditCardRecommendation": "string - specific card name and benefit relevant to spending pattern, or null",
   "insuranceSuggestions": ["string - specific product, cover amount, estimated premium, and where to buy"],
-  "debtStrategy": "string - avalanche or snowball with specific order and monthly allocation, or null if debt is under 0.5x income"
+  "debtStrategy": "string - avalanche or snowball with specific order and monthly allocation, or null if debt is under 0.5x income",
+  "wealthGoalPlan": [
+    {
+      "goalLabel": "string - e.g. Buy a 3BHK in Hyderabad",
+      "goalType": "string",
+      "targetAmount": <number>,
+      "downPaymentRequired": <number>,
+      "monthsToGoal": <number - at current savings rate>,
+      "monthsToGoalOptimised": <number - with recommended spending cuts>,
+      "requiredMonthlySaving": <number - INR per month needed>,
+      "currentMonthlySurplus": <number - what is available now>,
+      "gap": <number - monthly shortfall, 0 if achievable>,
+      "spendingAdjustments": [
+        {
+          "category": "string - e.g. Food Delivery",
+          "currentAmount": <INR>,
+          "recommendedAmount": <INR>,
+          "monthlySaving": <INR>,
+          "suggestion": "string - specific actionable tip with product/service name"
+        }
+      ],
+      "investmentVehicle": "string - specific fund/product to park the monthly savings",
+      "loanDetails": {
+        "estimatedEMI": <INR per month>,
+        "loanAmount": <INR>,
+        "tenureYears": <number>,
+        "eligibilityNote": "string - based on their income whether they qualify"
+      },
+      "milestones": [
+        { "label": "string", "targetDate": "string - e.g. March 2027", "amountNeeded": <INR> }
+      ],
+      "feasibilityVerdict": "achievable|achievable_with_cuts|needs_income_growth|not_feasible",
+      "oneLineSummary": "string - the whole plan in one specific sentence with rupee amounts and timeline"
+    }
+  ]
 }
 `.trim();
 }

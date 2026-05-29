@@ -13,6 +13,9 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronLeft,
+  AlertTriangle,
+  Brain,
+  Zap,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
@@ -41,9 +44,14 @@ interface CareerData {
   courseName: string;
 }
 
-interface CsvData {
+interface DomainFile {
   file: File | null;
-  domain: string;
+}
+
+interface BatchFiles {
+  health: DomainFile;
+  finance: DomainFile;
+  career: DomainFile;
 }
 
 /* ─────────────────────────────────────────────
@@ -70,8 +78,65 @@ function calcCareerProgress(d: CareerData): number {
   return Math.round((reqFilled / 2) * 70 + (optFilled / 2) * 30);
 }
 
-function calcCsvProgress(d: CsvData): number {
-  return d.file ? 100 : 0;
+function calcBatchProgress(b: BatchFiles): number {
+  const count = [b.health.file, b.finance.file, b.career.file].filter(Boolean).length;
+  return count === 0 ? 0 : Math.round((count / 3) * 100);
+}
+
+/* ─────────────────────────────────────────────
+   Ranged Input with validation
+───────────────────────────────────────────── */
+function RangedField({
+  label, req, opt, value, onChange, min, max, placeholder,
+}: {
+  label: string; req?: boolean; opt?: boolean;
+  value: string; onChange: (v: string) => void;
+  min: number; max: number; placeholder?: string;
+}) {
+  const num = parseFloat(value);
+  const isOutOfRange = value !== "" && (!isNaN(num) && (num < min || num > max));
+
+  return (
+    <div className="field">
+      <label className="form-label">
+        {label}
+        {req && <span className="req">*</span>}
+        {opt && <span className="opt-tag">(optional)</span>}
+      </label>
+      <div style={{ position: "relative" }}>
+        <input
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => {
+            onChange(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            const cur = parseFloat(value + e.key);
+            if (!isNaN(cur) && cur > max && e.key !== "Backspace" && e.key !== "Delete" && e.key !== "Tab") {
+               e.preventDefault();
+            }
+          }}
+          className={`form-input${isOutOfRange ? " input-error" : ""}`}
+          style={isOutOfRange ? { borderColor: "#ef4444", background: "#fff5f5", color: "#dc2626" } : {}}
+        />
+        {isOutOfRange && (
+          <div style={{
+            position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+          }}>
+            <AlertTriangle size={14} color="#ef4444" />
+          </div>
+        )}
+      </div>
+      {isOutOfRange && (
+        <span style={{ fontSize: "0.72rem", color: "#ef4444", fontWeight: 600, marginTop: 2 }}>
+          Must be between {min} and {max}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────
@@ -97,6 +162,53 @@ function FormField({
         onChange={(e) => onChange(e.target.value)}
         className="form-input"
       />
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Domain Ingest Card
+───────────────────────────────────────────── */
+function IngestCard({
+  domain, label, icon, gradient, file, onFile,
+}: {
+  domain: string; label: string; icon: React.ReactNode;
+  gradient: string; file: File | null; onFile: (f: File | null) => void;
+}) {
+  return (
+    <div className="ingest-card">
+      <div className="ingest-card-header" style={{ background: gradient }}>
+        <div className="ingest-icon">{icon}</div>
+        <span className="ingest-label">{label}</span>
+        <span className="ingest-sub">CSV / Excel</span>
+      </div>
+      <div className="ingest-card-body">
+        <label className="ingest-drop">
+          <input
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            style={{ display: "none" }}
+            onChange={(e) => onFile(e.target.files?.[0] || null)}
+          />
+          {file ? (
+            <div className="ingest-file-ready">
+              <CheckCircle2 size={18} color="#0044DD" />
+              <span className="ingest-filename">{file.name}</span>
+            </div>
+          ) : (
+            <div className="ingest-placeholder">
+              <Upload size={20} color="#94a3b8" />
+              <span>Drop file or click</span>
+              <span className="ingest-formats">.csv .xlsx .xls</span>
+            </div>
+          )}
+        </label>
+        {file && (
+          <button className="ingest-remove" onClick={() => onFile(null)}>
+            Remove
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -167,6 +279,170 @@ function StepDots({ current, completed }: { current: number; completed: Set<numb
 }
 
 /* ─────────────────────────────────────────────
+   Calibrating Screen
+───────────────────────────────────────────── */
+function CalibratingScreen() {
+  const [phase, setPhase] = useState(0);
+  const phases = [
+    "Initializing twin core...",
+    "Ingesting health matrix...",
+    "Mapping finance vectors...",
+    "Syncing career trajectory...",
+    "Calibrating AI reflection...",
+    "Twin sync complete.",
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhase((p) => (p < phases.length - 1 ? p + 1 : p));
+    }, 600);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="calibrating-overlay">
+      <style>{`
+        @keyframes brainPulse {
+          0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(0,102,255,0.6), 0 0 40px rgba(0,68,221,0.4); }
+          50% { transform: scale(1.08); opacity: 0.9; box-shadow: 0 0 0 24px rgba(0,102,255,0), 0 0 80px rgba(0,68,221,0.8); }
+        }
+        @keyframes ringExpand {
+          0% { transform: scale(0.8); opacity: 0.8; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
+        @keyframes dashLine {
+          0% { stroke-dashoffset: 300; opacity: 0.3; }
+          50% { stroke-dashoffset: 0; opacity: 1; }
+          100% { stroke-dashoffset: -300; opacity: 0.3; }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dotBlink {
+          0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+          40% { opacity: 1; transform: scale(1.2); }
+        }
+        @keyframes scanLine {
+          0% { top: 10%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 90%; opacity: 0; }
+        }
+        .calibrating-overlay {
+          position: fixed; inset: 0; z-index: 9999;
+          background: linear-gradient(135deg, #000510 0%, #000d2e 50%, #00082a 100%);
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          font-family: 'Inter','DM Sans',-apple-system,sans-serif;
+        }
+        .brain-wrapper {
+          position: relative; width: 160px; height: 160px;
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 40px;
+        }
+        .brain-core {
+          width: 100px; height: 100px; border-radius: 50%;
+          background: linear-gradient(135deg, #0033bb, #0066ff, #3322ee);
+          display: flex; align-items: center; justify-content: center;
+          animation: brainPulse 1.8s ease-in-out infinite;
+          position: relative; z-index: 2;
+        }
+        .ring {
+          position: absolute; border-radius: 50%;
+          border: 2px solid rgba(0,102,255,0.5);
+          animation: ringExpand 2.4s ease-out infinite;
+        }
+        .ring-1 { width: 100px; height: 100px; animation-delay: 0s; }
+        .ring-2 { width: 100px; height: 100px; animation-delay: 0.8s; }
+        .ring-3 { width: 100px; height: 100px; animation-delay: 1.6s; }
+        .scan-line {
+          position: absolute; left: 0; right: 0; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(0,150,255,0.8), transparent);
+          animation: scanLine 2s ease-in-out infinite;
+          z-index: 3;
+        }
+        .calib-title {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 1.8rem; font-weight: 800;
+          color: #ffffff; letter-spacing: -0.04em;
+          margin-bottom: 8px;
+        }
+        .calib-subtitle {
+          font-size: 0.85rem; color: rgba(255,255,255,0.45);
+          margin-bottom: 32px;
+        }
+        .calib-phase {
+          font-size: 0.88rem; font-weight: 600;
+          color: #60a5fa; letter-spacing: 0.02em;
+          animation: fadeInUp 0.4s ease; min-height: 22px;
+          margin-bottom: 28px;
+        }
+        .calib-dots { display: flex; gap: 8px; margin-bottom: 40px; }
+        .calib-dot {
+          width: 8px; height: 8px; border-radius: 50%;
+          background: #0055EE;
+          animation: dotBlink 1.4s ease-in-out infinite;
+        }
+        .calib-dot:nth-child(2) { animation-delay: 0.2s; }
+        .calib-dot:nth-child(3) { animation-delay: 0.4s; }
+        .calib-progress-track {
+          width: 280px; height: 3px;
+          background: rgba(255,255,255,0.1); border-radius: 9999px; overflow: hidden;
+        }
+        .calib-progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #0044DD, #0066FF, #3322EE);
+          border-radius: 9999px;
+          transition: width 0.6s ease;
+        }
+        .calib-grid {
+          position: fixed; inset: 0; pointer-events: none; overflow: hidden; opacity: 0.04;
+          background-image: linear-gradient(#0066FF 1px, transparent 1px),
+            linear-gradient(90deg, #0066FF 1px, transparent 1px);
+          background-size: 48px 48px;
+        }
+        .corner-badge {
+          position: fixed; top: 24px; left: 24px;
+          display: flex; align-items: center; gap: 8px;
+          font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.4);
+          letter-spacing: 0.1em; text-transform: uppercase;
+        }
+      `}</style>
+      <div className="calib-grid" />
+      <div className="corner-badge"><Sparkles size={11} /> Syntra AI</div>
+
+      <div className="brain-wrapper">
+        <div className="scan-line" />
+        <div className="ring ring-1" />
+        <div className="ring ring-2" />
+        <div className="ring ring-3" />
+        <div className="brain-core">
+          <Brain size={40} color="#ffffff" />
+        </div>
+      </div>
+
+      <h2 className="calib-title">Syntra Core Calibrating...</h2>
+      <p className="calib-subtitle">Your AI twin is syncing with your data</p>
+
+      <div className="calib-phase" key={phase}>{phases[phase]}</div>
+
+      <div className="calib-dots">
+        <div className="calib-dot" />
+        <div className="calib-dot" />
+        <div className="calib-dot" />
+      </div>
+
+      <div className="calib-progress-track">
+        <div
+          className="calib-progress-fill"
+          style={{ width: `${Math.round((phase / (phases.length - 1)) * 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    Main Page
 ───────────────────────────────────────────── */
 export default function IngestionPage() {
@@ -176,6 +452,7 @@ export default function IngestionPage() {
   const [animDir, setAnimDir] = useState<"forward" | "backward">("forward");
   const [animating, setAnimating] = useState(false);
   const [completed, setCompleted] = useState<Set<number>>(new Set());
+  const [calibrating, setCalibrating] = useState(false);
 
   const [typedTitle, setTypedTitle] = useState("");
   const fullTitle = "Feed Your AI Twin";
@@ -190,11 +467,28 @@ export default function IngestionPage() {
   const [career, setCareer] = useState<CareerData>({
     hoursStudied: "", productivityRating: "", sessionsCompleted: "", courseName: "",
   });
-  const [csv, setCsv] = useState<CsvData>({ file: null, domain: "health" });
+  const [batchFiles, setBatchFiles] = useState<BatchFiles>({
+    health: { file: null },
+    finance: { file: null },
+    career: { file: null },
+  });
+
+  // ── FRONTEND EXCEL PARSING STATE ─────────────────────────────────────────
+  // Stores parsed rows from SheetJS for each domain after file selection.
+  const [parsedRows, setParsedRows] = useState<{
+    health: Record<string, unknown>[];
+    finance: Record<string, unknown>[];
+    career: Record<string, unknown>[];
+  }>({ health: [], finance: [], career: [] });
+
+  // Stores per-domain parse error messages shown below each ingest card.
+  const [parseErrors, setParseErrors] = useState<{
+    health: string; finance: string; career: string;
+  }>({ health: "", finance: "", career: "" });
+  // ─────────────────────────────────────────────────────────────────────────
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -228,23 +522,104 @@ export default function IngestionPage() {
     }, 320);
   }, [animating, step]);
 
+  // ── FRONTEND EXCEL/CSV PARSING HANDLER ───────────────────────────────────
+  // Called when a user selects a file in any IngestCard.
+  // For .xlsx/.xls files: uses SheetJS to parse client-side before upload.
+  // For .csv files: stores the file as-is (no frontend parsing needed).
+  const handleDomainFile = useCallback(
+    async (domain: "health" | "finance" | "career", file: File | null) => {
+      // Update the file in batchFiles state and reset parse state for this domain
+      setBatchFiles(p => ({ ...p, [domain]: { file } }));
+      setParseErrors(p => ({ ...p, [domain]: "" }));
+      setParsedRows(p => ({ ...p, [domain]: [] }));
+
+      if (!file) return;
+
+      // Only parse Excel files on the frontend; CSVs are uploaded as-is
+      const isExcel =
+        file.name.toLowerCase().endsWith(".xlsx") ||
+        file.name.toLowerCase().endsWith(".xls");
+
+      if (!isExcel) return;
+
+      try {
+        // Dynamically import SheetJS to keep the initial bundle lean
+        const XLSX = await import("xlsx");
+
+        // Read the file into an ArrayBuffer for SheetJS
+        const arrayBuffer = await file.arrayBuffer();
+
+        // ── FRONTEND PARSING: parse the workbook from binary data ──
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+
+        // Read only the first worksheet
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) {
+          setParseErrors(p => ({ ...p, [domain]: "Workbook contains no sheets." }));
+          return;
+        }
+
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        // Convert sheet rows to JSON objects using SheetJS utility
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
+
+        // Validate: the sheet must not be empty
+        if (!rows || rows.length === 0) {
+          setParseErrors(p => ({
+            ...p,
+            [domain]: "The sheet appears to be empty. Please check your file.",
+          }));
+          return;
+        }
+
+        // Store parsed rows in state — available for inspection or submission
+        setParsedRows(p => ({ ...p, [domain]: rows }));
+        // ── END FRONTEND PARSING ──────────────────────────────────
+      } catch (err) {
+        // Show a user-friendly error if parsing fails for any reason
+        setParseErrors(p => ({
+          ...p,
+          [domain]:
+            err instanceof Error
+              ? `Parse error: ${err.message}`
+              : "Failed to parse file. Please ensure it is a valid Excel workbook.",
+        }));
+      }
+    },
+    []
+  );
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Validation helpers
+  const isRangedValid = (v: string, min: number, max: number) => {
+    if (v === "") return true;
+    const n = parseFloat(v);
+    return !isNaN(n) && n >= min && n <= max;
+  };
+
   const progress = [
     calcHealthProgress(health),
     calcFinanceProgress(finance),
     calcCareerProgress(career),
-    calcCsvProgress(csv),
+    calcBatchProgress(batchFiles),
   ];
 
+  const stressValid = isRangedValid(health.stressLevel, 1, 10);
+  const moodValid = isRangedValid(health.moodScore, 1, 10);
+  const energyValid = isRangedValid(health.energyLevel, 1, 10);
+  const prodValid = isRangedValid(career.productivityRating, 1, 10);
+
   const canNext = [
-    !!(health.sleepHours && health.workoutMinutes && health.stressLevel),
+    !!(health.sleepHours && health.workoutMinutes && health.stressLevel && stressValid && moodValid && energyValid),
     !!(finance.amountSaved && finance.discretionarySpent),
-    !!(career.hoursStudied && career.productivityRating),
+    !!(career.hoursStudied && career.productivityRating && prodValid),
     true,
   ][step];
 
   const handleNext = () => {
     if (!canNext) {
-      setMessage("Please fill in all required fields before continuing.");
+      setMessage("Please fill in all required fields correctly before continuing.");
       return;
     }
     setCompleted(prev => new Set([...prev, step]));
@@ -296,43 +671,36 @@ export default function IngestionPage() {
       const cd = await c.json();
       if (!cd.success) throw new Error(cd.message || "Career ingestion failed.");
 
-      if (csv.file) {
-  const formData = new FormData();
-  formData.append("file", csv.file);
-  formData.append("domain", csv.domain);
-
-  const fileName = csv.file.name.toLowerCase();
-
-  const endpoint =
-    fileName.endsWith(".xlsx") || fileName.endsWith(".xls")
-      ? "/api/upload/excel"
-      : "/api/upload/csv";
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    credentials: "include",
-    body: formData,
-  });
-
-  const data = await response.json();
-
-  if (!data.success) {
-    throw new Error(data.message || "Batch upload failed.");
-  }
-}
+      // Upload each batch file separately by domain
+      for (const domain of ["health", "finance", "career"] as const) {
+        const fileObj = batchFiles[domain].file;
+        if (!fileObj) continue;
+        const formData = new FormData();
+        formData.append("file", fileObj);
+        formData.append("domain", domain);
+        const fileName = fileObj.name.toLowerCase();
+        const endpoint =
+          fileName.endsWith(".xlsx") || fileName.endsWith(".xls")
+            ? "/api/upload/excel"
+            : "/api/upload/csv";
+        const response = await fetch(endpoint, { method: "POST", credentials: "include", body: formData });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message || `${domain} batch upload failed.`);
+      }
 
       window.dispatchEvent(new Event("syntra-refresh"));
       setCompleted(new Set([0, 1, 2, 3]));
-      setSubmitted(true);
-      setTimeout(() => router.push("/dashboard"), 2800);
+      setLoading(false);
+      setCalibrating(true);
+      setTimeout(() => router.push("/insights"), 4200);
     } catch (err: unknown) {
       setMessage(err instanceof Error ? err.message : "Submission failed. Please retry.");
-    } finally {
       setLoading(false);
     }
   };
 
   if (!mounted) return null;
+  if (calibrating) return <CalibratingScreen />;
 
   const isError = (msg: string) =>
     msg.toLowerCase().includes("fail") || msg.includes("select") ||
@@ -387,7 +755,7 @@ export default function IngestionPage() {
         .left-step-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .left-step-text { font-size: 0.8rem; font-weight: 500; color: rgba(255,255,255,0.45); }
         .left-step-text.active { color: #ffffff; font-weight: 600; }
-        .main-wrapper { width: 100%; max-width: 620px; }
+        .main-wrapper { width: 100%; max-width: 680px; }
         .exit-bar { display: inline-flex; align-items: center; gap: 8px; font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 600; color: #64748b; text-decoration: none; margin-bottom: 28px; padding: 7px 14px; border-radius: 9999px; background: #ffffff; border: 1px solid #e2e8f0; transition: all 0.2s ease; cursor: pointer; width: fit-content; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
         .exit-bar:hover { color: #0044DD; border-color: #0044DD; background: #eff4ff; transform: translateX(-2px); }
         .title-container { margin-bottom: 24px; }
@@ -421,6 +789,8 @@ export default function IngestionPage() {
         .form-input::-webkit-outer-spin-button, .form-input::-webkit-inner-spin-button { -webkit-appearance: none; }
         .form-input:focus { outline: none; border-color: #0044DD; background: #fff; box-shadow: 0 0 0 3px rgba(0,68,221,0.1); }
         .form-input::placeholder { color: #b0bac6; font-size: 0.84rem; }
+        .input-error { border-color: #ef4444 !important; background: #fff5f5 !important; color: #dc2626 !important; }
+        .input-error:focus { box-shadow: 0 0 0 3px rgba(239,68,68,0.15) !important; }
         .section-divider { height: 1px; background: #eef1f8; margin: 2px 0; }
         .card-footer { padding: 16px 24px 22px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #eef1f8; background: #f7f8fc; }
         .nav-btn { display: flex; align-items: center; gap: 7px; padding: 10px 18px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; cursor: pointer; transition: all 0.18s; white-space: nowrap; }
@@ -438,12 +808,30 @@ export default function IngestionPage() {
         .slide-enter-backward { animation: slideInBackward 0.32s cubic-bezier(0.22,1,0.36,1) forwards; }
         .slide-exit-forward { animation: slideOutForward 0.28s ease forwards; }
         .slide-exit-backward { animation: slideOutBackward 0.28s ease forwards; }
-        .success-card { background: #fff; border-radius: 20px; border: 1px solid #c7d7fb; padding: 48px 32px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px; box-shadow: 0 8px 32px rgba(0,68,221,0.1); }
-        .success-icon { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg,#0044DD,#0066FF); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,68,221,0.3); margin-bottom: 4px; }
-        .success-title { font-family: 'DM Sans', sans-serif; font-size: 1.6rem; font-weight: 800; color: #111111; letter-spacing: -0.03em; }
-        .success-sub { font-size: 0.9rem; color: #5a5a6a; line-height: 1.6; max-width: 380px; }
+        /* Batch Ingest Cards */
+        .batch-cards-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .ingest-card { border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; background: #fff; transition: box-shadow 0.2s; }
+        .ingest-card:hover { box-shadow: 0 4px 20px rgba(0,68,221,0.1); }
+        .ingest-card-header { padding: 14px 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .ingest-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; }
+        .ingest-label { font-size: 0.78rem; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
+        .ingest-sub { font-size: 0.68rem; color: rgba(255,255,255,0.7); font-weight: 500; }
+        .ingest-card-body { padding: 12px; }
+        .ingest-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 16px 8px; cursor: pointer; transition: all 0.18s; min-height: 80px; text-align: center; }
+        .ingest-drop:hover { border-color: #0044DD; background: #eff4ff; }
+        .ingest-placeholder { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .ingest-placeholder span { font-size: 0.72rem; color: #94a3b8; font-weight: 500; }
+        .ingest-formats { font-size: 0.65rem; color: #b0bac6; }
+        .ingest-file-ready { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .ingest-filename { font-size: 0.7rem; color: #0044DD; font-weight: 600; word-break: break-all; text-align: center; }
+        .ingest-remove { width: 100%; margin-top: 6px; padding: 5px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f7f8fc; font-size: 0.72rem; color: #94a3b8; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+        .ingest-remove:hover { border-color: #ef4444; color: #ef4444; background: #fff5f5; }
+        .batch-note { font-size: 0.78rem; color: #94a3b8; text-align: center; margin-top: 4px; }
+        /* Parse feedback styles */
+        .parse-error { margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: #fff5f5; border: 1px solid #fecaca; font-size: 0.7rem; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 5px; font-family: 'Inter', sans-serif; }
+        .parse-success { margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: #f0fdf4; border: 1px solid #bbf7d0; font-size: 0.7rem; color: #16a34a; font-weight: 600; display: flex; align-items: center; gap: 5px; font-family: 'Inter', sans-serif; }
         @media (max-width: 860px) { .page-left { display: none; } .page-right { padding: 32px 16px; } }
-        @media (max-width: 600px) { .dot-connector { width: 20px; } .dot-label { display: none; } }
+        @media (max-width: 600px) { .dot-connector { width: 20px; } .dot-label { display: none; } .batch-cards-grid { grid-template-columns: 1fr; } }
       `}</style>
 
       <div className="page-left">
@@ -476,147 +864,194 @@ export default function IngestionPage() {
 
           <StepDots current={step} completed={completed} />
 
-          {message && !submitted && (
+          {message && (
             <div className="live-status-banner" style={{ borderColor: "#c7d7fb", background: "#eff4ff", color: "#0044DD" }}>
               {isError(message) ? <ShieldAlert size={16} /> : <CheckCircle2 size={16} />}
               <span style={{ fontWeight: 600 }}>{message}</span>
             </div>
           )}
 
-          {submitted ? (
-            <div className="success-card">
-              <div className="success-icon"><CheckCircle2 size={30} color="#fff" /></div>
-              <h2 className="success-title">All Systems Synced</h2>
-              <p className="success-sub">Your health matrix, financial ledger, and career metrics have been ingested. Your AI twin is updating now.</p>
-            </div>
-          ) : (
-            <div className={`step-card ${animating ? (animDir === "forward" ? "slide-exit-forward" : "slide-exit-backward") : (animDir === "forward" ? "slide-enter-forward" : "slide-enter-backward")}`}>
-              <ProgressBar pct={progress[step]} gradient={gradients[step]} />
-              <div className="progress-label">{progress[step]}% complete</div>
+          <div className={`step-card ${animating ? (animDir === "forward" ? "slide-exit-forward" : "slide-exit-backward") : (animDir === "forward" ? "slide-enter-forward" : "slide-enter-backward")}`}>
+            <ProgressBar pct={progress[step]} gradient={gradients[step]} />
+            <div className="progress-label">{progress[step]}% complete</div>
 
-              {step === 0 && (
-                <>
-                  <div className="card-header">
-                    <div className="icon-ring" style={{ background: iconRings[0].bg, color: iconRings[0].color }}><HeartPulse size={20} /></div>
-                    <div className="card-label">
-                      <span className="card-title">Health Matrix</span>
-                      <span className="card-sub">Biometric vital node sync</span>
-                    </div>
+            {/* ── STEP 0: Health ── */}
+            {step === 0 && (
+              <>
+                <div className="card-header">
+                  <div className="icon-ring" style={{ background: iconRings[0].bg, color: iconRings[0].color }}><HeartPulse size={20} /></div>
+                  <div className="card-label">
+                    <span className="card-title">Health Matrix</span>
+                    <span className="card-sub">Biometric vital node sync</span>
                   </div>
-                  <div className="card-body">
-                    <div className="field-row">
-                      <FormField label="Sleep Hours" req type="number" value={health.sleepHours} onChange={v => setHealth(p => ({ ...p, sleepHours: v }))} placeholder="7.5" />
-                      <FormField label="Workout Mins" req type="number" value={health.workoutMinutes} onChange={v => setHealth(p => ({ ...p, workoutMinutes: v }))} placeholder="45" />
-                    </div>
-                    <FormField label="Stress Level (1–10)" req type="number" value={health.stressLevel} onChange={v => setHealth(p => ({ ...p, stressLevel: v }))} placeholder="e.g. 3" />
-                    <div className="section-divider" />
-                    <div className="field-row">
-                      <FormField label="Mood Score" opt type="number" value={health.moodScore} onChange={v => setHealth(p => ({ ...p, moodScore: v }))} placeholder="1–10" />
-                      <FormField label="Energy Level" opt type="number" value={health.energyLevel} onChange={v => setHealth(p => ({ ...p, energyLevel: v }))} placeholder="1–10" />
-                    </div>
-                    <div className="field-row">
-                      <FormField label="Calories" opt type="number" value={health.caloriesConsumed} onChange={v => setHealth(p => ({ ...p, caloriesConsumed: v }))} placeholder="e.g. 2100" />
-                      <FormField label="Cal. Goal" opt type="number" value={health.calorieGoal} onChange={v => setHealth(p => ({ ...p, calorieGoal: v }))} placeholder="e.g. 2400" />
-                    </div>
+                </div>
+                <div className="card-body">
+                  <div className="field-row">
+                    <FormField label="Sleep Hours" req type="number" value={health.sleepHours} onChange={v => setHealth(p => ({ ...p, sleepHours: v }))} placeholder="7.5" />
+                    <FormField label="Workout Mins" req type="number" value={health.workoutMinutes} onChange={v => setHealth(p => ({ ...p, workoutMinutes: v }))} placeholder="45" />
                   </div>
-                </>
+                  <RangedField label="Stress Level (1–10)" req min={1} max={10} value={health.stressLevel} onChange={v => setHealth(p => ({ ...p, stressLevel: v }))} placeholder="e.g. 3" />
+                  <div className="section-divider" />
+                  <div className="field-row">
+                    <RangedField label="Mood Score" opt min={1} max={10} value={health.moodScore} onChange={v => setHealth(p => ({ ...p, moodScore: v }))} placeholder="1–10" />
+                    <RangedField label="Energy Level" opt min={1} max={10} value={health.energyLevel} onChange={v => setHealth(p => ({ ...p, energyLevel: v }))} placeholder="1–10" />
+                  </div>
+                  <div className="field-row">
+                    <FormField label="Calories" opt type="number" value={health.caloriesConsumed} onChange={v => setHealth(p => ({ ...p, caloriesConsumed: v }))} placeholder="e.g. 2100" />
+                    <FormField label="Cal. Goal" opt type="number" value={health.calorieGoal} onChange={v => setHealth(p => ({ ...p, calorieGoal: v }))} placeholder="e.g. 2400" />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── STEP 1: Finance ── */}
+            {step === 1 && (
+              <>
+                <div className="card-header">
+                  <div className="icon-ring" style={{ background: iconRings[1].bg, color: iconRings[1].color }}><Wallet size={20} /></div>
+                  <div className="card-label">
+                    <span className="card-title">Finance Ledger</span>
+                    <span className="card-sub">Capital trajectory logs</span>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <FormField label="Amount Saved" req type="number" value={finance.amountSaved} onChange={v => setFinance(p => ({ ...p, amountSaved: v }))} placeholder="e.g. 350" />
+                  <FormField label="Discretionary Spending" req type="number" value={finance.discretionarySpent} onChange={v => setFinance(p => ({ ...p, discretionarySpent: v }))} placeholder="e.g. 60" />
+                  <div className="field">
+                    <label className="form-label">Spending Category</label>
+                    <select value={finance.spendingCategory} onChange={e => setFinance(p => ({ ...p, spendingCategory: e.target.value }))} className="form-input" style={{ height: 42 }}>
+                      <option value="food">Food & Staples</option>
+                      <option value="entertainment">Entertainment</option>
+                      <option value="shopping">Shopping</option>
+                      <option value="transport">Transport</option>
+                      <option value="other">Other Outlays</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── STEP 2: Career ── */}
+            {step === 2 && (
+              <>
+                <div className="card-header">
+                  <div className="icon-ring" style={{ background: iconRings[2].bg, color: iconRings[2].color }}><Briefcase size={20} /></div>
+                  <div className="card-label">
+                    <span className="card-title">Career Progression</span>
+                    <span className="card-sub">Productivity index tracking</span>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <div className="field-row">
+                    <FormField label="Hours Studied" req type="number" value={career.hoursStudied} onChange={v => setCareer(p => ({ ...p, hoursStudied: v }))} placeholder="e.g. 5" />
+                    <RangedField label="Productivity (1–10)" req min={1} max={10} value={career.productivityRating} onChange={v => setCareer(p => ({ ...p, productivityRating: v }))} placeholder="e.g. 8" />
+                  </div>
+                  <FormField label="Sessions Completed" opt type="number" value={career.sessionsCompleted} onChange={v => setCareer(p => ({ ...p, sessionsCompleted: v }))} placeholder="e.g. 3" />
+                  <FormField label="Course Name" opt type="text" value={career.courseName} onChange={v => setCareer(p => ({ ...p, courseName: v }))} placeholder="e.g. ML Fundamentals" />
+                </div>
+              </>
+            )}
+
+            {/* ── STEP 3: Batch ── */}
+            {step === 3 && (
+              <>
+                <div className="card-header">
+                  <div className="icon-ring" style={{ background: iconRings[3].bg, color: iconRings[3].color }}><Upload size={20} /></div>
+                  <div className="card-label">
+                    <span className="card-title">Batch Integration Console</span>
+                    <span className="card-sub">Optional — inject dataset updates via domain-specific file ingestion</span>
+                  </div>
+                </div>
+                <div className="card-body">
+                  {/* ── FRONTEND PARSING: each card now routes through handleDomainFile ── */}
+                  <div className="batch-cards-grid">
+                    {(["health", "finance", "career"] as const).map((domain, i) => {
+                      const labels = ["Health Ingest", "Finance Ingest", "Career Ingest"];
+                      const icons = [
+                        <HeartPulse key="h" size={16} color="#fff" />,
+                        <Wallet key="f" size={16} color="#fff" />,
+                        <Briefcase key="c" size={16} color="#fff" />,
+                      ];
+                      const grads = [
+                        "linear-gradient(135deg,#0044DD,#0066FF)",
+                        "linear-gradient(135deg,#0055EE,#3322EE)",
+                        "linear-gradient(135deg,#0066FF,#0044DD)",
+                      ];
+                      return (
+                        <div key={domain}>
+                          <IngestCard
+                            domain={domain}
+                            label={labels[i]}
+                            icon={icons[i]}
+                            gradient={grads[i]}
+                            file={batchFiles[domain].file}
+                            // Route file selection through handleDomainFile for Excel parsing
+                            onFile={(f) => handleDomainFile(domain, f)}
+                          />
+                          {/* ── PARSE FEEDBACK: error or success shown below each card ── */}
+                          {parseErrors[domain] && (
+                            <div className="parse-error">
+                              <AlertTriangle size={11} /> {parseErrors[domain]}
+                            </div>
+                          )}
+                          {parsedRows[domain].length > 0 && !parseErrors[domain] && (
+                            <div className="parse-success">
+                              <CheckCircle2 size={11} /> {parsedRows[domain].length} rows parsed
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* ── END FRONTEND PARSING ── */}
+                  <p className="batch-note">All three channels accept .csv, .xlsx, and .xls files</p>
+                </div>
+              </>
+            )}
+
+            <div className="card-footer">
+              {step > 0 && (
+                <button className="nav-btn" onClick={handleBack} disabled={loading}>
+                  <ChevronLeft size={15} /> Back
+                </button>
               )}
-
-              {step === 1 && (
+              {/* ── SKIP + NEXT buttons for steps 0–2 ── */}
+              {step < 3 ? (
                 <>
-                  <div className="card-header">
-                    <div className="icon-ring" style={{ background: iconRings[1].bg, color: iconRings[1].color }}><Wallet size={20} /></div>
-                    <div className="card-label">
-                      <span className="card-title">Finance Ledger</span>
-                      <span className="card-sub">Capital trajectory logs</span>
-                    </div>
-                  </div>
-                  <div className="card-body">
-                    <FormField label="Amount Saved" req type="number" value={finance.amountSaved} onChange={v => setFinance(p => ({ ...p, amountSaved: v }))} placeholder="e.g. 350" />
-                    <FormField label="Discretionary Spending" req type="number" value={finance.discretionarySpent} onChange={v => setFinance(p => ({ ...p, discretionarySpent: v }))} placeholder="e.g. 60" />
-                    <div className="field">
-                      <label className="form-label">Spending Category</label>
-                      <select value={finance.spendingCategory} onChange={e => setFinance(p => ({ ...p, spendingCategory: e.target.value }))} className="form-input" style={{ height: 42 }}>
-                        <option value="food">Food & Staples</option>
-                        <option value="entertainment">Entertainment</option>
-                        <option value="shopping">Shopping</option>
-                        <option value="transport">Transport</option>
-                        <option value="other">Other Outlays</option>
-                      </select>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {step === 2 && (
-                <>
-                  <div className="card-header">
-                    <div className="icon-ring" style={{ background: iconRings[2].bg, color: iconRings[2].color }}><Briefcase size={20} /></div>
-                    <div className="card-label">
-                      <span className="card-title">Career Progression</span>
-                      <span className="card-sub">Productivity index tracking</span>
-                    </div>
-                  </div>
-                  <div className="card-body">
-                    <div className="field-row">
-                      <FormField label="Hours Studied" req type="number" value={career.hoursStudied} onChange={v => setCareer(p => ({ ...p, hoursStudied: v }))} placeholder="e.g. 5" />
-                      <FormField label="Productivity (1–10)" req type="number" value={career.productivityRating} onChange={v => setCareer(p => ({ ...p, productivityRating: v }))} placeholder="e.g. 8" />
-                    </div>
-                    <FormField label="Sessions Completed" opt type="number" value={career.sessionsCompleted} onChange={v => setCareer(p => ({ ...p, sessionsCompleted: v }))} placeholder="e.g. 3" />
-                    <FormField label="Course Name" opt type="text" value={career.courseName} onChange={v => setCareer(p => ({ ...p, courseName: v }))} placeholder="e.g. ML Fundamentals" />
-                  </div>
-                </>
-              )}
-
-              {step === 3 && (
-                <>
-                  <div className="card-header">
-                    <div className="icon-ring" style={{ background: iconRings[3].bg, color: iconRings[3].color }}><Upload size={20} /></div>
-                    <div className="card-label">
-                      <span className="card-title">Batch Integration Console</span>
-                      <span className="card-sub">Optional — inject dataset updates via file ingestion</span>
-                    </div>
-                  </div>
-                  <div className="card-body">
-                    <div className="field">
-                      <label className="form-label">Domain Target Channel</label>
-                      <select value={csv.domain} onChange={e => setCsv(p => ({ ...p, domain: e.target.value }))} className="form-input" style={{ height: 42 }}>
-                        <option value="health">Health Data Matrices</option>
-                        <option value="finance">Finance Allocation Indexes</option>
-                        <option value="career">Career Metric Columns</option>
-                      </select>
-                    </div>
-                    <div className="field">
-                      <label className="form-label">Select Source Document <span className="opt-tag">(optional)</span></label>
-                      <input type="file" accept=".csv,.xlsx,.xls" onChange={e => setCsv(p => ({ ...p, file: e.target.files?.[0] || null }))} className="form-input" style={{ padding: "9px 12px", height: 42 }} />
-                    </div>
-                    {csv.file && (
-                      <div style={{ fontSize: "0.8rem", color: "#0044DD", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                        <CheckCircle2 size={14} /> {csv.file.name} ready for ingestion
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              <div className="card-footer">
-                {step > 0 && (
-                  <button className="nav-btn" onClick={handleBack} disabled={loading}>
-                    <ChevronLeft size={15} /> Back
+                  {/* Skip: advances without requiring validation */}
+                  <button
+                    className="nav-btn"
+                    onClick={() => {
+                      setCompleted(prev => new Set([...prev, step]));
+                      goTo(step + 1);
+                    }}
+                    disabled={loading}
+                  >
+                    Skip <ArrowRight size={15} />
                   </button>
-                )}
-                {step < 3 ? (
-                  <button className="submit-btn" onClick={handleNext} disabled={loading || !canNext} style={{ background: canNext ? btnGradients[step] : undefined, boxShadow: canNext ? btnShadows[step] : undefined, opacity: canNext ? 1 : 0.5 }}>
+                  {/* Next: requires all required fields to be valid */}
+                  <button
+                    className="submit-btn"
+                    onClick={handleNext}
+                    disabled={loading || !canNext}
+                    style={{
+                      background: canNext ? btnGradients[step] : undefined,
+                      boxShadow: canNext ? btnShadows[step] : undefined,
+                      opacity: canNext ? 1 : 0.5,
+                      flex: "0 0 auto",
+                      padding: "10px 22px",
+                    }}
+                  >
                     Next Step <ArrowRight size={15} />
                   </button>
-                ) : (
-                  <button className="submit-btn" onClick={submitAll} disabled={loading} style={{ background: btnGradients[3], boxShadow: btnShadows[3] }}>
-                    <Sparkles size={14} /> {loading ? "Syncing all data..." : "Submit & Sync Twin"}
-                  </button>
-                )}
-              </div>
+                </>
+              ) : (
+                <button className="submit-btn" onClick={submitAll} disabled={loading} style={{ background: btnGradients[3], boxShadow: btnShadows[3] }}>
+                  <Sparkles size={14} /> {loading ? "Syncing all data..." : "Submit & Sync Twin"}
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,1826 +1,832 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import {
-  HeartPulse,
-  Wallet,
-  Briefcase,
-  CheckCircle2,
-  Sparkles,
-  Cpu,
-  Brain,
-  Sliders,
-  Scale,
-  Dumbbell,
-  Clock,
-  ArrowRight,
-  ChevronRight,
-  TrendingUp,
-  Activity,
-  Flame,
-  Check,
-  Award,
-  Zap,
-} from "lucide-react";
+import { ArrowRight, CheckCircle2, Cpu, HeartPulse, Wallet, Briefcase, Users } from "lucide-react";
 
-/* ─────────────────────────────────────────────
-   Types & Interfaces
-───────────────────────────────────────────── */
-type OptVector = "health" | "finance" | "career";
-
-interface ArchetypeCard {
-  id: string;
-  name: string;
-  tagline: string;
-  accent: string;
-  bg: string;
-  borderColor: string;
-  glowColor: string;
-  vector: OptVector;
-  description: string;
-  icon: React.ReactNode;
-}
-
-const MISSION_PRESETS = [
-  "Crack Google Internship",
-  "Get a 10 LPA job",
-  "Save ₹2 Lakhs",
-  "Build a Startup",
-  "Lose 15kg"
-];
-
-/* ─────────────────────────────────────────────
-   Archetype Option Cards
-───────────────────────────────────────────── */
-const ARCHETYPES: ArchetypeCard[] = [
+/* ── Avatar Data ─────────────────────────────── */
+const AVATARS = [
   {
-    id: "operator",
-    name: "Operator",
-    tagline: "Elite Daily Execution",
-    accent: "#ef4444",
-    bg: "linear-gradient(135deg, #1f0b0b 0%, #3d1414 100%)",
-    borderColor: "rgba(239, 68, 68, 0.4)",
-    glowColor: "rgba(239, 68, 68, 0.25)",
-    vector: "career",
-    description: "Designed for high-productivity execution. Optimizes task density, deep work sessions, and consistency indexes to build an unstoppable daily execution engine.",
-    icon: <Zap size={22} color="#ef4444" />,
+    id: "chronos", name: "Chronos", focus: "Learning · Growth · Knowledge",
+    accent: "#0044DD", lightBg: "#eff4ff", borderActive: "#0044DD",
+    svg: (
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="60" height="60">
+        <defs>
+          <radialGradient id="ch-f" cx="50%" cy="42%" r="55%"><stop offset="0%" stopColor="#BFDBFE"/><stop offset="100%" stopColor="#60A5FA"/></radialGradient>
+          <radialGradient id="ch-g" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3"/><stop offset="100%" stopColor="#1E40AF" stopOpacity="0"/></radialGradient>
+          <filter id="ch-blur"><feGaussianBlur stdDeviation="2"/></filter>
+        </defs>
+        <circle cx="40" cy="40" r="36" fill="url(#ch-g)" filter="url(#ch-blur)"/>
+        <ellipse cx="40" cy="37" rx="19" ry="21" fill="url(#ch-f)"/>
+        <path d="M24 25 Q40 11 56 25" stroke="#93C5FD" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <circle cx="40" cy="12" r="2" fill="#60A5FA" opacity="0.85"/>
+        <path d="M21 35 H15 V27 H19" stroke="#60A5FA" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6"/>
+        <path d="M59 35 H65 V27 H61" stroke="#60A5FA" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6"/>
+        <ellipse cx="33" cy="36" rx="4" ry="4" fill="#0EA5E9"/><ellipse cx="47" cy="36" rx="4" ry="4" fill="#0EA5E9"/>
+        <ellipse cx="33" cy="36" rx="2.2" ry="2.2" fill="#E0F2FE"/><ellipse cx="47" cy="36" rx="2.2" ry="2.2" fill="#E0F2FE"/>
+        <circle cx="33" cy="36" r="0.9" fill="#0369A1"/><circle cx="47" cy="36" r="0.9" fill="#0369A1"/>
+        <circle cx="33.8" cy="35" r="0.7" fill="white" opacity="0.9"/><circle cx="47.8" cy="35" r="0.7" fill="white" opacity="0.9"/>
+        <path d="M35 51 Q40 55 45 51" stroke="#BFDBFE" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        <path d="M23 70 Q23 59 40 57 Q57 59 57 70" fill="#1D4ED8" opacity="0.9"/>
+      </svg>
+    ),
   },
   {
-    id: "architect",
-    name: "Architect",
-    tagline: "Capital Runway & Wealth SIPs",
-    accent: "#10b981",
-    bg: "linear-gradient(135deg, #091f14 0%, #103c27 100%)",
-    borderColor: "rgba(16, 185, 129, 0.4)",
-    glowColor: "rgba(16, 185, 129, 0.25)",
-    vector: "finance",
-    description: "Prioritizes capital allocation, savings rate optimization, and long-term financial runway simulation to guarantee bulletproof wealth stability.",
-    icon: <Wallet size={22} color="#10b981" />,
+    id: "apex", name: "Apex", focus: "Productivity · Discipline · Execution",
+    accent: "#dc2626", lightBg: "#fff5f5", borderActive: "#dc2626",
+    svg: (
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="60" height="60">
+        <defs>
+          <radialGradient id="ap-f" cx="50%" cy="42%" r="55%"><stop offset="0%" stopColor="#FECACA"/><stop offset="100%" stopColor="#F87171"/></radialGradient>
+          <radialGradient id="ap-g" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#EF4444" stopOpacity="0.3"/><stop offset="100%" stopColor="#7F1D1D" stopOpacity="0"/></radialGradient>
+          <filter id="ap-blur"><feGaussianBlur stdDeviation="2"/></filter>
+        </defs>
+        <circle cx="40" cy="40" r="36" fill="url(#ap-g)" filter="url(#ap-blur)"/>
+        <ellipse cx="40" cy="37" rx="19" ry="21" fill="url(#ap-f)"/>
+        <polygon points="40,9 44,17 36,17" fill="#F87171" opacity="0.9"/>
+        <polygon points="33,11 35.5,18 29.5,16" fill="#FCA5A5" opacity="0.6"/>
+        <polygon points="47,11 50.5,16 44.5,18" fill="#FCA5A5" opacity="0.6"/>
+        <path d="M21 37 H14 M14 37 L14 29" stroke="#F87171" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <path d="M59 37 H66 M66 37 L66 29" stroke="#F87171" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <ellipse cx="33" cy="36" rx="4" ry="4" fill="#DC2626"/><ellipse cx="47" cy="36" rx="4" ry="4" fill="#DC2626"/>
+        <ellipse cx="33" cy="36" rx="2.2" ry="2.2" fill="#FEF2F2"/><ellipse cx="47" cy="36" rx="2.2" ry="2.2" fill="#FEF2F2"/>
+        <circle cx="33" cy="36" r="0.9" fill="#7F1D1D"/><circle cx="47" cy="36" r="0.9" fill="#7F1D1D"/>
+        <circle cx="33.8" cy="35" r="0.7" fill="white" opacity="0.9"/><circle cx="47.8" cy="35" r="0.7" fill="white" opacity="0.9"/>
+        <path d="M35 51 Q40 55 45 51" stroke="#FECACA" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        <path d="M23 70 Q23 59 40 57 Q57 59 57 70" fill="#B91C1C" opacity="0.9"/>
+      </svg>
+    ),
   },
   {
-    id: "scholar",
-    name: "Scholar",
-    tagline: "Rapid Skill Ingestion",
-    accent: "#3b82f6",
-    bg: "linear-gradient(135deg, #0b162f 0%, #142858 100%)",
-    borderColor: "rgba(59, 130, 246, 0.4)",
-    glowColor: "rgba(59, 130, 246, 0.25)",
-    vector: "career",
-    description: "Optimized for structured learning velocity, academic mastery, and DSA competency. Perfect for accelerating technical growth and exam performance.",
-    icon: <Briefcase size={22} color="#3b82f6" />,
+    id: "nexus", name: "Nexus", focus: "Wealth · Planning · Stability",
+    accent: "#059669", lightBg: "#f0fdf4", borderActive: "#059669",
+    svg: (
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="60" height="60">
+        <defs>
+          <radialGradient id="nx-f" cx="50%" cy="42%" r="55%"><stop offset="0%" stopColor="#D1FAE5"/><stop offset="100%" stopColor="#6EE7B7"/></radialGradient>
+          <radialGradient id="nx-g" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#10B981" stopOpacity="0.3"/><stop offset="100%" stopColor="#065F46" stopOpacity="0"/></radialGradient>
+          <filter id="nx-blur"><feGaussianBlur stdDeviation="2"/></filter>
+        </defs>
+        <circle cx="40" cy="40" r="36" fill="url(#nx-g)" filter="url(#nx-blur)"/>
+        <ellipse cx="40" cy="37" rx="19" ry="21" fill="url(#nx-f)"/>
+        <polygon points="40,10 44,14 44,20 40,24 36,20 36,14" fill="none" stroke="#6EE7B7" strokeWidth="1.4" opacity="0.75"/>
+        <circle cx="40" cy="17" r="1.8" fill="#10B981" opacity="0.9"/>
+        <path d="M21 35 H15 V43 H19" stroke="#34D399" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.65"/>
+        <path d="M59 35 H65 V43 H61" stroke="#34D399" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.65"/>
+        <ellipse cx="33" cy="36" rx="4" ry="4" fill="#059669"/><ellipse cx="47" cy="36" rx="4" ry="4" fill="#059669"/>
+        <ellipse cx="33" cy="36" rx="2.2" ry="2.2" fill="#ECFDF5"/><ellipse cx="47" cy="36" rx="2.2" ry="2.2" fill="#ECFDF5"/>
+        <circle cx="33" cy="36" r="0.9" fill="#065F46"/><circle cx="47" cy="36" r="0.9" fill="#065F46"/>
+        <circle cx="33.8" cy="35" r="0.7" fill="white" opacity="0.9"/><circle cx="47.8" cy="35" r="0.7" fill="white" opacity="0.9"/>
+        <polygon points="40,28 42,31 40,34 38,31" fill="#A7F3D0" opacity="0.6"/>
+        <path d="M35 51 Q40 55 45 51" stroke="#A7F3D0" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        <path d="M23 70 Q23 59 40 57 Q57 59 57 70" fill="#047857" opacity="0.9"/>
+      </svg>
+    ),
   },
   {
-    id: "titan",
-    name: "Titan",
-    tagline: "Symmetric Life Optimization",
-    accent: "#f59e0b",
-    bg: "linear-gradient(135deg, #241807 0%, #442e0d 100%)",
-    borderColor: "rgba(245, 158, 11, 0.4)",
-    glowColor: "rgba(245, 158, 11, 0.25)",
-    vector: "health",
-    description: "Synchronizes elite sleep cycles, recovery indexes, and metabolic workout baselines. Focuses on building an indestructible biological engine to support heavy intellectual loads.",
-    icon: <HeartPulse size={22} color="#f59e0b" />,
-  },
-  {
-    id: "founder",
-    name: "Founder",
-    tagline: "High-Stakes Hyper-Focus",
-    accent: "#8b5cf6",
-    bg: "linear-gradient(135deg, #1b0c2e 0%, #341857 100%)",
-    borderColor: "rgba(139, 92, 246, 0.4)",
-    glowColor: "rgba(139, 92, 246, 0.25)",
-    vector: "career",
-    description: "A high-leverage configuration that channels intensive career study hours, disruptive product building velocity, and hyper-focus metrics to power early-stage venture execution.",
-    icon: <Activity size={22} color="#8b5cf6" />,
+    id: "titan", name: "Titan", focus: "Fitness · Energy · Health",
+    accent: "#d97706", lightBg: "#fffbeb", borderActive: "#d97706",
+    svg: (
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="60" height="60">
+        <defs>
+          <radialGradient id="ti-f" cx="50%" cy="42%" r="55%"><stop offset="0%" stopColor="#FEF3C7"/><stop offset="100%" stopColor="#FCD34D"/></radialGradient>
+          <radialGradient id="ti-g" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#F59E0B" stopOpacity="0.3"/><stop offset="100%" stopColor="#78350F" stopOpacity="0"/></radialGradient>
+          <filter id="ti-blur"><feGaussianBlur stdDeviation="2"/></filter>
+        </defs>
+        <circle cx="40" cy="40" r="36" fill="url(#ti-g)" filter="url(#ti-blur)"/>
+        <ellipse cx="40" cy="37" rx="19" ry="21" fill="url(#ti-f)"/>
+        <line x1="40" y1="15" x2="40" y2="9" stroke="#FCD34D" strokeWidth="1.5" strokeLinecap="round" opacity="0.7"/>
+        <line x1="33" y1="18" x2="29" y2="12" stroke="#FCD34D" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+        <line x1="47" y1="18" x2="51" y2="12" stroke="#FCD34D" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+        <path d="M21 37 H15 V31" stroke="#FCD34D" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <path d="M59 37 H65 V31" stroke="#FCD34D" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <ellipse cx="33" cy="36" rx="4" ry="4" fill="#D97706"/><ellipse cx="47" cy="36" rx="4" ry="4" fill="#D97706"/>
+        <ellipse cx="33" cy="36" rx="2.2" ry="2.2" fill="#FFFBEB"/><ellipse cx="47" cy="36" rx="2.2" ry="2.2" fill="#FFFBEB"/>
+        <circle cx="33" cy="36" r="0.9" fill="#92400E"/><circle cx="47" cy="36" r="0.9" fill="#92400E"/>
+        <circle cx="33.8" cy="35" r="0.7" fill="white" opacity="0.9"/><circle cx="47.8" cy="35" r="0.7" fill="white" opacity="0.9"/>
+        <path d="M35 51 Q40 55 45 51" stroke="#FDE68A" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        <circle cx="26" cy="44" r="1.4" fill="#FCD34D" opacity="0.4"/><circle cx="54" cy="44" r="1.4" fill="#FCD34D" opacity="0.4"/>
+        <path d="M23 70 Q23 59 40 57 Q57 59 57 70" fill="#B45309" opacity="0.9"/>
+      </svg>
+    ),
   },
 ];
 
-/* ─────────────────────────────────────────────
-   Syntra Monogram Component
-───────────────────────────────────────────── */
-function SyntraMonogram() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginBottom: 28 }}>
-      <div style={{ position: "relative", width: 56, height: 56 }}>
-        <div style={{
-          position: "absolute", inset: -6,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(0,102,255,0.15) 0%, transparent 70%)",
-        }} />
-        <svg width="56" height="56" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <radialGradient id="mono-bg" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#0a1628" />
-              <stop offset="100%" stopColor="#050d1a" />
-            </radialGradient>
-            <radialGradient id="mono-glow1" cx="40%" cy="50%" r="55%">
-              <stop offset="0%" stopColor="#0044DD" stopOpacity="0.4" />
-              <stop offset="100%" stopColor="#0044DD" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          <circle cx="36" cy="36" r="35" fill="url(#mono-bg)" stroke="rgba(0,68,221,0.25)" strokeWidth="1" />
-          <circle cx="36" cy="36" r="35" fill="url(#mono-glow1)" />
-          <circle cx="28" cy="36" r="14" fill="none" stroke="rgba(0,102,255,0.5)" strokeWidth="1" />
-          <circle cx="44" cy="36" r="14" fill="none" stroke="rgba(0,68,221,0.5)" strokeWidth="1" />
-          <circle cx="36" cy="36" r="2" fill="#60a5fa" />
-        </svg>
-      </div>
-      <div style={{
-        fontFamily: "'DM Sans', sans-serif",
-        fontSize: "0.95rem",
-        fontWeight: 800,
-        color: "#ffffff",
-        letterSpacing: "0.15em",
-        textTransform: "uppercase",
-      }}>
-        SYNTRA
-      </div>
-    </div>
-  );
+/* ── Typewriter ──────────────────────────────── */
+function useTypewriter(text: string, speed = 52) {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    setDisplayed(""); setDone(false); let i = 0;
+    const iv = setInterval(() => {
+      i++; setDisplayed(text.slice(0, i));
+      if (i >= text.length) { clearInterval(iv); setDone(true); }
+    }, speed);
+    return () => clearInterval(iv);
+  }, [text, speed]);
+  return { displayed, done };
 }
 
-/* ─────────────────────────────────────────────
-   Twin Observation — completion screen
-───────────────────────────────────────────── */
-function getTwinFirstObservation(
-  sleepHours: number,
-  studyHoursPerDay: number,
-  optimizationVector: "health" | "finance" | "career",
-  daysStudiedLastWeek: number
-): string {
-  if (sleepHours < 6.5) {
-    return "It noticed you're running on less sleep than it needs to model you accurately. That's the first lever.";
-  }
-  if (daysStudiedLastWeek <= 2 && optimizationVector === "career") {
-    return "It sees you're studying fewer than 3 days a week. That's where it'll focus first.";
-  }
-  if (optimizationVector === "finance") {
-    return "It's calibrated to your wealth goals. The first thing it'll track is whether your savings rate matches your targets.";
-  }
-  if (studyHoursPerDay < 2) {
-    return "It noticed your daily study time is under 2 hours. That's the gap between where you are and where you want to be.";
-  }
-  return "It's calibrated and watching. Your first log will sharpen the picture.";
+/* ── Validation ──────────────────────────────── */
+function validateStep1(f: Record<string, string>) {
+  const e: Record<string, string> = {};
+  if (!f.age || +f.age < 10 || +f.age > 110) e.age = "Enter a valid age (10–110)";
+  if (!f.height || +f.height < 100 || +f.height > 250) e.height = "Enter height in cm (100–250)";
+  if (!f.weight || +f.weight < 30 || +f.weight > 300) e.weight = "Enter weight in kg (30–300)";
+  if (!f.averageSleep || f.averageSleep === "0") e.averageSleep = "Please set your sleep hours";
+  return e;
+}
+function validateStep2(f: Record<string, string>) {
+  const e: Record<string, string> = {};
+  if (f.monthlyIncomeRange === "custom" && (!f.customIncome || +f.customIncome < 0)) e.customIncome = "Please enter your income";
+  if (f.currentSavings === "") e.currentSavings = "Enter your savings (0 if none)";
+  return e;
+}
+function validateStep3(f: Record<string, string>) {
+  const e: Record<string, string> = {};
+  if (!f.hoursStudied || f.hoursStudied === "0") e.hoursStudied = "Please set your daily hours";
+  if (!f.learningProfile) e.learningProfile = "Please select your situation";
+  return e;
+}
+function validateStep4(arch: string) {
+  return arch ? {} : { archetype: "Please choose your twin" };
 }
 
-/* ─────────────────────────────────────────────
-   Main Onboarding Page
-───────────────────────────────────────────── */
+/* ── Step meta ───────────────────────────────── */
+const STEPS = [
+  { label: "Health",   icon: HeartPulse, color: "#dc2626" },
+  { label: "Finances", icon: Wallet,     color: "#059669" },
+  { label: "Habits",   icon: Briefcase,  color: "#0044DD" },
+  { label: "Twin",     icon: Users,      color: "#7c3aed" },
+];
+
+/* ── Main ────────────────────────────────────── */
 export default function OnboardingPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [step, setStep] = useState(0); // Steps: 0 to 7
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const topRef = useRef<HTMLDivElement>(null);
 
-  // ─── Layer 1: Anatomical State ───
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("male");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
-  const [bodyFat, setBodyFat] = useState("");
   const [averageSleep, setAverageSleep] = useState("0");
   const [workoutFrequency, setWorkoutFrequency] = useState("0");
   const [activityLevel, setActivityLevel] = useState("moderately_active");
   const [healthConstraints, setHealthConstraints] = useState("none");
   const [customHealthConstraint, setCustomHealthConstraint] = useState("");
 
-  // ─── Layer 2: Financial State ───
-  const [monthlyIncomeRange, setMonthlyIncomeRange] = useState("custom");
+  const [monthlyIncomeRange, setMonthlyIncomeRange] = useState("0-20k");
   const [customIncome, setCustomIncome] = useState("");
   const [currentSavings, setCurrentSavings] = useState("");
-  const [spendingStyle, setSpendingStyle] = useState("3"); // 1 to 5
-  const [biggestGoal, setBiggestGoal] = useState("emergency_fund");
-  const [customGoalTitle, setCustomGoalTitle] = useState("");
+  const [spendingStyle, setSpendingStyle] = useState("3");
 
-  // ─── Layer 3: Behavioral State ───
   const [hoursStudied, setHoursStudied] = useState("0");
-  const [focusRating, setFocusRating] = useState("0");
-  const [daysStudiedLastWeek, setDaysStudiedLastWeek] = useState(0);
-  const [sessionsPerWeek, setSessionsPerWeek] = useState("5");
-  const [learningProfile, setLearningProfile] = useState("professional");
-  const [goalHorizon, setGoalHorizon] = useState("1_year");
+  const [learningProfile, setLearningProfile] = useState("");
 
-  // ─── Layer 4: Identity State ───
-  const [archetype, setArchetype] = useState("titan");
+  const [archetype, setArchetype] = useState("");
+  const [showWow, setShowWow] = useState(false);
+  const [wowStep, setWowStep] = useState(0);
 
-  // ─── Personal Mission State ───
-  const [personalMission, setPersonalMission] = useState("");
-  const [customMissionText, setCustomMissionText] = useState("");
-  const [selectedPresetIndex, setSelectedPresetIndex] = useState<number | null>(null);
-
-  // ─── Twin Construction Telemetry logs ───
-  const [terminalLines, setTerminalLines] = useState<string[]>([]);
-
-  // Fullscreen cinematic wow transition states after onboarding completion
-  const [showConstructionWow, setShowConstructionWow] = useState(false);
-  const [currentWowStep, setCurrentWowStep] = useState(0);
-
-  // ─── Computed Potential Scores ───
-  const [potentials, setPotentials] = useState({
-    healthPotential: 78,
-    financePotential: 62,
-    careerPotential: 85,
-    syncPercentage: 74,
-  });
+  const { displayed, done } = useTypewriter(step === 0 ? "One last thing before you dive in." : "", 48);
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Wow cinematic progression control
   useEffect(() => {
-    if (!showConstructionWow) return;
-    
-    const intervals = [1100, 1100, 1100, 1100, 1300, 1300, 1600];
-    let stepIndex = 0;
-    
-    const runNext = () => {
-      if (stepIndex < 6) {
-        stepIndex++;
-        setCurrentWowStep(stepIndex);
-        setTimeout(runNext, intervals[stepIndex]);
-      } else {
-        router.push("/dashboard");
-      }
+    if (!showWow) return;
+    const delays = [900, 900, 900, 900, 1000, 1200];
+    let idx = 0;
+    const run = () => {
+      if (idx < delays.length) { idx++; setWowStep(idx); setTimeout(run, delays[idx - 1]); }
+      else { router.push("/dashboard"); }
     };
-    
-    setTimeout(runNext, intervals[0]);
-  }, [showConstructionWow]);
+    setTimeout(run, delays[0]);
+  }, [showWow, router]);
 
-  // ─── Real-Time Mathematical Estimators ───
-
-  // 1. Anatomical calculations (gracefully handles empty/zero states)
-  const wVal = parseFloat(weight) || 0;
-  const hVal = (parseFloat(height) || 0) / 100;
-  const computedBMI = hVal > 0 ? parseFloat((wVal / (hVal * hVal)).toFixed(1)) : 0;
-  
-  const genderFactor = gender === "male" ? 5 : gender === "female" ? -161 : -80;
-  const computedBMR = wVal > 0 && parseFloat(height) > 0 && parseFloat(age) > 0
-    ? Math.round(10 * wVal + 6.25 * parseFloat(height) - 5 * parseFloat(age) + genderFactor)
-    : 0;
-  
-  const actMultiplier = 
-    activityLevel === "sedentary" ? 1.2 :
-    activityLevel === "lightly_active" ? 1.375 :
-    activityLevel === "moderately_active" ? 1.55 :
-    activityLevel === "very_active" ? 1.725 : 1.9;
-  const computedMaintenance = computedBMR > 0 ? Math.round(computedBMR * actMultiplier) : 0;
-  
-  const sleepValueParsed = parseFloat(averageSleep) || 0;
-  const workoutsValueParsed = parseFloat(workoutFrequency) || 0;
-  
-  const computedRecovery = sleepValueParsed > 0 ? Math.min(99, Math.round(sleepValueParsed * 10 + 15)) : 0;
-  const computedHealthBaseline = sleepValueParsed > 0 || workoutsValueParsed > 0
-    ? Math.min(99, Math.round((sleepValueParsed / 8 * 40) + (workoutsValueParsed / 5 * 30) + 20))
-    : 0;
-
-  // 2. Financial calculations
-  const incomeVal =
-    monthlyIncomeRange === "student" ? 0 :
-    monthlyIncomeRange === "0-20k" ? 10000 :
-    monthlyIncomeRange === "20-50k" ? 35000 :
-    monthlyIncomeRange === "50-100k" ? 75000 :
-    monthlyIncomeRange === "100k+" ? 125000 : parseFloat(customIncome) || 0;
-  
-  const savingsVal = parseFloat(currentSavings) || 0;
-  const discretionaryMult = (parseFloat(spendingStyle) || 3) / 5; // 0.2 to 1.0
-  const monthlyDiscretionary = Math.round(incomeVal * 0.4 * discretionaryMult);
-  const monthlySavingsRate = Math.max(0, incomeVal - monthlyDiscretionary - Math.round(incomeVal * 0.4));
-  
-  const computedRunway = monthlyDiscretionary > 0 ? parseFloat((savingsVal / monthlyDiscretionary).toFixed(1)) : 0;
-  const computedSavingsRatePct = incomeVal > 0 ? Math.round((monthlySavingsRate / incomeVal) * 100) : 0;
-  const computedFinancialStability = incomeVal > 0 || savingsVal > 0
-    ? Math.min(99, Math.round(computedSavingsRatePct * 1.3 + Math.min(6, computedRunway) * 3.5 + 40))
-    : 0;
-  const computedProjectedSavings = Math.round(savingsVal + monthlySavingsRate * 12);
-
-  // 3. Behavioral calculations
-  const studyHoursVal = parseFloat(hoursStudied) || 0;
-  const focusVal = parseFloat(focusRating) || 0;
-  const consistencyVal = Math.round((daysStudiedLastWeek / 7) * 10);
-
-  const computedCareerVelocity = parseFloat((studyHoursVal * focusVal / 10).toFixed(1)) || 0;
-  const computedConsistencyIdx = consistencyVal * 10;
-  const computedExecutionPotential = studyHoursVal > 0 || focusVal > 0 || daysStudiedLastWeek > 0
-    ? Math.min(99, Math.round(computedCareerVelocity * 4.5 + computedConsistencyIdx * 0.4 + 30))
-    : 0;
-
-  // ─── Step 5: Construction Terminal Loop ───
-  useEffect(() => {
-    if (step === 5) {
-      const logs = [
-        "syn@syntra-core:~# boot --neural-twin",
-        "[SYSTEM] Activating digital avatar template core...",
-        "Building Anatomical Model based on lifestyle matrix... ✓",
-        "Mapping Financial Vectors and discretionary spending curves... ✓",
-        "Syncing Behavioral Patterns and weekly study velocity... ✓",
-        "Computing 12-Month Trajectory future-state projection... ✓",
-        "Twin calibration handshake complete. Initializing reports...",
-      ];
-      setTerminalLines([]);
-      logs.forEach((line, index) => {
-        setTimeout(() => {
-          setTerminalLines(prev => [...prev, line]);
-          if (index === logs.length - 1) {
-            setTimeout(() => {
-              // Calculate final potential outcomes
-              const sleep = parseFloat(averageSleep) || 7.0;
-              const workouts = parseFloat(workoutFrequency) || 3;
-              const hasConstraints = healthConstraints !== "none";
-              const healthScore = Math.round(Math.max(30, Math.min(98, 40 + (sleep / 8) * 30 + (workouts / 5) * 20 + (hasConstraints ? -10 : 8))));
-
-              const targetSavingsRate = incomeVal > 0 ? Math.round((monthlySavingsRate / incomeVal) * 100) : 20;
-              const runwayMonths = monthlyDiscretionary > 0 ? savingsVal / monthlyDiscretionary : 6;
-              const financeScore = Math.round(Math.max(30, Math.min(98, 35 + targetSavingsRate * 1.3 + Math.min(6, runwayMonths) * 3.5)));
-
-              const study = parseFloat(hoursStudied) || 3;
-              const focus = parseFloat(focusRating) || 7;
-              const consistency = Math.round((daysStudiedLastWeek / 7) * 10) || 5;
-              const careerScore = Math.round(Math.max(30, Math.min(98, 35 + study * 3.5 + focus * 2.5 + consistency * 2.5)));
-
-              const sync = Math.round((healthScore + financeScore + careerScore) / 3);
-
-              setPotentials({
-                healthPotential: healthScore,
-                financePotential: financeScore,
-                careerPotential: careerScore,
-                syncPercentage: sync,
-              });
-              setStep(6);
-            }, 850);
-          }
-        }, (index + 1) * 450);
-      });
+  const goNext = () => {
+    let errors: Record<string, string> = {};
+    if (step === 1) errors = validateStep1({ age, height, weight, averageSleep });
+    else if (step === 2) errors = validateStep2({ monthlyIncomeRange, customIncome, currentSavings });
+    else if (step === 3) errors = validateStep3({ hoursStudied, learningProfile });
+    else if (step === 4) errors = validateStep4(archetype);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setTimeout(() => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+      return;
     }
-  }, [step]);
+    if (step === 4) finalizeOnboarding();
+    else { setStep(s => s + 1); setFieldErrors({}); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  };
 
-  // ─── Save Onboarding Details API Call ───
+  const goBack = () => { setFieldErrors({}); setStep(s => s - 1); window.scrollTo({ top: 0, behavior: "smooth" }); };
+
   const finalizeOnboarding = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setApiError(null);
     try {
-      const res = await fetch("/api/profile/onboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const pending = sessionStorage.getItem("syntra_pending_signup");
+      if (!pending) throw new Error("Signup details not found. Please go back and fill in your details.");
+      const { name, email, password } = JSON.parse(pending);
+
+      const rr = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) });
+      const rd = await rr.json();
+      if (!rr.ok) {
+        if (rr.status === 409 || rd.message?.toLowerCase().includes("exist")) throw new Error("An account with this email already exists.");
+        throw new Error(rd.message || "Registration failed.");
+      }
+
+      const or = await fetch("/api/profile/onboard", {
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          age,
-          gender,
-          height,
-          weight,
-          bodyFat,
-          averageSleep,
-          workoutFrequency,
-          activityLevel,
+          age, gender, height, weight, averageSleep, workoutFrequency, activityLevel,
           healthConstraints: healthConstraints === "custom" ? (customHealthConstraint || "none") : healthConstraints,
-          monthlyIncomeRange,
-          customIncome,
-          currentSavings,
-          spendingStyle,
-          biggestGoal,
-          customGoalTitle,
-          hoursStudied,
-          focusRating,
-          daysStudiedLastWeek,
-          sessionsPerWeek,
-          learningProfile,
-          goalHorizon,
-          archetype,
-          personalMission,
+          monthlyIncomeRange, customIncome, currentSavings, spendingStyle,
+          hoursStudied, learningProfile, archetype,
         }),
       });
+      const od = await or.json();
+      if (!or.ok) throw new Error(od.message || "Failed to save profile.");
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to finalize onboarding twin.");
-      }
-
+      sessionStorage.removeItem("syntra_pending_signup");
+      const sr = await signIn("credentials", { email, password, redirect: false });
+      if (sr?.error) throw new Error("Sign-in failed. Please log in manually.");
       window.dispatchEvent(new Event("syntra-refresh"));
-      setShowConstructionWow(true);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong.");
+      setShowWow(true);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : "Something went wrong.");
       setLoading(false);
     }
   };
 
   if (!mounted) return null;
 
+  const FErr = ({ field }: { field: string }) =>
+    fieldErrors[field] ? (
+      <p style={{ color: "#dc2626", fontSize: "0.75rem", marginTop: 5, fontWeight: 500, fontFamily: "'Inter',sans-serif" }}>
+        · {fieldErrors[field]}
+      </p>
+    ) : null;
+
+  const hasErrors = Object.keys(fieldErrors).length > 0;
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg,#020812 0%,#030e1e 55%,#040a14 100%)",
-      fontFamily: '"Inter","DM Sans",-apple-system,sans-serif',
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "32px 16px",
-      position: "relative",
-      overflow: "hidden",
-    }}>
+    <div style={{ minHeight: "100vh", background: "#f5f6fa", fontFamily: '"DM Sans","Inter",-apple-system,sans-serif', display: "flex", flexDirection: "column", alignItems: "center" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
-        
-        @keyframes networkPulse {
-          0% { transform: scale(1); box-shadow: 0 0 12px rgba(59, 130, 246, 0.25); }
-          50% { transform: scale(1.06); box-shadow: 0 0 24px rgba(59, 130, 246, 0.55); }
-          100% { transform: scale(1); box-shadow: 0 0 12px rgba(59, 130, 246, 0.25); }
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        *,*::before,*::after{box-sizing:border-box;}
 
-        * { box-sizing: border-box; }
-        
-        /* Ambient grid overlays */
-        .ob-bg-mesh {
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
-          background:
-            radial-gradient(ellipse 70% 50% at 10% 10%, rgba(0,68,221,0.06) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 40% at 90% 90%, rgba(139,92,246,0.04) 0%, transparent 60%);
+        .fld-label {
+          display:block; font-size:0.73rem; font-weight:700; color:#6b7280;
+          text-transform:uppercase; letter-spacing:0.07em; margin-bottom:7px;
+          font-family:'Inter',sans-serif;
         }
-        
-        .ob-grid-overlay {
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
-          background-image:
-            linear-gradient(rgba(0,68,221,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,68,221,0.03) 1px, transparent 1px);
-          background-size: 50px 50px;
+        .fld-input,.fld-select {
+          width:100%; padding:12px 14px; border-radius:10px;
+          border:1.5px solid #e2e6f0; background:#fff; color:#111;
+          font-family:'Inter',sans-serif; font-size:0.9rem;
+          outline:none; transition:all 0.18s; height:46px; -webkit-appearance:none;
         }
+        .fld-input::placeholder { color:#c4cbda; }
+        .fld-input:focus,.fld-select:focus { border-color:#0044DD; box-shadow:0 0 0 3px rgba(0,68,221,0.1); background:#fff; }
+        .fld-input.err,.fld-select.err { border-color:#ef4444; background:#fef9f9; }
 
-        /* Card Container styling */
-        .ob-container {
-          position: relative; z-index: 1;
-          width: 100%; max-width: 820px;
-          background: rgba(8, 17, 36, 0.7);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(0, 102, 255, 0.15);
-          box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-          border-radius: 24px;
-          overflow: hidden;
-          transition: all 0.3s ease;
+        .ob-range {
+          -webkit-appearance:none; width:100%; height:4px;
+          border-radius:99px; background:#e4e8f2; outline:none; cursor:pointer;
         }
+        .ob-range::-webkit-slider-thumb {
+          -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+          background:#0044DD; border:3px solid #fff;
+          box-shadow:0 2px 8px rgba(0,68,221,0.35); transition:transform 0.15s;
+        }
+        .ob-range::-webkit-slider-thumb:hover { transform:scale(1.2); }
 
-        /* Form Controls */
-        .form-label {
-          font-size: 0.78rem; font-weight: 600; color: #94a3b8;
-          display: block; margin-bottom: 8px; letter-spacing: 0.02em;
-          text-transform: uppercase;
+        .btn-primary {
+          display:inline-flex; align-items:center; justify-content:center; gap:8px;
+          padding:13px 28px; border-radius:9999px; border:none;
+          background:linear-gradient(135deg,#0033CC,#0055FF);
+          color:#fff; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:700;
+          letter-spacing:0.04em; text-transform:uppercase;
+          cursor:pointer; transition:all 0.2s;
+          box-shadow:0 4px 16px rgba(0,68,221,0.3);
         }
+        .btn-primary:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,68,221,0.4); }
+        .btn-primary:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
 
-        .form-select, .form-input {
-          width: 100%; padding: 12px 16px; border-radius: 12px;
-          border: 1px solid rgba(255,255,255,0.08);
-          background: rgba(4,10,22,0.8);
-          color: #fff; font-family: 'Inter', sans-serif; font-size: 0.88rem;
-          outline: none; transition: all 0.2s;
-          height: 46px;
+        .btn-ghost {
+          display:inline-flex; align-items:center; gap:6px;
+          padding:12px 20px; border-radius:9999px;
+          border:1.5px solid #dde3f0; background:transparent; color:#8896b0;
+          font-family:'Inter',sans-serif; font-size:0.86rem; font-weight:600;
+          cursor:pointer; transition:all 0.18s;
         }
-        
-        .form-select:focus, .form-input:focus {
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
-        }
+        .btn-ghost:hover { border-color:#0044DD; color:#0044DD; background:#eff4ff; }
 
-        /* Steps progress bar */
-        .step-pill {
-          height: 3px; flex: 1; border-radius: 9999px;
-          background: rgba(255,255,255,0.06); transition: all 0.3s;
+        .day-btn {
+          flex:1; padding:11px 0; border-radius:9px;
+          border:1.5px solid #e2e6f0; background:#fff;
+          color:#9ca3af; font-family:'Inter',sans-serif;
+          font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.15s;
         }
-        .step-pill.active {
-          background: #3b82f6; box-shadow: 0 0 8px rgba(59,130,246,0.5);
-        }
+        .day-btn:hover:not(.sel) { border-color:#0044DD; color:#0044DD; }
+        .day-btn.sel { background:#0044DD; border-color:#0044DD; color:#fff; }
 
-        /* Button styles */
-        .ob-btn {
-          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-          padding: 14px 28px; border-radius: 12px; border: none;
-          font-family: 'Inter', sans-serif; font-size: 0.88rem; font-weight: 700;
-          cursor: pointer; transition: all 0.2s;
+        .av-card {
+          border-radius:14px; border:2px solid #e4e8f2; background:#fff;
+          padding:20px 14px; cursor:pointer; display:flex; flex-direction:column;
+          align-items:center; gap:9px; text-align:center; transition:all 0.2s;
+          box-shadow:0 1px 4px rgba(0,0,0,0.04);
         }
-        
-        .ob-btn-primary {
-          background: linear-gradient(135deg, #3b82f6, #6366f1); color: #fff;
-          box-shadow: 0 4px 18px rgba(59,130,246,0.3);
-        }
-        
-        .ob-btn-primary:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 24px rgba(59,130,246,0.45);
-        }
-        
-        .ob-btn-primary:disabled {
-          opacity: 0.4; cursor: not-allowed; transform: none;
-        }
+        .av-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(0,68,221,0.1); }
 
-        .ob-btn-secondary {
-          background: rgba(255,255,255,0.05); color: #94a3b8;
-          border: 1px solid rgba(255,255,255,0.06);
+        .type-cur {
+          display:inline-block; width:2.5px; height:0.85em;
+          background:#0044DD; margin-left:2px; vertical-align:middle;
+          animation:blink 0.72s infinite;
         }
-        .ob-btn-secondary:hover {
-          background: rgba(255,255,255,0.08); color: #fff;
-        }
+        @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+        @keyframes shimmer { 0%{background-position:200% 0}100%{background-position:-200% 0} }
+        @keyframes spinX { 100%{transform:rotate(360deg)} }
+        @keyframes ping2 { 75%,100%{transform:scale(1.7);opacity:0} }
+        @keyframes fadeSlideUp { from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)} }
 
-        /* HUD readout panels */
-        .hud-panel {
-          background: rgba(4,10,22,0.95);
-          border: 1px dashed rgba(59,130,246,0.25);
-          border-radius: 16px;
-          padding: 20px;
-          display: flex; flex-direction: column; gap: 14px;
-        }
+        .step-body { animation: fadeSlideUp 0.28s ease forwards; }
 
-        .hud-title {
-          font-size: 0.65rem; font-weight: 700; color: #60a5fa;
-          letter-spacing: 0.12em; text-transform: uppercase;
-          display: flex; align-items: center; gap: 6px;
-          margin-bottom: 4px;
-        }
-
-        .hud-grid {
-          display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-        }
-
-        .hud-value {
-          font-family: 'DM Sans', sans-serif; font-size: 1.6rem;
-          font-weight: 800; color: #fff; line-height: 1.1;
-        }
-
-        .hud-label {
-          font-size: 0.72rem; color: rgba(255,255,255,0.4);
-          margin-top: 3px; font-weight: 500;
-        }
-
-        /* Slider Custom Styling */
-        .range-slider {
-          -webkit-appearance: none; appearance: none;
-          width: 100%; height: 5px; border-radius: 999px;
-          background: rgba(255,255,255,0.1); outline: none;
-          cursor: pointer;
-        }
-        
-        .range-slider::-webkit-slider-thumb {
-          -webkit-appearance: none; width: 18px; height: 18px;
-          border-radius: 50%; background: #3b82f6;
-          border: 2px solid #fff; box-shadow: 0 0 8px rgba(59,130,246,0.4);
-          transition: transform 0.1s;
-        }
-        .range-slider::-webkit-slider-thumb:hover {
-          transform: scale(1.15);
-        }
-
-        /* Card Selector Grid */
-        .select-card {
-          border: 1px solid rgba(255,255,255,0.06);
-          background: rgba(4,10,22,0.6);
-          border-radius: 16px; padding: 20px; cursor: pointer;
-          transition: all 0.22s ease-in-out;
-          text-align: left;
-        }
-        .select-card:hover {
-          transform: translateY(-2px);
-          border-color: rgba(255,255,255,0.18);
-          background: rgba(4,10,22,0.85);
-        }
-        .select-card.selected {
-          background: var(--card-bg);
-          border-color: var(--card-border);
-          box-shadow: 0 8px 32px var(--card-glow);
-        }
-
-        /* Terminal effect */
-        .terminal-box {
-          font-family: 'Courier New', Courier, monospace;
-          background: #030810; border-radius: 12px;
-          border: 1px solid rgba(59,130,246,0.15);
-          padding: 20px; font-size: 0.78rem; line-height: 1.6;
-          color: #94a3b8; height: 200px; overflow-y: auto;
-          text-align: left;
-        }
-
-        /* Potential Meter Gagues */
-        .circle-meter {
-          position: relative; width: 90px; height: 90px;
-          display: flex; items-center: center; justify-content: center;
-        }
-
-        @keyframes fillProgress {
-          from { stroke-dashoffset: 251; }
-          to { stroke-dashoffset: var(--dashoffset); }
-        }
-
-        .meter-svg {
-          transform: rotate(-90deg); width: 90px; height: 90px;
-        }
-
-        .meter-bg {
-          fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 6;
-        }
-
-        .meter-fill {
-          fill: none; stroke-width: 6; stroke-linecap: round;
-          stroke-dasharray: 251.2;
-          animation: fillProgress 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-
-        @media (max-width: 768px) {
-          .ob-grid { grid-template-columns: 1fr !important; }
-          .hud-panel { margin-top: 10px; }
-          .ob-container { border-radius: 16px; }
+        @media(max-width:560px){
+          .av-grid { grid-template-columns:1fr 1fr !important; }
+          .two-col { grid-template-columns:1fr !important; }
+          .form-card { padding:28px 20px !important; }
         }
       `}</style>
 
-      {/* Grid Backdrops */}
-      <div className="ob-bg-mesh" />
-      <div className="ob-grid-overlay" />
-
-      {/* Welcome Step 0 */}
+      {/* ── WELCOME ── */}
       {step === 0 && (
-        <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 540 }}>
-          <SyntraMonogram />
-          <h1 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "2.3rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.04em", margin: "0 0 16px", lineHeight: 1.15 }}>
-            Let's build your <span style={{ background: "linear-gradient(90deg, #60a5fa, #818cf8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>digital twin</span>
-          </h1>
-          <p style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.6, marginBottom: 32 }}>
-            Calibrate your personal AI twin in 2 minutes. By synchronizing your physical health, spending patterns, and focus habits, Syntra models your daily limits to optimize your energy, runway, and goals as a unified engine.
-          </p>
-          <button className="ob-btn ob-btn-primary" onClick={() => setStep(1)} style={{ padding: "16px 36px", borderRadius: "14px" }}>
-            Let's build your twin <ArrowRight size={16} />
-          </button>
+        <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:"48px 20px", minHeight:"100vh", width:"100%" }}>
+          <div style={{ maxWidth:520, width:"100%", textAlign:"center" }}>
+
+            {/* Syntra mark */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:36 }}>
+              <div style={{
+                width:40, height:40, borderRadius:11,
+                background:"linear-gradient(135deg,#0033CC,#0055FF)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                boxShadow:"0 6px 20px rgba(0,68,221,0.3)",
+              }}>
+                <svg width="20" height="20" viewBox="0 0 72 72" fill="none">
+                  <circle cx="28" cy="36" r="14" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="2"/>
+                  <circle cx="44" cy="36" r="14" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="2"/>
+                  <circle cx="36" cy="36" r="3" fill="#fff"/>
+                </svg>
+              </div>
+              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"1.05rem", fontWeight:800, color:"#0d1117", letterSpacing:"0.14em", textTransform:"uppercase" }}>SYNTRA</span>
+            </div>
+
+            <h1 style={{
+              fontFamily:"'DM Sans',sans-serif",
+              fontSize:"clamp(2rem,5vw,2.8rem)", fontWeight:800,
+              color:"#0d1117", letterSpacing:"-0.04em",
+              margin:"0 0 4px", lineHeight:1.15, minHeight:"2.4em",
+            }}>
+              <span style={{ background:"linear-gradient(135deg,#0033CC,#0066FF)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>
+                {displayed}
+              </span>
+              {!done && <span className="type-cur"/>}
+            </h1>
+
+            <p style={{ fontFamily:"'Inter',sans-serif", fontSize:"1rem", color:"#6b7280", lineHeight:1.72, maxWidth:420, margin:"20px auto 0" }}>
+              We just need a few quick details about your lifestyle, finances, and habits.
+              This helps Syntra personalise everything for you from day one.
+            </p>
+
+            {/* Step preview */}
+            <div style={{ display:"flex", justifyContent:"center", gap:8, flexWrap:"wrap", margin:"28px 0 32px" }}>
+              {STEPS.map((s, i) => {
+                const Icon = s.icon;
+                return (
+                  <div key={i} style={{
+                    display:"flex", alignItems:"center", gap:6,
+                    background:"#fff", border:"1.5px solid #e8ecf6",
+                    borderRadius:99, padding:"6px 14px",
+                    fontSize:"0.75rem", fontWeight:600, color:"#374151",
+                    fontFamily:"'Inter',sans-serif",
+                    boxShadow:"0 1px 4px rgba(0,0,0,0.04)",
+                  }}>
+                    <Icon size={12} color={s.color}/>
+                    {s.label}
+                  </div>
+                );
+              })}
+            </div>
+
+            <button className="btn-primary" onClick={() => setStep(1)} style={{ padding:"15px 40px", fontSize:"0.92rem" }}>
+              Let's go <ArrowRight size={17}/>
+            </button>
+
+            <p style={{ marginTop:14, fontSize:"0.74rem", color:"#b0b9cc", fontFamily:"'Inter',sans-serif" }}>
+              2 minutes · 4 steps · Your data stays private
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Active Form Wizard */}
-      {step > 0 && step < 5 && (
-        <div className="ob-container">
-          {/* Header Progress strip */}
-          <div style={{ display: "flex", gap: 6, padding: "16px 24px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-            {[1, 2, 3, 4].map(idx => (
-              <div key={idx} className={`step-pill ${step >= idx ? "active" : ""}`} />
-            ))}
+      {/* ── STEPS 1–4 ── */}
+      {step >= 1 && step <= 4 && (
+        <div style={{ width:"100%", maxWidth:620, padding:"40px 16px 60px" }}>
+
+          {/* Step indicator — top of page, above card */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, padding:"0 4px" }} ref={topRef}>
+            {/* Pill steps */}
+            <div style={{ display:"flex", gap:6 }}>
+              {STEPS.map((s, i) => {
+                const n = i + 1;
+                const Icon = s.icon;
+                const isActive = step === n;
+                const isDone = step > n;
+                return (
+                  <div key={i} style={{
+                    display:"flex", alignItems:"center", gap:5,
+                    padding: isActive ? "6px 14px" : "6px 10px",
+                    borderRadius:99,
+                    background: isDone ? "#0044DD" : isActive ? "#fff" : "transparent",
+                    border: isDone ? "none" : isActive ? "1.5px solid #e2e6f0" : "none",
+                    boxShadow: isActive ? "0 2px 10px rgba(0,68,221,0.1)" : "none",
+                    transition:"all 0.25s",
+                  }}>
+                    {isDone ? (
+                      <CheckCircle2 size={14} color="#fff"/>
+                    ) : (
+                      <Icon size={14} color={isActive ? s.color : "#c4cdd8"}/>
+                    )}
+                    {isActive && (
+                      <span style={{ fontFamily:"'Inter',sans-serif", fontSize:"0.72rem", fontWeight:700, color:"#374151", whiteSpace:"nowrap" }}>
+                        {s.label}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Step counter */}
+            <span style={{ fontFamily:"'Inter',sans-serif", fontSize:"0.72rem", fontWeight:600, color:"#9ca3af" }}>
+              {step} / 4
+            </span>
           </div>
 
-          <div style={{ padding: 32 }}>
-            
-            {/* LAYER 1: ANATOMICAL TWIN */}
+          {/* Thin progress bar */}
+          <div style={{ height:3, background:"#e8ecf6", borderRadius:99, marginBottom:24, overflow:"hidden" }}>
+            <div style={{
+              height:"100%", width:`${(step / 4) * 100}%`,
+              background:"linear-gradient(90deg,#0033CC,#0066FF)",
+              borderRadius:99, transition:"width 0.4s cubic-bezier(0.4,0,0.2,1)",
+              position:"relative", overflow:"hidden",
+            }}>
+              <div style={{
+                position:"absolute", inset:0,
+                background:"linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.5) 50%,transparent 100%)",
+                backgroundSize:"200% 100%", animation:"shimmer 1.6s linear infinite",
+              }}/>
+            </div>
+          </div>
+
+          {/* White card */}
+          <div className="form-card" style={{
+            background:"#fff", borderRadius:20, padding:"36px 36px 28px",
+            border:"1px solid #eaedf5",
+            boxShadow:"0 2px 20px rgba(0,40,120,0.07), 0 1px 3px rgba(0,0,0,0.04)",
+          }}>
+
+            {/* Step heading */}
+            <div className="step-body" key={step} style={{ marginBottom:28 }}>
+              <h2 style={{
+                fontFamily:"'DM Sans',sans-serif", fontSize:"1.55rem", fontWeight:800,
+                color:"#0d1117", margin:"0 0 6px", letterSpacing:"-0.03em", lineHeight:1.2,
+              }}>
+                {step === 1 && "Tell us about your body and lifestyle"}
+                {step === 2 && "A quick look at your finances"}
+                {step === 3 && "How do you spend your time?"}
+                {step === 4 && "Choose your AI twin"}
+              </h2>
+              <p style={{ fontFamily:"'Inter',sans-serif", fontSize:"0.88rem", color:"#9ca3af", lineHeight:1.6, margin:0 }}>
+                {step === 1 && "Helps Syntra understand your energy baseline and physical habits."}
+                {step === 2 && "Just a starting point — you can update this anytime."}
+                {step === 3 && "Be honest. Syntra works best when it knows where you actually are."}
+                {step === 4 && "Pick the version of yourself Syntra should focus on helping."}
+              </p>
+            </div>
+
+            {/* Error banner */}
+            {hasErrors && (
+              <div style={{
+                background:"#fef2f2", border:"1px solid #fecaca", borderRadius:10,
+                padding:"11px 16px", color:"#dc2626", fontSize:"0.82rem", fontWeight:500,
+                fontFamily:"'Inter',sans-serif", marginBottom:22, display:"flex", gap:8, alignItems:"center",
+              }}>
+                ⚠ Please fill in all required fields.
+              </div>
+            )}
+
+            {/* ── Step 1 ── */}
             {step === 1 && (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <HeartPulse size={20} color="#ef4444" />
-                  <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.1em" }}>Step 1 of 4</span>
-                </div>
-                <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "1.65rem", fontWeight: 800, color: "#fff", margin: "0 0 10px", letterSpacing: "-0.02em" }}>Let&apos;s start with your body. Your twin uses this to set its first baseline.</h2>
-                <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", marginBottom: 28, lineHeight: 1.5 }}>
-                  Map your baseline physical metrics. Be accurate — your twin calibrates recovery and energy models from this.
-                </p>
-
-                <div className="ob-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 32 }}>
-                  {/* Left: Fields */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                      <div>
-                        <label className="form-label">Age</label>
-                        <input type="number" min="13" max="110" className="form-input" value={age} onChange={(e) => setAge(e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="form-label">Gender</label>
-                        <select className="form-select" value={gender} onChange={(e) => setGender(e.target.value)}>
-                          <option value="male">Male</option>
-                          <option value="female">Female</option>
-                          <option value="non-binary">Non-Binary</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                      <div>
-                        <label className="form-label">Height (cm)</label>
-                        <input type="number" min="100" max="250" className="form-input" value={height} onChange={(e) => setHeight(e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="form-label">Weight (kg)</label>
-                        <input type="number" min="30" max="200" className="form-input" value={weight} onChange={(e) => setWeight(e.target.value)} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Activity Level</label>
-                      <select className="form-select" value={activityLevel} onChange={(e) => setActivityLevel(e.target.value)}>
-                        <option value="sedentary">Sedentary</option>
-                        <option value="lightly_active">Lightly Active</option>
-                        <option value="moderately_active">Moderately Active</option>
-                        <option value="very_active">Highly Active</option>
-                        <option value="athlete">Athlete</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Average Sleep (Hours/Night)</label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <input type="range" min="4" max="10" step="0.1" className="range-slider" value={averageSleep} onChange={(e) => setAverageSleep(e.target.value)} />
-                        <span style={{ color: "#fff", fontWeight: 700, fontSize: "0.9rem", width: 44, textAlign: "right" }}>{averageSleep}h</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Workouts Per Week</label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <input type="range" min="0" max="7" step="1" className="range-slider" value={workoutFrequency} onChange={(e) => setWorkoutFrequency(e.target.value)} />
-                        <span style={{ color: "#fff", fontWeight: 700, fontSize: "0.9rem", width: 44, textAlign: "right" }}>{workoutFrequency}x</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Health Constraints</label>
-                      <select className="form-select" value={healthConstraints} onChange={(e) => setHealthConstraints(e.target.value)}>
-                        <option value="none">None</option>
-                        <option value="diabetes">Diabetes</option>
-                        <option value="hypertension">Hypertension</option>
-                        <option value="asthma">Asthma</option>
-                        <option value="custom">Other / Custom Constraint</option>
-                      </select>
-                    </div>
-
-                    {healthConstraints === "custom" && (
-                      <div style={{ marginTop: 12 }}>
-                        <label className="form-label">Specify Constraint</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="e.g. Thyroid, Migraine, none"
-                          value={customHealthConstraint}
-                          onChange={(e) => setCustomHealthConstraint(e.target.value)}
-                          style={{ height: "42px" }}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right: Dynamic HUD */}
+              <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+                <div className="two-col" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
                   <div>
-                    <div className="hud-panel">
-                      <div className="hud-title"><Scale size={13} /> Body Stats Overview</div>
-                      
-                      <div className="hud-grid">
-                        <div>
-                          <div className="hud-value">{computedBMI}</div>
-                          <div className="hud-label">Computed BMI</div>
-                        </div>
-                        <div>
-                          <div className="hud-value">{computedBMR}</div>
-                          <div className="hud-label">Daily BMR (kcal)</div>
-                        </div>
-                      </div>
- 
-                      <div className="hud-grid" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14 }}>
-                        <div>
-                          <div className="hud-value">{computedMaintenance}</div>
-                          <div className="hud-label">Maintenance (kcal)</div>
-                        </div>
-                        <div>
-                          <div className="hud-value">{computedRecovery}%</div>
-                          <div className="hud-label">Recovery Index</div>
-                        </div>
-                      </div>
- 
-                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14, textAlign: "left" }}>
-                        <div style={{ display: "flex", justifyItems: "center", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>Body Health Score</span>
-                          <span style={{ color: "#ef4444", fontWeight: 700, fontSize: "0.9rem" }}>{computedHealthBaseline}</span>
-                        </div>
-                        <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${computedHealthBaseline}%`, background: "#ef4444" }} />
-                        </div>
-                      </div>
-                    </div>
+                    <label className="fld-label">Age *</label>
+                    <input type="number" min="10" max="110" placeholder="e.g. 22"
+                      className={`fld-input${fieldErrors.age?" err":""}`}
+                      value={age} onChange={e => setAge(e.target.value)}/>
+                    <FErr field="age"/>
+                  </div>
+                  <div>
+                    <label className="fld-label">Gender</label>
+                    <select className="fld-select" value={gender} onChange={e => setGender(e.target.value)}>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="non-binary">Non-Binary</option>
+                    </select>
                   </div>
                 </div>
+                <div className="two-col" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                  <div>
+                    <label className="fld-label">Height (cm) *</label>
+                    <input type="number" min="100" max="250" placeholder="e.g. 175"
+                      className={`fld-input${fieldErrors.height?" err":""}`}
+                      value={height} onChange={e => setHeight(e.target.value)}/>
+                    <FErr field="height"/>
+                  </div>
+                  <div>
+                    <label className="fld-label">Weight (kg) *</label>
+                    <input type="number" min="30" max="300" placeholder="e.g. 70"
+                      className={`fld-input${fieldErrors.weight?" err":""}`}
+                      value={weight} onChange={e => setWeight(e.target.value)}/>
+                    <FErr field="weight"/>
+                  </div>
+                </div>
+                <div>
+                  <label className="fld-label">Activity level</label>
+                  <select className="fld-select" value={activityLevel} onChange={e => setActivityLevel(e.target.value)}>
+                    <option value="sedentary">Mostly sitting — desk job, little exercise</option>
+                    <option value="lightly_active">Lightly active — occasional walks or gym</option>
+                    <option value="moderately_active">Moderately active — gym 3–4× per week</option>
+                    <option value="very_active">Very active — intense training 5–6× per week</option>
+                    <option value="athlete">Athlete — training twice a day</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="fld-label" style={{ display:"flex", justifyContent:"space-between" }}>
+                    <span>Average sleep per night *</span>
+                    <span style={{ color: fieldErrors.averageSleep?"#dc2626":"#0044DD", fontWeight:800, textTransform:"none", letterSpacing:0 }}>{averageSleep}h</span>
+                  </label>
+                  <input type="range" min="4" max="10" step="0.5" className="ob-range" value={averageSleep} onChange={e => setAverageSleep(e.target.value)}/>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+                    <span style={{ fontSize:"0.7rem", color:"#c4cbda", fontFamily:"'Inter',sans-serif" }}>4h</span>
+                    <span style={{ fontSize:"0.7rem", color:"#c4cbda", fontFamily:"'Inter',sans-serif" }}>10h</span>
+                  </div>
+                  <FErr field="averageSleep"/>
+                </div>
+                <div>
+                  <label className="fld-label" style={{ display:"flex", justifyContent:"space-between" }}>
+                    <span>Workouts per week</span>
+                    <span style={{ color:"#0044DD", fontWeight:800, textTransform:"none", letterSpacing:0 }}>{workoutFrequency}×</span>
+                  </label>
+                  <input type="range" min="0" max="7" step="1" className="ob-range" value={workoutFrequency} onChange={e => setWorkoutFrequency(e.target.value)}/>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+                    <span style={{ fontSize:"0.7rem", color:"#c4cbda", fontFamily:"'Inter',sans-serif" }}>None</span>
+                    <span style={{ fontSize:"0.7rem", color:"#c4cbda", fontFamily:"'Inter',sans-serif" }}>Every day</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="fld-label">Any health conditions?</label>
+                  <select className="fld-select" value={healthConstraints} onChange={e => setHealthConstraints(e.target.value)}>
+                    <option value="none">None — I'm generally healthy</option>
+                    <option value="diabetes">Diabetes</option>
+                    <option value="hypertension">High Blood Pressure</option>
+                    <option value="asthma">Asthma</option>
+                    <option value="custom">Other</option>
+                  </select>
+                </div>
+                {healthConstraints === "custom" && (
+                  <div>
+                    <label className="fld-label">Please describe</label>
+                    <input type="text" className="fld-input" placeholder="e.g. Thyroid, Migraines..."
+                      value={customHealthConstraint} onChange={e => setCustomHealthConstraint(e.target.value)}/>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* LAYER 2: FINANCIAL TWIN */}
+            {/* ── Step 2 ── */}
             {step === 2 && (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <Wallet size={20} color="#10b981" />
-                  <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.1em" }}>Step 2 of 4</span>
+              <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+                <div>
+                  <label className="fld-label">Monthly income (after tax)</label>
+                  <select className="fld-select" value={monthlyIncomeRange} onChange={e => setMonthlyIncomeRange(e.target.value)}>
+                    <option value="student">Student — no income right now</option>
+                    <option value="0-20k">Up to ₹20,000 / month</option>
+                    <option value="20-50k">₹20,000 – ₹50,000 / month</option>
+                    <option value="50-100k">₹50,000 – ₹1,00,000 / month</option>
+                    <option value="100k+">Over ₹1,00,000 / month</option>
+                    <option value="custom">Enter exact amount</option>
+                  </select>
                 </div>
-                <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "1.65rem", fontWeight: 800, color: "#fff", margin: "0 0 10px", letterSpacing: "-0.02em" }}>Now your finances. Be specific — your twin will track this against your goals.</h2>
-                <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", marginBottom: 28, lineHeight: 1.5 }}>
-                  Monthly income, savings, and spending patterns. Your twin uses this to model your financial runway.
-                </p>
-
-                <div className="ob-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 32 }}>
-                  {/* Left Fields */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    <div>
-                      <label className="form-label">Monthly take-home income (₹, after tax)</label>
-                      <select className="form-select" value={monthlyIncomeRange} onChange={(e) => setMonthlyIncomeRange(e.target.value)}>
-                        <option value="student">Student (₹0/month)</option>
-                        <option value="0-20k">Up to ₹20,000/month</option>
-                        <option value="20-50k">₹20,000 – ₹50,000/month</option>
-                        <option value="50-100k">₹50,000 – ₹1,00,000/month</option>
-                        <option value="100k+">More than ₹1,00,000/month</option>
-                        <option value="custom">Custom amount</option>
-                      </select>
-                    </div>
-
-                    {monthlyIncomeRange === "custom" && (
-                      <div>
-                        <label className="form-label">Exact Income (₹/Month)</label>
-                        <input type="number" className="form-input" value={customIncome} onChange={(e) => setCustomIncome(e.target.value)} />
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="form-label">Current Savings (₹)</label>
-                      <input type="number" className="form-input" value={currentSavings} onChange={(e) => setCurrentSavings(e.target.value)} />
-                    </div>
-
-                    <div>
-                      <label className="form-label">Spending Style</label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <input type="range" min="1" max="5" step="1" className="range-slider" value={spendingStyle} onChange={(e) => setSpendingStyle(e.target.value)} />
-                        <span style={{ color: "#10b981", fontWeight: 700, fontSize: "0.76rem", width: 90, textAlign: "right", textTransform: "uppercase" }}>
-                          {spendingStyle === "1" ? "Ultrasafe" : spendingStyle === "2" ? "Frugal" : spendingStyle === "3" ? "Moderate" : spendingStyle === "4" ? "Impassive" : "Aggressive"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Primary Objective Goal</label>
-                      <select className="form-select" value={biggestGoal} onChange={(e) => setBiggestGoal(e.target.value)}>
-                        <option value="emergency_fund">6-Month Emergency Fund</option>
-                        <option value="laptop">Next-Gen Workspace Laptop</option>
-                        <option value="vehicle">Personal Downpayment Vehicle</option>
-                        <option value="house">Real Estate Asset Capital</option>
-                        <option value="business">Personal Business Seed Fund</option>
-                        <option value="retirement">Early Retirement Fund Basis</option>
-                        <option value="custom">Custom Objective</option>
-                      </select>
-                    </div>
-
-                    {biggestGoal === "custom" && (
-                      <div>
-                        <label className="form-label">Goal Title (e.g. "Buy Mahindra Thar")</label>
-                        <input type="text" className="form-input" placeholder="Goal name" value={customGoalTitle} onChange={(e) => setCustomGoalTitle(e.target.value)} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right HUD */}
+                {monthlyIncomeRange === "custom" && (
                   <div>
-                    <div className="hud-panel" style={{ borderColor: "rgba(16, 185, 129, 0.25)" }}>
-                      <div className="hud-title" style={{ color: "#10b981" }}><TrendingUp size={13} /> Savings & Spending</div>
- 
-                      <div className="hud-grid">
-                        <div>
-                          <div className="hud-value">{computedRunway}m</div>
-                          <div className="hud-label">Months of Financial Buffer</div>
-                        </div>
-                        <div>
-                          <div className="hud-value">{computedSavingsRatePct}%</div>
-                          <div className="hud-label">Savings Rate</div>
-                        </div>
-                      </div>
- 
-                      <div className="hud-grid" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14 }}>
-                        <div>
-                          <div className="hud-value">₹{(computedProjectedSavings / 1000).toFixed(1)}k</div>
-                          <div className="hud-label">Projected 12M Savings</div>
-                        </div>
-                        <div>
-                          <div className="hud-value">₹{Math.round(monthlySavingsRate / 30)}/d</div>
-                          <div className="hud-label">Est. Save Velocity</div>
-                        </div>
-                      </div>
- 
-                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14, textAlign: "left" }}>
-                        <div style={{ display: "flex", justifyItems: "center", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>Financial Stability Score</span>
-                          <span style={{ color: "#10b981", fontWeight: 700, fontSize: "0.9rem" }}>{computedFinancialStability}</span>
-                        </div>
-                        <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${computedFinancialStability}%`, background: "#10b981" }} />
-                        </div>
-                      </div>
-                    </div>
+                    <label className="fld-label">Exact monthly income (₹) *</label>
+                    <input type="number" placeholder="e.g. 45000"
+                      className={`fld-input${fieldErrors.customIncome?" err":""}`}
+                      value={customIncome} onChange={e => setCustomIncome(e.target.value)}/>
+                    <FErr field="customIncome"/>
+                  </div>
+                )}
+                <div>
+                  <label className="fld-label">Current savings (₹) *</label>
+                  <input type="number"
+                    className={`fld-input${fieldErrors.currentSavings?" err":""}`}
+                    placeholder="Enter 0 if you haven't started saving yet"
+                    value={currentSavings} onChange={e => setCurrentSavings(e.target.value)}/>
+                  <FErr field="currentSavings"/>
+                </div>
+                <div>
+                  <label className="fld-label" style={{ display:"flex", justifyContent:"space-between" }}>
+                    <span>Spending style</span>
+                    <span style={{ color:"#0044DD", fontWeight:800, textTransform:"none", letterSpacing:0 }}>
+                      {spendingStyle==="1"?"Very frugal":spendingStyle==="2"?"Careful":spendingStyle==="3"?"Balanced":spendingStyle==="4"?"Generous":"Big spender"}
+                    </span>
+                  </label>
+                  <input type="range" min="1" max="5" step="1" className="ob-range" value={spendingStyle} onChange={e => setSpendingStyle(e.target.value)}/>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+                    <span style={{ fontSize:"0.7rem", color:"#c4cbda", fontFamily:"'Inter',sans-serif" }}>Frugal</span>
+                    <span style={{ fontSize:"0.7rem", color:"#c4cbda", fontFamily:"'Inter',sans-serif" }}>Big spender</span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* LAYER 3: BEHAVIORAL TWIN */}
+            {/* ── Step 3 ── */}
             {step === 3 && (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <Briefcase size={20} color="#3b82f6" />
-                  <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.1em" }}>Step 3 of 4</span>
+              <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+                <div>
+                  <label className="fld-label" style={{ display:"flex", justifyContent:"space-between" }}>
+                    <span>Study / work hours *</span>
+                    <span style={{ color:fieldErrors.hoursStudied?"#dc2626":"#0044DD", fontWeight:800, textTransform:"none", letterSpacing:0 }}>{hoursStudied}h</span>
+                  </label>
+                  <input type="range" min="0" max="14" step="0.5" className="ob-range" value={hoursStudied} onChange={e => setHoursStudied(e.target.value)}/>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+                    <span style={{ fontSize:"0.7rem", color:"#c4cbda", fontFamily:"'Inter',sans-serif" }}>0h</span>
+                    <span style={{ fontSize:"0.7rem", color:"#c4cbda", fontFamily:"'Inter',sans-serif" }}>14h</span>
+                  </div>
+                  <FErr field="hoursStudied"/>
                 </div>
-                <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "1.65rem", fontWeight: 800, color: "#fff", margin: "0 0 10px", letterSpacing: "-0.02em" }}>How you actually spend your time. Not how you intend to — how you do.</h2>
-                <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", marginBottom: 28, lineHeight: 1.5 }}>
-                  Study hours, focus quality, and real consistency. Your twin needs actual behavior, not aspirations.
-                </p>
 
-                <div className="ob-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 32 }}>
-                  {/* Left Fields */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    {/* Personal Mission Narrative Input */}
-                    <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 16, padding: 18 }}>
-                      <label className="form-label" style={{ color: "#3b82f6", fontWeight: 700, fontSize: "0.75rem", marginBottom: 12 }}>
-                        🎯 Personal Mission
-                      </label>
-                      <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.45)", marginBottom: 14 }}>
-                        What is the most important thing you want to achieve in the next 12 months?
-                      </div>
-                      
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-                        {MISSION_PRESETS.map((preset, idx) => {
-                          const isSelected = selectedPresetIndex === idx;
-                          return (
-                            <button
-                              key={preset}
-                              type="button"
-                              onClick={() => {
-                                setSelectedPresetIndex(idx);
-                                setPersonalMission(preset);
-                              }}
-                              style={{
-                                padding: "8px 14px",
-                                borderRadius: "999px",
-                                fontSize: "0.75rem",
-                                fontWeight: 600,
-                                background: isSelected ? "rgba(59, 130, 246, 0.15)" : "rgba(255,255,255,0.03)",
-                                border: `1px solid ${isSelected ? "rgba(59, 130, 246, 0.5)" : "rgba(255,255,255,0.06)"}`,
-                                color: isSelected ? "#60a5fa" : "rgba(255,255,255,0.6)",
-                                cursor: "pointer",
-                                transition: "all 0.2s",
-                              }}
-                            >
-                              {preset}
-                            </button>
-                          );
-                        })}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedPresetIndex(-1);
-                            setPersonalMission(customMissionText);
-                          }}
-                          style={{
-                            padding: "8px 14px",
-                            borderRadius: "999px",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            background: selectedPresetIndex === -1 ? "rgba(59, 130, 246, 0.15)" : "rgba(255,255,255,0.03)",
-                            border: `1px solid ${selectedPresetIndex === -1 ? "rgba(59, 130, 246, 0.5)" : "rgba(255,255,255,0.06)"}`,
-                            color: selectedPresetIndex === -1 ? "#60a5fa" : "rgba(255,255,255,0.6)",
-                            cursor: "pointer",
-                            transition: "all 0.2s",
-                          }}
-                        >
-                          ✍️ Custom Mission
-                        </button>
-                      </div>
-
-                      {(selectedPresetIndex === -1 || (personalMission && !MISSION_PRESETS.includes(personalMission))) && (
-                        <div>
-                          <input
-                            type="text"
-                            placeholder="Enter your custom 12-month goal..."
-                            className="form-input"
-                            value={customMissionText}
-                            onChange={(e) => {
-                              setCustomMissionText(e.target.value);
-                              setPersonalMission(e.target.value);
-                            }}
-                            style={{
-                              borderColor: "rgba(59, 130, 246, 0.35)",
-                              boxShadow: "0 0 10px rgba(59,130,246,0.1)",
-                              height: "42px"
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="form-label">Study / Work Hours Per Day</label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <input type="range" min="1" max="12" step="0.5" className="range-slider" value={hoursStudied} onChange={(e) => setHoursStudied(e.target.value)} />
-                        <span style={{ color: "#fff", fontWeight: 700, fontSize: "0.9rem", width: 44, textAlign: "right" }}>{hoursStudied}h</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Typical Focus Quality Rating</label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <input type="range" min="1" max="10" step="1" className="range-slider" value={focusRating} onChange={(e) => setFocusRating(e.target.value)} />
-                        <span style={{ color: "#fff", fontWeight: 700, fontSize: "0.9rem", width: 44, textAlign: "right" }}>{focusRating}/10</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="form-label" style={{ display: "block", marginBottom: 8 }}>Study days last week</label>
-                      <div role="group" aria-label="Days studied last week" style={{ display: "flex", gap: 6 }}>
-                        {[0, 1, 2, 3, 4, 5, 6, 7].map((day) => (
-                          <button
-                            key={day}
-                            type="button"
-                            onClick={() => setDaysStudiedLastWeek(day)}
-                            aria-pressed={daysStudiedLastWeek === day}
-                            aria-label={`${day} day${day !== 1 ? "s" : ""}`}
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                              padding: "10px 0",
-                              borderRadius: 8,
-                              border: `1px solid ${daysStudiedLastWeek === day ? "rgba(59,130,246,0.8)" : "rgba(255,255,255,0.08)"}`,
-                              background: daysStudiedLastWeek === day ? "rgba(59,130,246,0.2)" : "rgba(4,10,22,0.6)",
-                              color: daysStudiedLastWeek === day ? "#60a5fa" : "rgba(255,255,255,0.5)",
-                              fontSize: "0.82rem",
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              transition: "all 0.15s",
-                            }}
-                          >
-                            {day}
-                          </button>
-                        ))}
-                      </div>
-                      <p style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", marginTop: 6 }}>days in the last week</p>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Goal Execution Horizon</label>
-                      <select className="form-select" value={goalHorizon} onChange={(e) => setGoalHorizon(e.target.value)}>
-                        <option value="3_months">3 Months (Short Sprint)</option>
-                        <option value="6_months">6 Months (Tactical Phase)</option>
-                        <option value="1_year">1 Year (Structured Pivot)</option>
-                        <option value="3_years">3 Years (Strategic Shift)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Learning Domain Category</label>
-                      <select className="form-select" value={learningProfile} onChange={(e) => setLearningProfile(e.target.value)}>
-                        <option value="student">Student (DSA/Campus Prep)</option>
-                        <option value="professional">Working Professional (Growth)</option>
-                        <option value="founder">Founder / Builder (Product Launch)</option>
-                        <option value="freelancer">Freelancer (Client Outflow)</option>
-                        <option value="job_seeker">Job Seeker (Active Search)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Right HUD */}
-                  <div>
-                    <div className="hud-panel" style={{ borderColor: "rgba(59, 130, 246, 0.25)" }}>
-                      <div className="hud-title" style={{ color: "#3b82f6" }}><Clock size={13} /> Focus & Study Habits</div>
- 
-                      <div className="hud-grid">
-                        <div>
-                          <div className="hud-value">{computedCareerVelocity}</div>
-                          <div className="hud-label">Career Velocity Rating</div>
-                        </div>
-                        <div>
-                          <div className="hud-value">{computedConsistencyIdx}%</div>
-                          <div className="hud-label">Consistency Index</div>
-                        </div>
-                      </div>
- 
-                      <div className="hud-grid" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14 }}>
-                        <div>
-                          <div className="hud-value">{Math.round(studyHoursVal * 7)}h</div>
-                          <div className="hud-label">Target Study / Week</div>
-                        </div>
-                        <div>
-                          <div className="hud-value">High</div>
-                          <div className="hud-label">Recruiter Signal</div>
-                        </div>
-                      </div>
- 
-                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14, textAlign: "left" }}>
-                        <div style={{ display: "flex", justifyItems: "center", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>Focus & Consistency Score</span>
-                          <span style={{ color: "#3b82f6", fontWeight: 700, fontSize: "0.9rem" }}>{computedExecutionPotential}</span>
-                        </div>
-                        <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${computedExecutionPotential}%`, background: "#3b82f6" }} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div>
+                  <label className="fld-label">Current situation *</label>
+                  <select className={`fld-select${fieldErrors.learningProfile?" err":""}`}
+                    value={learningProfile} onChange={e => setLearningProfile(e.target.value)}>
+                    <option value="">Select one...</option>
+                    <option value="student">Student — exams or placement prep</option>
+                    <option value="professional">Working professional — career growth</option>
+                    <option value="founder">Founder / builder — working on a product</option>
+                    <option value="freelancer">Freelancer — managing clients and projects</option>
+                    <option value="job_seeker">Actively looking for a job</option>
+                  </select>
+                  <FErr field="learningProfile"/>
                 </div>
               </div>
             )}
 
-            {/* LAYER 4: IDENTITY ARCHETYPE */}
+            {/* ── Step 4 ── */}
             {step === 4 && (
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <Brain size={20} color="#8b5cf6" />
-                  <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#8b5cf6", textTransform: "uppercase", letterSpacing: "0.1em" }}>Step 4 of 4</span>
-                </div>
-                <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "1.65rem", fontWeight: 800, color: "#fff", margin: "0 0 10px", letterSpacing: "-0.02em" }}>Finally — what you&apos;re building toward.</h2>
-                <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", marginBottom: 28, lineHeight: 1.5 }}>
-                  Choose the archetype that matches your direction. This shapes your twin&apos;s daily prioritization.
-                </p>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {ARCHETYPES.map((arch) => {
-                    const isSelected = archetype === arch.id;
+                <div className="av-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                  {AVATARS.map(av => {
+                    const sel = archetype === av.id;
                     return (
-                      <div
-                        key={arch.id}
-                        className={`select-card${isSelected ? " selected" : ""}`}
+                      <div key={av.id} className="av-card"
+                        onClick={() => { setArchetype(av.id); setFieldErrors({}); }}
                         style={{
-                          ["--card-bg" as any]: arch.bg,
-                          ["--card-border" as any]: arch.borderColor,
-                          ["--card-glow" as any]: arch.glowColor,
-                          display: "flex",
-                          gap: 16,
-                          alignItems: "flex-start",
-                        }}
-                        onClick={() => setArchetype(arch.id)}
-                      >
-                        <div style={{
-                          width: 44, height: 44, borderRadius: 10,
-                          background: isSelected ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.03)",
-                          border: `1px solid ${isSelected ? arch.borderColor : "rgba(255,255,255,0.06)"}`,
-                          display: "flex", alignItems: "center", justifyItems: "center",
-                          justifyContent: "center", flexShrink: 0
+                          borderColor: sel ? av.borderActive : "#e4e8f2",
+                          background: sel ? av.lightBg : "#fff",
+                          boxShadow: sel ? `0 6px 24px ${av.accent}1a` : "0 1px 4px rgba(0,0,0,0.04)",
+                          transform: sel ? "translateY(-3px)" : "",
                         }}>
-                          {arch.icon}
+                        <div style={{
+                          width:80, height:80, borderRadius:"50%", background:av.lightBg,
+                          border:`2px solid ${sel?av.borderActive:"#edf0f8"}`,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          boxShadow: sel?`0 0 0 4px ${av.accent}18`:"none", transition:"all 0.2s",
+                        }}>
+                          {av.svg}
                         </div>
-                        <div>
-                          <div style={{ display: "flex", justifyItems: "center", justifyContent: "space-between", alignItems: "center" }}>
-                            <h3 style={{ fontSize: "0.92rem", fontWeight: 800, color: "#fff", margin: 0 }}>{arch.name}</h3>
-                            <span style={{ fontSize: "0.68rem", fontWeight: 700, color: arch.accent, textTransform: "uppercase", letterSpacing: "0.05em" }}>{arch.tagline}</span>
+                        <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.98rem", fontWeight:800, color:sel?av.accent:"#0d1117" }}>
+                          {av.name}
+                        </div>
+                        <div style={{ fontSize:"0.7rem", color:"#9ca3af", lineHeight:1.5, fontFamily:"'Inter',sans-serif", fontWeight:500 }}>
+                          {av.focus}
+                        </div>
+                        {sel && (
+                          <div style={{
+                            display:"inline-flex", alignItems:"center", gap:4,
+                            background:av.accent, borderRadius:99, padding:"3px 10px",
+                            fontSize:"0.61rem", fontWeight:700, color:"#fff",
+                            textTransform:"uppercase", letterSpacing:"0.06em", fontFamily:"'Inter',sans-serif",
+                          }}>
+                            <CheckCircle2 size={9}/> Selected
                           </div>
-                          <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.45)", margin: "6px 0 0 0", lineHeight: 1.6 }}>{arch.description}</p>
-                        </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-              </div>
-            )}
-
-            {/* Navigation Buttons */}
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 36, borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 24 }}>
-              <button className="ob-btn ob-btn-secondary" onClick={() => setStep(step - 1)}>
-                Back
-              </button>
-              <button
-                className="ob-btn ob-btn-primary"
-                onClick={() => {
-                  if (step < 4) setStep(step + 1);
-                  else setStep(5); // Go to loading construction
-                }}
-              >
-                {step === 4 ? "Construct My Twin →" : "Next Calibration Step"}
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Construction Loader Step 5 */}
-      {step === 5 && (
-        <div style={{ width: "100%", maxWidth: 600, position: "relative", zIndex: 1, textAlign: "center" }}>
-          {/* Custom pulsating core */}
-          <div style={{ position: "relative", width: 100, height: 100, margin: "0 auto 36px" }}>
-            <div style={{
-              position: "absolute", inset: -20, borderRadius: "50%",
-              border: "1px solid rgba(59, 130, 246, 0.4)",
-              animation: "ringPulse2 2s ease-in-out infinite"
-            }} />
-            <div style={{
-              position: "absolute", inset: 0, borderRadius: "50%",
-              background: "radial-gradient(circle at 35% 35%, #3b82f6 0%, #050e1e 80%)",
-              border: "1.5px solid rgba(59, 130, 246, 0.6)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 0 40px rgba(59, 130, 246, 0.5)"
-            }}>
-              <Brain size={42} className="spin" color="#fff" style={{ animationDuration: "10s" }} />
-            </div>
-          </div>
-
-          <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "1.75rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.03em", marginBottom: 12 }}>
-            SYNTRA INITIALIZING
-          </h2>
-          <p style={{ fontSize: "0.86rem", color: "rgba(255,255,255,0.4)", marginBottom: 28 }}>
-            Configuring behavioral layers and computing timeline projections...
-          </p>
-
-          <div className="terminal-box">
-            {terminalLines.map((line, i) => (
-              <div key={i} style={{ color: line.startsWith("syn") ? "#60a5fa" : line.includes("✓") ? "#10b981" : "#94a3b8", marginBottom: 6 }}>
-                {line}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Twin Activation Report Step 6 */}
-      {step === 6 && (() => {
-        // Dynamic Model Completion percentages based on inputs
-        const sleepVal = parseFloat(averageSleep) || 7.0;
-        const workoutsVal = parseFloat(workoutFrequency) || 3;
-        const anatomicalCompletion = Math.min(98, Math.round(80 + (sleepVal >= 7.5 ? 10 : sleepVal >= 6.5 ? 5 : 0) + (workoutsVal >= 4 ? 8 : workoutsVal >= 2 ? 4 : 0)));
-
-        const savingsVal = parseFloat(currentSavings) || 0;
-        const financialCompletion = Math.min(98, Math.round(75 + (incomeVal > 0 ? 10 : 0) + (savingsVal >= 25000 ? 10 : savingsVal > 5000 ? 5 : 0)));
-
-        const studyVal = parseFloat(hoursStudied) || 3;
-        const focusVal = parseFloat(focusRating) || 7;
-        const behavioralCompletion = Math.min(98, Math.round(78 + (studyVal >= 5 ? 12 : studyVal >= 3 ? 6 : 0) + (focusVal >= 8 ? 8 : focusVal >= 6 ? 4 : 0)));
-
-        const twinSyncCompletion = Math.round((anatomicalCompletion + financialCompletion + behavioralCompletion) / 3);
-
-        // Dynamic Diagnosis Calculations
-        let primaryBottleneck = "Multi-domain Synergy";
-        let bottleneckExplanation = "Balanced individual vectors; optimization requires tight cross-domain correlation.";
-        if (sleepVal < 7.0) {
-          primaryBottleneck = "Sleep Consistency";
-          bottleneckExplanation = "Your sleep average is bottlenecking daily cognitive durability and neural focus depth.";
-        } else if (workoutsVal < 3) {
-          primaryBottleneck = "Physical Activity Base";
-          bottleneckExplanation = "Low workout cycles restrict vascular recovery and active energy baseline.";
-        } else if (computedSavingsRatePct < 15) {
-          primaryBottleneck = "Capital Runway Buffer";
-          bottleneckExplanation = "Discretionary spend patterns are compressing long-term wealth cushion.";
-        } else if (studyVal < 4) {
-          primaryBottleneck = "Focused Learning Inputs";
-          bottleneckExplanation = "Daily skill acquisition hours are below the speed of career breakthrough.";
-        } else if (focusVal < 7) {
-          primaryBottleneck = "Cognitive Focus Depth";
-          bottleneckExplanation = "High distraction rate degrades focus, causing longer project build cycles.";
-        }
-
-        let growthLever = "Asymmetric Focus Blocks";
-        let leverExplanation = "Deploy early-morning hyper-focus sessions for deep learning.";
-        if (studyVal < 5) {
-          growthLever = "Focused Learning Hours";
-          leverExplanation = "Upgrading daily dedicated blocks to 5h+ creates high career velocity.";
-        } else if (sleepVal < 7.6) {
-          growthLever = "Sleep & Recovery Cycles";
-          leverExplanation = "Extending average sleep to 7.8 hours will boost daily focus index by 15%.";
-        } else if (computedSavingsRatePct < 25) {
-          growthLever = "Savings Rate Optimization";
-          leverExplanation = "Reallocating 15% of discretionary spend to active SIPs builds stable cushion.";
-        }
-
-        let projectedOutcome = "Stable career and life progression with structured multi-domain velocity.";
-        if (archetype === "founder") {
-          projectedOutcome = "High-stakes venture launch velocity with intensive output within 3-5 months.";
-        } else if (archetype === "scholar") {
-          projectedOutcome = "Significant skill acquisition & premium internship/job readiness in 4-6 months.";
-        } else if (archetype === "architect") {
-          projectedOutcome = "Absolute financial cushion with over 12-month savings runway by month 9.";
-        } else if (archetype === "operator") {
-          projectedOutcome = "Hyper-consistent execution velocity and daily habit tracking mastery in 60 days.";
-        } else if (archetype === "titan") {
-          projectedOutcome = "Symmetric energy peaks and optimized cognitive durability across all vectors.";
-        }
-
-        return (
-          <div className="ob-container" style={{ maxWidth: 640 }}>
-            <div style={{ padding: 36, textAlign: "center" }}>
-              
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 9999, padding: "5px 14px", marginBottom: 24 }}>
-                <Sparkles size={12} color="#10b981" />
-                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.1em" }}>Avatar Fully Synchronized</span>
-              </div>
-
-              <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "2rem", fontWeight: 800, color: "#fff", margin: "0 0 8px", letterSpacing: "-0.03em" }}>Twin Activation Report</h2>
-              <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", marginBottom: 36, maxWidth: 440, marginInline: "auto" }}>
-                Syntra has calibrated your baseline potentials across all active domains.
-              </p>
-
-              {/* Dynamic Progress Bars */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 36, textAlign: "left" }}>
-                {[
-                  { label: "ANATOMICAL MODEL", value: anatomicalCompletion, color: "#ef4444" },
-                  { label: "FINANCIAL MODEL", value: financialCompletion, color: "#10b981" },
-                  { label: "BEHAVIORAL MODEL", value: behavioralCompletion, color: "#3b82f6" },
-                  { label: "DIGITAL TWIN SYNCHRONIZATION", value: twinSyncCompletion, color: "#8b5cf6" },
-                ].map((model) => (
-                  <div key={model.label} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12, padding: "14px 20px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ fontSize: "0.68rem", fontWeight: 800, color: "rgba(255,255,255,0.5)", letterSpacing: "0.08em" }}>{model.label}</span>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 800, color: model.color }}>{model.value}% Complete</span>
-                    </div>
-                    <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden", position: "relative" }}>
-                      <div style={{
-                        height: "100%",
-                        width: `${model.value}%`,
-                        background: model.color,
-                        borderRadius: 999,
-                        boxShadow: `0 0 10px ${model.color}`,
-                        transition: "width 1s ease-out"
-                      }} />
-                    </div>
+                <FErr field="archetype"/>
+                {apiError && (
+                  <div style={{
+                    background:"#fef2f2", border:"1px solid #fecaca", borderRadius:10,
+                    padding:"11px 16px", color:"#dc2626", fontSize:"0.82rem", fontWeight:500,
+                    fontFamily:"'Inter',sans-serif", marginTop:16,
+                  }}>
+                    ⚠ {apiError}
                   </div>
-                ))}
-              </div>
-
-              {/* Telemetry Diagnostic Console */}
-              <div style={{
-                background: "rgba(4, 10, 22, 0.9)",
-                border: "1px dashed rgba(59, 130, 246, 0.25)",
-                borderRadius: 16,
-                padding: 24,
-                textAlign: "left",
-                marginBottom: 36,
-                display: "flex",
-                flexDirection: "column",
-                gap: 18
-              }}>
-                <div>
-                  <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
-                    ⚠️ Primary Bottleneck
-                  </div>
-                  <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#fff", marginBottom: 2 }}>
-                    {primaryBottleneck}
-                  </div>
-                  <div style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.4 }}>
-                    {bottleneckExplanation}
-                  </div>
-                </div>
-                
-                <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14 }}>
-                  <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
-                    📈 Highest Growth Lever
-                  </div>
-                  <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#fff", marginBottom: 2 }}>
-                    {growthLever}
-                  </div>
-                  <div style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.4 }}>
-                    {leverExplanation}
-                  </div>
-                </div>
-
-                <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14 }}>
-                  <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "#8b5cf6", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
-                    🔮 Projected Outcome
-                  </div>
-                  <div style={{ fontSize: "0.78rem", color: "#e2e8f0", fontWeight: 600, lineHeight: 1.4 }}>
-                    {projectedOutcome}
-                  </div>
-                </div>
-              </div>
-
-              {/* Twin's first observation — no decimal sync number */}
-              <div role="status" style={{
-                background: "rgba(255,255,255,0.02)",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 14,
-                padding: "18px 20px",
-                marginBottom: 24,
-                textAlign: "left",
-              }}>
-                <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
-                  Your twin&apos;s first observation
-                </div>
-                <p style={{ fontSize: "0.88rem", color: "rgba(255,255,255,0.65)", fontStyle: "italic", lineHeight: 1.6, margin: 0 }}>
-                  {getTwinFirstObservation(
-                    parseFloat(averageSleep) || 7,
-                    parseFloat(hoursStudied) || 0,
-                    archetype === "architect" ? "finance" : archetype === "titan" ? "health" : "career",
-                    daysStudiedLastWeek
-                  )}
-                </p>
-                <p style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.25)", marginTop: 8, marginBottom: 0 }}>
-                  Your score will sharpen as you log. Don&apos;t anchor on today&apos;s number.
-                </p>
-              </div>
-
-              <button className="ob-btn ob-btn-primary" onClick={() => setStep(7)} style={{ width: "100%", padding: "16px 28px", borderRadius: 12 }}>
-                Project 12-Month Twin Simulation →
-              </button>
-
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Step 7: Current Self vs Predicted 12-Month Self Comparative Card */}
-      {step === 7 && (
-        <div className="ob-container" style={{ maxWidth: 680 }}>
-          <div style={{ padding: 36 }}>
-            
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <Brain size={18} color="#8b5cf6" />
-              <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#8b5cf6", textTransform: "uppercase", letterSpacing: "0.1em" }}>Predictive Trajectory Model</span>
-            </div>
-
-            <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "1.75rem", fontWeight: 800, color: "#fff", margin: "0 0 10px", letterSpacing: "-0.03em" }}>
-              Current Self vs Predicted Self
-            </h2>
-            <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", marginBottom: 32, lineHeight: 1.5 }}>
-              Compare your current state side-by-side with your simulated 12-Month trajectory powered by Syntra’s neural focus algorithms.
-            </p>
-
-            {/* Error banner */}
-            {error && (
-              <div style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.25)", color: "#fca5a5", borderRadius: 12, padding: "12px 16px", fontSize: "0.82rem", marginBottom: 20 }}>
-                {error}
-              </div>
-            )}
-
-            {/* Comparative grid layout */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 36 }}>
-              {/* Current Self */}
-              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 18, padding: 24 }}>
-                <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 18 }}>
-                  Current Profile
-                </div>
-                
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: "1.35rem", fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>{averageSleep}h</div>
-                    <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Daily Sleep Average</div>
-                  </div>
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14 }}>
-                    <div style={{ fontSize: "1.35rem", fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>₹{(savingsVal / 1000).toFixed(1)}k</div>
-                    <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Starting Net Cushion</div>
-                  </div>
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14 }}>
-                    <div style={{ fontSize: "1.35rem", fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>{hoursStudied}h/day</div>
-                    <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Dedicated Study Hours</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Predicted Self */}
-              <div style={{ background: "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 18, padding: 24, boxShadow: "0 8px 36px rgba(59, 130, 246, 0.15)" }}>
-                <div style={{ display: "flex", justifyItems: "center", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-                  <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                    Predicted (12 Months)
-                  </span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 4, padding: "2px 6px", fontSize: "0.62rem", color: "#10b981", fontWeight: 700 }}>
-                    <TrendingUp size={10} /> Shifted
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: "1.35rem", fontWeight: 800, color: "#60a5fa", lineHeight: 1.1 }}>7.4h</div>
-                    <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Target Sleep Average</div>
-                  </div>
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14 }}>
-                    <div style={{ fontSize: "1.35rem", fontWeight: 800, color: "#10b981", lineHeight: 1.1 }}>
-                      ₹{(Math.max(savingsVal * 2.5, computedProjectedSavings) / 1000).toFixed(1)}k
-                    </div>
-                    <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Projected Savings Runway</div>
-                  </div>
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14 }}>
-                    <div style={{ fontSize: "1.35rem", fontWeight: 800, color: "#8b5cf6", lineHeight: 1.1 }}>
-                      {(parseFloat(hoursStudied) * 1.5).toFixed(1)}h/day
-                    </div>
-                    <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Projected Focus Target</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom rating metadata info */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12, marginBottom: 36 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Award size={14} color="#8b5cf6" />
-                <span style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>Predictive Twin Confidence Rating</span>
-              </div>
-              <span style={{ fontSize: "0.88rem", fontWeight: 800, color: "#8b5cf6" }}>82%</span>
-            </div>
-
-            <button className="ob-btn ob-btn-primary" onClick={() => setStep(8)} style={{ width: "100%", padding: "16px 28px" }}>
-              <ArrowRight size={16} /> Project 12-Month Synthesis & Calibrate Constraint Engine
-            </button>
-
-          </div>
-        </div>
-      )}
-
-      {/* Step 8: Cross-Domain constraint Synthesis ("Why Syntra Exists") */}
-      {step === 8 && (() => {
-        const sleepValue = parseFloat(averageSleep) || 7.0;
-        const studyValue = parseFloat(hoursStudied) || 3;
-        
-        // Dynamic cross-domain detection bullets
-        const careerTrajectoryBullet = studyValue >= 6 ? "Strong career trajectory" : studyValue >= 3 ? "Moderate career velocity" : "Restricted career momentum";
-        const recoveryBullet = sleepValue >= 7.5 ? "Optimal recovery patterns" : sleepValue >= 6.0 ? "Vulnerable recovery patterns" : "Weak recovery patterns";
-        const financeBullet = computedSavingsRatePct >= 30 ? "High-surplus financial behavior" : computedSavingsRatePct >= 15 ? "Stable financial behavior" : "Fragile financial runway";
-
-        let mainConstraint = "health recovery";
-        if (sleepValue < 7.0 || parseFloat(workoutFrequency) < 2) {
-          mainConstraint = "health recovery";
-        } else if (computedSavingsRatePct < 15) {
-          mainConstraint = "financial runway and savings growth";
-        } else {
-          mainConstraint = "execution volume and focus consistency";
-        }
-
-        return (
-          <div className="ob-container" style={{ maxWidth: 660 }}>
-            <div style={{ padding: 36, textAlign: "center" }}>
-              
-              {/* Pulsing Neural Graphic */}
-              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 32, marginBottom: 32, position: "relative" }}>
-                <div style={{
-                  position: "absolute",
-                  width: 140,
-                  height: 1,
-                  borderTop: "2px dashed rgba(59, 130, 246, 0.3)",
-                  zIndex: 0
-                }} />
-                
-                {/* Health Node */}
-                <div className="network-circle" style={{
-                  width: 60, height: 60, borderRadius: "50%",
-                  background: "linear-gradient(135deg, #1f0b0b 0%, #3d1414 100%)",
-                  border: "2px solid #ef4444",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  zIndex: 1,
-                  animation: "networkPulse 3s ease-in-out infinite"
-                }}>
-                  <HeartPulse size={24} color="#ef4444" />
-                </div>
-
-                {/* Career Node */}
-                <div className="network-circle" style={{
-                  width: 76, height: 76, borderRadius: "50%",
-                  background: "linear-gradient(135deg, #0b162f 0%, #142858 100%)",
-                  border: "2px solid #3b82f6",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  zIndex: 1,
-                  animation: "networkPulse 3s ease-in-out infinite 1s"
-                }}>
-                  <Brain size={32} color="#60a5fa" />
-                </div>
-
-                {/* Finance Node */}
-                <div className="network-circle" style={{
-                  width: 60, height: 60, borderRadius: "50%",
-                  background: "linear-gradient(135deg, #091f14 0%, #103c27 100%)",
-                  border: "2px solid #10b981",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  zIndex: 1,
-                  animation: "networkPulse 3s ease-in-out infinite 2s"
-                }}>
-                  <Wallet size={24} color="#10b981" />
-                </div>
-              </div>
-
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.25)", borderRadius: 9999, padding: "5px 14px", marginBottom: 16 }}>
-                <Cpu size={12} color="#60a5fa" />
-                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.1em" }}>Constraint Model Calibrated</span>
-              </div>
-
-              <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "1.9rem", fontWeight: 800, color: "#fff", margin: "0 0 10px", letterSpacing: "-0.03em" }}>
-                Why Syntra Exists
-              </h2>
-              <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", marginBottom: 28, maxWidth: 460, marginInline: "auto", lineHeight: 1.5 }}>
-                Your digital twin has analyzed the cross-domain pathways connecting your lifestyle, capital runway, and focus metrics.
-              </p>
-
-              {/* Neural Detections Box */}
-              <div style={{
-                background: "rgba(4, 10, 22, 0.8)",
-                border: "1px solid rgba(59, 130, 246, 0.15)",
-                borderRadius: 18,
-                padding: 24,
-                textAlign: "left",
-                marginBottom: 32,
-                display: "flex",
-                flexDirection: "column",
-                gap: 14
-              }}>
-                <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
-                  SYNERGISTIC CORRELATIONS DETECTED:
-                </div>
-                
-                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#e2e8f0", fontSize: "0.86rem" }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6" }} />
-                  <span>• {careerTrajectoryBullet}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#e2e8f0", fontSize: "0.86rem" }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444" }} />
-                  <span>• {recoveryBullet}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#e2e8f0", fontSize: "0.86rem" }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
-                  <span>• {financeBullet}</span>
-                </div>
-
-                <div style={{
-                  borderTop: "1px solid rgba(255,255,255,0.06)",
-                  paddingTop: 16,
-                  marginTop: 6,
-                  fontSize: "1.02rem",
-                  fontWeight: 700,
-                  color: "#fff",
-                  lineHeight: 1.4
-                }}>
-                  The next 12 months are primarily constrained by <span style={{ color: "#f59e0b", borderBottom: "1.5px solid rgba(245, 158, 11, 0.4)", paddingBottom: 1 }}>{mainConstraint}</span>.
-                </div>
-              </div>
-
-              {/* Core Philosophy Callout */}
-              <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.6, maxWidth: 500, marginInline: "auto", marginBottom: 36, fontStyle: "italic" }}>
-                "Syntra does not look at your life in silos. Your financial capacity limits your stress threshold, your sleep governs your learning velocity, and your career velocity funds your runway. Your twin synthesizes these inputs into a single, unified daily directive."
-              </p>
-
-              {/* Final Action Button */}
-              {error && (
-                <div style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.25)", color: "#fca5a5", borderRadius: 12, padding: "12px 16px", fontSize: "0.82rem", marginBottom: 20 }}>
-                  {error}
-                </div>
-              )}
-
-              <button className="ob-btn ob-btn-primary" onClick={finalizeOnboarding} disabled={loading} style={{ width: "100%", padding: "16px 28px", borderRadius: 14 }}>
-                {loading ? (
-                  <>
-                    <Cpu size={16} className="spin" />
-                    Activating Synergistic Core Engine...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 size={16} /> Activate Synergistic Control Engine & Enter Dashboard
-                  </>
                 )}
-              </button>
+              </div>
+            )}
 
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Immersive Futuristic Fullscreen Neural Core Construction WOW Transition */}
-      {showConstructionWow && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 9999,
-          background: "radial-gradient(circle at center, #020813 0%, #01040a 100%)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "'Plus Jakarta Sans', sans-serif"
-        }}>
-          {/* Grid scanning effect */}
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage: "linear-gradient(rgba(0,102,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,102,255,0.02) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-            pointerEvents: "none"
-          }} />
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 60%)",
-            pointerEvents: "none"
-          }} />
-
-          {/* Central Core Sphere */}
-          <div style={{ position: "relative", width: 140, height: 140, marginBottom: 48 }}>
-            <div className="wow-pulse-ring" style={{
-              position: "absolute",
-              inset: -15,
-              borderRadius: "50%",
-              border: "2.5px solid rgba(59, 130, 246, 0.35)",
-              animation: "wowPing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite"
-            }} />
+            {/* Navigation */}
             <div style={{
-              position: "absolute",
-              inset: 0,
-              background: "linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899)",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 0 50px rgba(139, 92, 246, 0.5)",
-              animation: "wowSpin 12s linear infinite"
+              display:"flex", justifyContent:"space-between", alignItems:"center",
+              marginTop:32, paddingTop:22, borderTop:"1px solid #f2f4fa",
             }}>
-              <Cpu size={56} style={{ color: "#fff" }} />
+              <button className="btn-ghost" onClick={goBack}>← Back</button>
+              <button className="btn-primary" onClick={goNext} disabled={loading}>
+                {loading
+                  ? <><Cpu size={15} style={{ animation:"spinX 1.4s linear infinite" }}/> Activating...</>
+                  : step === 4
+                  ? <><CheckCircle2 size={15}/> Activate My Twin</>
+                  : <>Continue <ArrowRight size={15}/></>
+                }
+              </button>
             </div>
           </div>
 
-          {/* Title */}
-          <div style={{ textTransform: "uppercase", fontSize: "0.85rem", letterSpacing: "0.22em", color: "#60a5fa", fontWeight: 800, marginBottom: 12 }}>
-            Neural Construction Mode
+          {/* Trust line */}
+          <p style={{ textAlign:"center", fontSize:"0.73rem", color:"#b8c0cc", fontFamily:"'Inter',sans-serif", marginTop:18 }}>
+            🔒 Your data is encrypted &nbsp;·&nbsp; ✓ Free to join &nbsp;·&nbsp; No spam, ever
+          </p>
+        </div>
+      )}
+
+      {/* ── WOW ── */}
+      {showWow && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:9999,
+          background:"linear-gradient(140deg,#0033CC 0%,#0055FF 60%,#2211EE 100%)",
+          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+        }}>
+          <style>{`
+            @keyframes ping2{75%,100%{transform:scale(1.7);opacity:0}}
+            @keyframes spin2{100%{transform:rotate(360deg)}}
+          `}</style>
+          <div style={{ position:"relative", width:100, height:100, marginBottom:36 }}>
+            <div style={{ position:"absolute", inset:-12, borderRadius:"50%", border:"2px solid rgba(255,255,255,0.28)", animation:"ping2 1.8s cubic-bezier(0,0,0.2,1) infinite" }}/>
+            <div style={{
+              position:"absolute", inset:0, borderRadius:"50%",
+              background:"rgba(255,255,255,0.12)", backdropFilter:"blur(8px)",
+              border:"1.5px solid rgba(255,255,255,0.22)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              animation:"spin2 10s linear infinite",
+            }}>
+              <Cpu size={42} color="#fff"/>
+            </div>
           </div>
-          <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: "2.1rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.03em", marginBottom: 36, textAlign: "center" }}>
-            Synthesizing Digital Twin...
+          <div style={{ fontSize:"0.7rem", letterSpacing:"0.2em", color:"rgba(255,255,255,0.65)", fontWeight:700, textTransform:"uppercase", marginBottom:8, fontFamily:"'Inter',sans-serif" }}>
+            Activating Your Twin
+          </div>
+          <h2 style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"1.75rem", fontWeight:800, color:"#fff", letterSpacing:"-0.03em", marginBottom:32 }}>
+            Building Your Digital Twin...
           </h2>
-
-          {/* Sequential Interactive Stage Checklist */}
           <div style={{
-            background: "rgba(8, 17, 36, 0.8)",
-            border: "1px solid rgba(59, 130, 246, 0.2)",
-            borderRadius: "20px",
-            padding: "30px 40px",
-            width: "100%",
-            maxWidth: "520px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "16px",
-            textAlign: "left",
-            boxShadow: "0 20px 50px rgba(0,0,0,0.6)"
+            background:"rgba(255,255,255,0.1)", backdropFilter:"blur(12px)",
+            border:"1px solid rgba(255,255,255,0.16)",
+            borderRadius:16, padding:"22px 32px", width:"100%", maxWidth:420,
+            display:"flex", flexDirection:"column", gap:12,
           }}>
-            {[
-              { label: "Initializing Digital Twin Core Sync", stepIdx: 0 },
-              { label: "Building Anatomical Model & Metabolic Core", stepIdx: 1 },
-              { label: "Building Behavioral Model & Consistency Matrix", stepIdx: 2 },
-              { label: "Building Financial Model & Capital Runway", stepIdx: 3 },
-              { label: "Calibrating 12-Month Trajectory Projection", stepIdx: 4 },
-              { label: `Final Handshake: Core Sync ${potentials.syncPercentage}% [${
-                (parseFloat(averageSleep) || 7) < 6.5 ? "RECOVERY MODE" : (parseFloat(workoutFrequency) || 3) >= 4 && (parseFloat(focusRating) || 7) >= 7 && daysStudiedLastWeek >= 5 ? "ACCELERATING" : "STABLE"
-              }]`, stepIdx: 5 },
-              { label: "Digital Twin Activated", stepIdx: 6 }
-            ].map((wow, index) => {
-              const isDone = currentWowStep > wow.stepIdx;
-              const isActive = currentWowStep === wow.stepIdx;
-              const isPending = currentWowStep < wow.stepIdx;
-              
-              let statusText = "Pending";
-              let statusColor = "rgba(255,255,255,0.2)";
-              if (isDone) {
-                statusText = "✓ Done";
-                statusColor = "#10b981";
-              } else if (isActive) {
-                statusText = "Syncing...";
-                statusColor = "#3b82f6";
-              }
-
+            {["Setting up your profile","Mapping your health habits","Analysing your finances","Understanding your work patterns","Personalising your experience","Twin is ready"].map((label, idx) => {
+              const done2 = wowStep > idx, active = wowStep === idx;
               return (
-                <div key={index} style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  opacity: isPending ? 0.35 : 1,
-                  transition: "all 0.3s ease"
-                }}>
-                  <span style={{
-                    fontSize: "0.88rem",
-                    fontWeight: 600,
-                    color: isDone ? "#fff" : isActive ? "#60a5fa" : "rgba(255,255,255,0.6)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px"
-                  }}>
-                    <span style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background: isDone ? "#10b981" : isActive ? "#3b82f6" : "rgba(255,255,255,0.3)",
-                      boxShadow: isActive ? "0 0 10px #3b82f6" : "none"
-                    }} />
-                    {wow.label}
+                <div key={idx} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", opacity:wowStep<idx?0.28:1, transition:"opacity 0.3s" }}>
+                  <span style={{ fontSize:"0.86rem", fontWeight:600, fontFamily:"'Inter',sans-serif", color:"#fff", display:"flex", alignItems:"center", gap:10 }}>
+                    <span style={{ width:6, height:6, borderRadius:"50%", flexShrink:0, background:done2?"#4ade80":active?"#fff":"rgba(255,255,255,0.3)", boxShadow:active?"0 0 8px rgba(255,255,255,0.8)":"none" }}/>
+                    {label}
                   </span>
-                  <span style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: "0.78rem",
-                    fontWeight: 700,
-                    color: statusColor,
-                    textTransform: "uppercase"
-                  }}>
-                    {wow.stepIdx === 6 && isActive ? "Activating..." : statusText}
+                  <span style={{ fontSize:"0.7rem", fontWeight:700, textTransform:"uppercase", color:done2?"#4ade80":active?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.28)", fontFamily:"'Inter',sans-serif" }}>
+                    {done2?"✓ Done":active?"Working...":"Pending"}
                   </span>
                 </div>
               );
             })}
           </div>
-
-          <style>{`
-            @keyframes wowPing {
-              75%, 100% { transform: scale(1.5); opacity: 0; }
-            }
-            @keyframes wowSpin {
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
         </div>
       )}
     </div>

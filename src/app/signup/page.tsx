@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import "./signup.css";
 
@@ -40,292 +40,19 @@ function SyntraMonogram() {
         </filter>
       </defs>
 
-      {/* Ambient glow behind */}
       <ellipse cx="20" cy="26" rx="14" ry="14" fill="url(#glow-a)" filter="url(#soft-glow)" opacity="0.5" />
       <ellipse cx="32" cy="26" rx="14" ry="14" fill="url(#glow-b)" filter="url(#soft-glow)" opacity="0.5" />
-
-      {/* Left circle */}
-      <circle
-        cx="20"
-        cy="26"
-        r="13"
-        fill="none"
-        stroke="url(#glow-a)"
-        strokeWidth="2.2"
-        filter="url(#blur-glow)"
-        opacity="0.95"
-      />
-      {/* Right circle */}
-      <circle
-        cx="32"
-        cy="26"
-        r="13"
-        fill="none"
-        stroke="url(#glow-b)"
-        strokeWidth="2.2"
-        filter="url(#blur-glow)"
-        opacity="0.95"
-      />
-
-      {/* Intersection fill — vesica piscis */}
-      <path
-        d="M26 14.2 C29.8 17.8 31.8 21.8 31.8 26 C31.8 30.2 29.8 34.2 26 37.8 C22.2 34.2 20.2 30.2 20.2 26 C20.2 21.8 22.2 17.8 26 14.2 Z"
-        fill="white"
-        opacity="0.08"
-      />
-
-      {/* Helix arc — top cross stroke */}
-      <path
-        d="M20.5 19 Q26 15 31.5 19"
-        stroke="white"
-        strokeWidth="1.4"
-        fill="none"
-        strokeLinecap="round"
-        opacity="0.55"
-      />
-      {/* Helix arc — bottom cross stroke */}
-      <path
-        d="M20.5 33 Q26 37 31.5 33"
-        stroke="white"
-        strokeWidth="1.4"
-        fill="none"
-        strokeLinecap="round"
-        opacity="0.55"
-      />
-
-      {/* Center vertical spine */}
+      <circle cx="20" cy="26" r="13" fill="none" stroke="url(#glow-a)" strokeWidth="2.2" filter="url(#blur-glow)" opacity="0.95" />
+      <circle cx="32" cy="26" r="13" fill="none" stroke="url(#glow-b)" strokeWidth="2.2" filter="url(#blur-glow)" opacity="0.95" />
+      <path d="M26 14.2 C29.8 17.8 31.8 21.8 31.8 26 C31.8 30.2 29.8 34.2 26 37.8 C22.2 34.2 20.2 30.2 20.2 26 C20.2 21.8 22.2 17.8 26 14.2 Z" fill="white" opacity="0.08" />
+      <path d="M20.5 19 Q26 15 31.5 19" stroke="white" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity="0.55" />
+      <path d="M20.5 33 Q26 37 31.5 33" stroke="white" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity="0.55" />
       <line x1="26" y1="14" x2="26" y2="38" stroke="white" strokeWidth="1.2" strokeLinecap="round" opacity="0.3" />
-
-      {/* Center dot — synchronization point */}
       <circle cx="26" cy="26" r="2.5" fill="white" opacity="0.9" />
       <circle cx="26" cy="26" r="1.2" fill="#A5C8FF" />
     </svg>
   );
 }
-
-// ─── Premium Syntra Brand Avatars ────────────────────────────────────────────
-const AVATAR_OPTIONS = [
-  {
-    id: 1,
-    name: "Aether",
-    tagline: "Vitality · Metabolic Balance",
-    accent: "#3B82F6",
-    bg: "linear-gradient(135deg, #0f1e3d 0%, #0d2d5e 50%, #0a1a3a 100%)",
-    glow: "rgba(59,130,246,0.55)",
-    ring: "#3B82F6",
-    svg: (
-      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-        <defs>
-          <radialGradient id="ae-face" cx="50%" cy="45%" r="55%">
-            <stop offset="0%" stopColor="#BFDBFE" />
-            <stop offset="100%" stopColor="#60A5FA" />
-          </radialGradient>
-          <radialGradient id="ae-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#1E40AF" stopOpacity="0" />
-          </radialGradient>
-          <filter id="ae-blur">
-            <feGaussianBlur stdDeviation="2.5" />
-          </filter>
-        </defs>
-        {/* Ambient halo */}
-        <circle cx="40" cy="40" r="36" fill="url(#ae-glow)" filter="url(#ae-blur)" />
-        {/* Head */}
-        <ellipse cx="40" cy="38" rx="20" ry="22" fill="url(#ae-face)" />
-        {/* Geometric crown lines */}
-        <line x1="40" y1="16" x2="40" y2="10" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-        <line x1="33" y1="19" x2="29" y2="13" stroke="#93C5FD" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
-        <line x1="47" y1="19" x2="51" y2="13" stroke="#93C5FD" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
-        {/* Circuit temple marks */}
-        <path d="M20 38 H15 V32" stroke="#60A5FA" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7" />
-        <path d="M60 38 H65 V32" stroke="#60A5FA" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7" />
-        {/* Eyes — glowing orbs */}
-        <ellipse cx="33" cy="37" rx="4.5" ry="4.5" fill="#0EA5E9" />
-        <ellipse cx="47" cy="37" rx="4.5" ry="4.5" fill="#0EA5E9" />
-        <ellipse cx="33" cy="37" rx="2.5" ry="2.5" fill="#E0F2FE" />
-        <ellipse cx="47" cy="37" rx="2.5" ry="2.5" fill="#E0F2FE" />
-        <circle cx="33" cy="37" r="1" fill="#0369A1" />
-        <circle cx="47" cy="37" r="1" fill="#0369A1" />
-        <circle cx="34" cy="35.8" r="0.8" fill="white" opacity="0.9" />
-        <circle cx="48" cy="35.8" r="0.8" fill="white" opacity="0.9" />
-        {/* Nose bridge — minimal line */}
-        <line x1="40" y1="42" x2="40" y2="46" stroke="#93C5FD" strokeWidth="1" strokeLinecap="round" opacity="0.5" />
-        {/* Lips — neutral arc */}
-        <path d="M35 52 Q40 56 45 52" stroke="#BFDBFE" strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.9" />
-        {/* Hex data marks on cheeks */}
-        <circle cx="26" cy="46" r="1.5" fill="#93C5FD" opacity="0.4" />
-        <circle cx="54" cy="46" r="1.5" fill="#93C5FD" opacity="0.4" />
-        {/* Body suggestion */}
-        <path d="M22 72 Q22 60 40 58 Q58 60 58 72" fill="#1D4ED8" opacity="0.9" />
-        {/* Collar circuit */}
-        <path d="M30 60 H36 V58 H44 V60 H50" stroke="#93C5FD" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.6" />
-      </svg>
-    ),
-  },
-  {
-    id: 2,
-    name: "Chronos",
-    tagline: "Career Focus · Learning Velocity",
-    accent: "#10B981",
-    bg: "linear-gradient(135deg, #052e16 0%, #064e3b 50%, #022c22 100%)",
-    glow: "rgba(16,185,129,0.5)",
-    ring: "#10B981",
-    svg: (
-      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-        <defs>
-          <radialGradient id="ch-face" cx="50%" cy="45%" r="55%">
-            <stop offset="0%" stopColor="#D1FAE5" />
-            <stop offset="100%" stopColor="#6EE7B7" />
-          </radialGradient>
-          <radialGradient id="ch-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#10B981" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#065F46" stopOpacity="0" />
-          </radialGradient>
-          <filter id="ch-blur">
-            <feGaussianBlur stdDeviation="2.5" />
-          </filter>
-        </defs>
-        <circle cx="40" cy="40" r="36" fill="url(#ch-glow)" filter="url(#ch-blur)" />
-        {/* Head */}
-        <ellipse cx="40" cy="38" rx="20" ry="22" fill="url(#ch-face)" />
-        {/* Data arc crown */}
-        <path d="M24 26 Q40 12 56 26" stroke="#34D399" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.7" />
-        <circle cx="40" cy="13" r="2" fill="#34D399" opacity="0.8" />
-        {/* Temple circuits */}
-        <path d="M20 36 H14 V28 H18" stroke="#34D399" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.65" />
-        <path d="M60 36 H66 V28 H62" stroke="#34D399" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.65" />
-        {/* Eyes */}
-        <ellipse cx="33" cy="37" rx="4.5" ry="4.5" fill="#059669" />
-        <ellipse cx="47" cy="37" rx="4.5" ry="4.5" fill="#059669" />
-        <ellipse cx="33" cy="37" rx="2.5" ry="2.5" fill="#ECFDF5" />
-        <ellipse cx="47" cy="37" rx="2.5" ry="2.5" fill="#ECFDF5" />
-        <circle cx="33" cy="37" r="1" fill="#065F46" />
-        <circle cx="47" cy="37" r="1" fill="#065F46" />
-        <circle cx="34" cy="35.8" r="0.8" fill="white" opacity="0.9" />
-        <circle cx="48" cy="35.8" r="0.8" fill="white" opacity="0.9" />
-        {/* Clock arc on forehead */}
-        <path d="M34 28 Q40 25 46 28" stroke="#6EE7B7" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.5" />
-        {/* Mouth */}
-        <path d="M35 51 Q40 56 45 51" stroke="#A7F3D0" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-        {/* Cheek dots */}
-        <circle cx="26" cy="45" r="1.5" fill="#6EE7B7" opacity="0.4" />
-        <circle cx="54" cy="45" r="1.5" fill="#6EE7B7" opacity="0.4" />
-        {/* Body */}
-        <path d="M22 72 Q22 60 40 58 Q58 60 58 72" fill="#047857" opacity="0.9" />
-        {/* Collar */}
-        <path d="M30 60 H36 V58 H44 V60 H50" stroke="#6EE7B7" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.6" />
-      </svg>
-    ),
-  },
-  {
-    id: 3,
-    name: "Apex",
-    tagline: "Peak Performance · Multi-Domain",
-    accent: "#8B5CF6",
-    bg: "linear-gradient(135deg, #1e0a3c 0%, #2e1065 50%, #170627 100%)",
-    glow: "rgba(139,92,246,0.55)",
-    ring: "#8B5CF6",
-    svg: (
-      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-        <defs>
-          <radialGradient id="ap-face" cx="50%" cy="45%" r="55%">
-            <stop offset="0%" stopColor="#EDE9FE" />
-            <stop offset="100%" stopColor="#C4B5FD" />
-          </radialGradient>
-          <radialGradient id="ap-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#4C1D95" stopOpacity="0" />
-          </radialGradient>
-          <filter id="ap-blur">
-            <feGaussianBlur stdDeviation="2.5" />
-          </filter>
-        </defs>
-        <circle cx="40" cy="40" r="36" fill="url(#ap-glow)" filter="url(#ap-blur)" />
-        {/* Head */}
-        <ellipse cx="40" cy="38" rx="20" ry="22" fill="url(#ap-face)" />
-        {/* Apex tri-crown */}
-        <polygon points="40,8 44,17 36,17" fill="#A78BFA" opacity="0.85" />
-        <polygon points="33,10 35,18 29,16" fill="#C4B5FD" opacity="0.6" />
-        <polygon points="47,10 51,16 45,18" fill="#C4B5FD" opacity="0.6" />
-        {/* Temple lines */}
-        <path d="M20 38 H13 M13 38 L13 30" stroke="#A78BFA" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7" />
-        <path d="M60 38 H67 M67 38 L67 30" stroke="#A78BFA" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7" />
-        {/* Eyes */}
-        <ellipse cx="33" cy="37" rx="4.5" ry="4.5" fill="#7C3AED" />
-        <ellipse cx="47" cy="37" rx="4.5" ry="4.5" fill="#7C3AED" />
-        <ellipse cx="33" cy="37" rx="2.5" ry="2.5" fill="#F5F3FF" />
-        <ellipse cx="47" cy="37" rx="2.5" ry="2.5" fill="#F5F3FF" />
-        <circle cx="33" cy="37" r="1" fill="#4C1D95" />
-        <circle cx="47" cy="37" r="1" fill="#4C1D95" />
-        <circle cx="34" cy="35.8" r="0.8" fill="white" opacity="0.9" />
-        <circle cx="48" cy="35.8" r="0.8" fill="white" opacity="0.9" />
-        {/* Star mark — cheek left */}
-        <polygon points="26,46 27,43.5 28,46 30.5,46 28.5,47.5 29.5,50 27,48.5 24.5,50 25.5,47.5 23.5,46" fill="#DDD6FE" opacity="0.5" />
-        {/* Mouth */}
-        <path d="M35 51 Q40 56 45 51" stroke="#DDD6FE" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-        {/* Body */}
-        <path d="M22 72 Q22 60 40 58 Q58 60 58 72" fill="#6D28D9" opacity="0.9" />
-        {/* Collar */}
-        <path d="M30 60 H36 V58 H44 V60 H50" stroke="#C4B5FD" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.6" />
-      </svg>
-    ),
-  },
-  {
-    id: 4,
-    name: "Nexus",
-    tagline: "Wealth Management · Savings Runway",
-    accent: "#F59E0B",
-    bg: "linear-gradient(135deg, #1c1108 0%, #3d2000 50%, #1a0f00 100%)",
-    glow: "rgba(245,158,11,0.5)",
-    ring: "#F59E0B",
-    svg: (
-      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-        <defs>
-          <radialGradient id="nx-face" cx="50%" cy="45%" r="55%">
-            <stop offset="0%" stopColor="#FEF3C7" />
-            <stop offset="100%" stopColor="#FCD34D" />
-          </radialGradient>
-          <radialGradient id="nx-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#78350F" stopOpacity="0" />
-          </radialGradient>
-          <filter id="nx-blur">
-            <feGaussianBlur stdDeviation="2.5" />
-          </filter>
-        </defs>
-        <circle cx="40" cy="40" r="36" fill="url(#nx-glow)" filter="url(#nx-blur)" />
-        {/* Head */}
-        <ellipse cx="40" cy="38" rx="20" ry="22" fill="url(#nx-face)" />
-        {/* Wealth crown — hexagonal */}
-        <polygon points="40,10 44,14 44,20 40,24 36,20 36,14" fill="none" stroke="#FCD34D" strokeWidth="1.5" opacity="0.75" />
-        <circle cx="40" cy="17" r="2" fill="#F59E0B" opacity="0.9" />
-        {/* Temple circuits */}
-        <path d="M20 36 H14 V44 H18" stroke="#FCD34D" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.65" />
-        <path d="M60 36 H66 V44 H62" stroke="#FCD34D" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.65" />
-        {/* Eyes */}
-        <ellipse cx="33" cy="37" rx="4.5" ry="4.5" fill="#D97706" />
-        <ellipse cx="47" cy="37" rx="4.5" ry="4.5" fill="#D97706" />
-        <ellipse cx="33" cy="37" rx="2.5" ry="2.5" fill="#FFFBEB" />
-        <ellipse cx="47" cy="37" rx="2.5" ry="2.5" fill="#FFFBEB" />
-        <circle cx="33" cy="37" r="1" fill="#92400E" />
-        <circle cx="47" cy="37" r="1" fill="#92400E" />
-        <circle cx="34" cy="35.8" r="0.8" fill="white" opacity="0.9" />
-        <circle cx="48" cy="35.8" r="0.8" fill="white" opacity="0.9" />
-        {/* Diamond on forehead */}
-        <polygon points="40,28 42,31 40,34 38,31" fill="#FDE68A" opacity="0.6" />
-        {/* Mouth */}
-        <path d="M35 51 Q40 56 45 51" stroke="#FDE68A" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-        {/* Cheek dots */}
-        <circle cx="26" cy="45" r="1.5" fill="#FCD34D" opacity="0.4" />
-        <circle cx="54" cy="45" r="1.5" fill="#FCD34D" opacity="0.4" />
-        {/* Body */}
-        <path d="M22 72 Q22 60 40 58 Q58 60 58 72" fill="#B45309" opacity="0.9" />
-        {/* Collar */}
-        <path d="M30 60 H36 V58 H44 V60 H50" stroke="#FDE68A" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.6" />
-      </svg>
-    ),
-  },
-];
 
 // ─── FieldError ──────────────────────────────────────────────────────────────
 function FieldError({ message }: { message: string }) {
@@ -416,6 +143,7 @@ function PasswordField({
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function SignupPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [nameError, setNameError] = useState("");
@@ -428,20 +156,19 @@ export default function SignupPage() {
     name: "",
     email: "",
     password: "",
-    avatarId: 1,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  // ── On submit: validate only — save to sessionStorage — go to /onboarding ──
+  const handleInitialise = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setNameError("");
     setEmailError("");
 
-    // ── Frontend Validation ──────────────────────────────────────────────
     if (!formData.name.trim()) {
       setNameError("Name is required.");
       return;
@@ -459,41 +186,12 @@ export default function SignupPage() {
       return;
     }
 
-    setLoading(true);
+    // Store credentials temporarily — onboarding will use these to register
+    sessionStorage.setItem("syntra_pending_signup", JSON.stringify(formData));
 
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 409 || data.message?.toLowerCase().includes("exist")) {
-          setEmailError("An account with this email already exists.");
-        } else {
-          throw new Error(data.message || "Something went wrong");
-        }
-        return;
-      }
-
-      // ── Redirect to /onboarding after registration ──────
-      await signIn("credentials", {
-        email: formData.email,
-        password: formData.password,
-        callbackUrl: "/onboarding",
-        redirect: true,
-      });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    // Navigate to onboarding — no account created yet
+    router.push("/onboarding");
   };
-
-  const selectedAvatar = AVATAR_OPTIONS.find((a) => a.id === formData.avatarId)!;
 
   return (
     <div className="signup-page">
@@ -508,106 +206,11 @@ export default function SignupPage() {
 
         <h1 className="signup-title">Create your twin</h1>
         <p className="signup-subtitle">
-          Choose your avatar and sync your digital self
+          Set up your account to get started
         </p>
 
-        {/* ── Premium Avatar Picker ────────────────────────────────────── */}
-        <div className="avatar-section">
-          <div className="section-label">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#8B5CF6"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            Select your AI twin
-          </div>
-
-          <div className="avatar-grid premium">
-            {AVATAR_OPTIONS.map((avatar) => {
-              const isSelected = formData.avatarId === avatar.id;
-              return (
-                <div
-                  key={avatar.id}
-                  onClick={() => setFormData({ ...formData, avatarId: avatar.id })}
-                  className={`avatar-item premium-avatar ${isSelected ? "selected" : ""}`}
-                  style={
-                    {
-                      "--avatar-accent": avatar.accent,
-                      "--avatar-glow": avatar.glow,
-                    } as React.CSSProperties
-                  }
-                >
-                  {/* Glow ring */}
-                  <div
-                    className="avatar-glow-ring"
-                    style={{
-                      border: `1.5px solid ${avatar.ring}`,
-                      boxShadow: isSelected
-                        ? `0 0 18px 4px ${avatar.glow}, 0 0 6px 2px ${avatar.glow}`
-                        : "none",
-                    }}
-                  />
-                  {/* Avatar bubble */}
-                  <div
-                    className="avatar-bubble premium-bubble"
-                    style={{ background: avatar.bg }}
-                  >
-                    {avatar.svg}
-                    {isSelected && (
-                      <span className="avatar-check premium-check">
-                        <svg
-                          width="9"
-                          height="9"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="white"
-                          strokeWidth="3.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      </span>
-                    )}
-                  </div>
-                  <span className="avatar-label premium-label">{avatar.name}</span>
-                  <span className="avatar-descriptor">Cosmetic — your twin&apos;s focus is set during setup</span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Selected avatar banner */}
-          <div
-            className="selected-avatar-banner"
-            style={{ borderColor: selectedAvatar.accent }}
-          >
-            <div className="banner-avatar-mini" style={{ background: selectedAvatar.bg }}>
-              {selectedAvatar.svg}
-            </div>
-            <div className="banner-text">
-              <span className="banner-name" style={{ color: selectedAvatar.accent }}>
-                {selectedAvatar.name}
-              </span>
-              <span className="banner-tagline">Cosmetic — your twin&apos;s focus is set during setup</span>
-            </div>
-            <div
-              className="banner-dot"
-              style={{ background: selectedAvatar.accent }}
-            />
-          </div>
-        </div>
-
         {/* ── Form ─────────────────────────────────────────────────────── */}
-        <form onSubmit={handleRegister}>
+        <form onSubmit={handleInitialise}>
 
           {/* Name */}
           <div className="input-group">
@@ -659,7 +262,7 @@ export default function SignupPage() {
             {emailError && <FieldError message={emailError} />}
           </div>
 
-          {/* Password — validates on blur only */}
+          {/* Password */}
           <PasswordField
             value={formData.password}
             onChange={(v) => setFormData({ ...formData, password: v })}
@@ -686,7 +289,7 @@ export default function SignupPage() {
                   <span className="ring ring-inner" />
                   <span className="ring ring-dot" />
                 </span>
-                <span>Creating your account</span>
+                <span>Setting up...</span>
                 <span className="loading-dots">
                   <span className="dot" />
                   <span className="dot" />
@@ -694,53 +297,26 @@ export default function SignupPage() {
                 </span>
               </span>
             ) : (
-              <span className="btn-content">Activate AI Twin →</span>
+              <span className="btn-content">Initialise AI Twin →</span>
             )}
           </button>
         </form>
 
         <div className="trust-row">
           <span className="trust-badge">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
             Secure &amp; Private
           </span>
           <span className="trust-badge">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
             Free to Join
           </span>
           <span className="trust-badge">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
             No Spam Ever

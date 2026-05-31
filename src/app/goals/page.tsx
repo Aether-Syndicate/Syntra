@@ -28,6 +28,7 @@ import {
   Flame,
   Trophy,
   BookOpen,
+  Pencil,
 } from "lucide-react";
 
 type Milestone = {
@@ -66,7 +67,7 @@ function StepDots({ current, completed }: { current: number; completed: Set<numb
             className={`step-dot ${i === current ? "dot-active" : ""} ${completed.has(i) ? "dot-done" : ""}`}
             style={
               i === current
-                ? { background: STEP_COLORS[i], boxShadow: "0 0 15px rgba(37,99,235,0.45)", border: "1.5px solid rgba(255,255,255,0.4)" }
+                ? { background: STEP_COLORS[i], boxShadow: "0 0 15px rgba(37,99,235,0.3)", border: "1.5px solid rgba(37,99,235,0.2)" }
                 : completed.has(i)
                 ? { background: "#10b981", borderColor: "#10b981", boxShadow: "0 0 10px rgba(16,185,129,0.3)" }
                 : {}
@@ -80,14 +81,14 @@ function StepDots({ current, completed }: { current: number; completed: Set<numb
           </div>
           <span
             className="dot-label"
-            style={{ color: i === current ? "#60a5fa" : completed.has(i) ? "#10b981" : "#94a3b8" }}
+            style={{ color: i === current ? "#2563eb" : completed.has(i) ? "#10b981" : "#94a3b8" }}
           >
             {label}
           </span>
           {i < STEPS.length - 1 && (
             <div
               className="dot-connector"
-              style={{ background: completed.has(i) ? "#10b981" : "rgba(255,255,255,0.12)" }}
+              style={{ background: completed.has(i) ? "#10b981" : "#e2e8f0" }}
             />
           )}
         </div>
@@ -275,6 +276,8 @@ export default function GoalsPage() {
   const [targetDate, setTargetDate] = useState("");
   const [milestoneInput, setMilestoneInput] = useState("");
   const [milestones, setMilestones] = useState<string[]>([]);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -282,6 +285,9 @@ export default function GoalsPage() {
   // Left panel: expanded goal for milestone interaction
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
   const [floatXP, setFloatXP] = useState<{ id: string; key: number } | null>(null);
+
+  // Edit mode
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
 
   const { data, mutate } = useSWR<any>("/api/goals", fetcher, {
     dedupingInterval: 300000,
@@ -347,24 +353,62 @@ export default function GoalsPage() {
 
   const removeMilestone = (i: number) => setMilestones(milestones.filter((_, idx) => idx !== i));
 
+  const generateSuggestions = async () => {
+    if (!title.trim()) return;
+    setSuggestLoading(true);
+    setAiSuggestions([]);
+    try {
+      const res = await fetch("/api/goals/milestones/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title, domain, priority }),
+      });
+      const d = await res.json();
+      if (d.success && Array.isArray(d.suggestions)) {
+        setAiSuggestions(d.suggestions);
+      }
+    } catch {
+      // silently fail — user can still add manually
+    } finally {
+      setSuggestLoading(false);
+    }
+  };
+
+  const toggleSuggestion = (s: string) => {
+    if (milestones.includes(s)) {
+      setMilestones(milestones.filter((m) => m !== s));
+    } else {
+      setMilestones([...milestones, s]);
+    }
+  };
+
   const createGoal = async () => {
     if (!title.trim()) { setMessage("Goal title required."); return; }
     setLoading(true); setMessage("");
     try {
+      const isEdit = !!editingGoalId;
+      const body = isEdit
+        ? { goalId: editingGoalId, title, domain, priority, targetDate: targetDate || undefined, milestones: milestones.map((m) => ({ text: m, completed: false })) }
+        : { title, domain, priority, targetDate: targetDate || undefined, milestones: milestones.map((m) => ({ text: m, completed: false })) };
       const res = await fetch("/api/goals", {
-        method: "POST",
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ title, domain, priority, targetDate: targetDate || undefined, milestones: milestones.map((m) => ({ text: m, completed: false })) }),
+        body: JSON.stringify(body),
       });
       const d = await res.json();
       if (d.success) {
         mutate({ goals: d.goals }, false);
         setCompleted(new Set([0, 1, 2, 3]));
         setSubmitted(true);
-        setTimeout(() => router.push("/dashboard"), 2800);
-      } else { setMessage(d.message || d.error || "Failed to create goal."); }
-    } catch { setMessage("Goal creation failed."); }
+        if (isEdit) {
+          setTimeout(() => { setSubmitted(false); cancelEdit(); }, 2000);
+        } else {
+          setTimeout(() => router.push("/dashboard"), 2800);
+        }
+      } else { setMessage(d.message || d.error || "Failed to save goal."); }
+    } catch { setMessage("Goal save failed."); }
     finally { setLoading(false); }
   };
 
@@ -414,6 +458,32 @@ export default function GoalsPage() {
       if (d.success) mutate({ goals: d.goals }, false);
       else setMessage(d.message || "Failed to delete milestone.");
     } catch { setMessage("Milestone deletion failed."); }
+  };
+
+  const startEditing = (goal: Goal) => {
+    setEditingGoalId(goal._id || null);
+    setTitle(goal.title);
+    setDomain(goal.domain);
+    setPriority(goal.priority);
+    setTargetDate(goal.targetDate ? new Date(goal.targetDate).toISOString().split("T")[0] : "");
+    setMilestones(goal.milestones?.map((m) => m.text) || []);
+    setStep(0);
+    setCompleted(new Set());
+    setSubmitted(false);
+    setMessage("");
+  };
+
+  const cancelEdit = () => {
+    setEditingGoalId(null);
+    setTitle("");
+    setDomain("health");
+    setPriority("medium");
+    setTargetDate("");
+    setMilestones([]);
+    setAiSuggestions([]);
+    setStep(0);
+    setCompleted(new Set());
+    setMessage("");
   };
 
   if (!mounted) return null;
@@ -527,6 +597,17 @@ export default function GoalsPage() {
         .gcl-ms-text-done { text-decoration: line-through; color: #94a3b8; }
         .gcl-ms-del { background: none; border: none; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; transition: all 0.15s; }
         .gcl-ms-del:hover { color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+        .gcl-goal-del-btn { background: none; border: none; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; transition: all 0.15s; flex-shrink: 0; opacity: 0; }
+        .gcl-goal-card:hover .gcl-goal-del-btn { opacity: 1; }
+        .gcl-goal-del-btn:hover { color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+        .gcl-goal-edit-btn { background: none; border: none; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; transition: all 0.15s; flex-shrink: 0; opacity: 0; }
+        .gcl-goal-card:hover .gcl-goal-edit-btn { opacity: 1; }
+        .gcl-goal-edit-btn:hover { color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
+        .gcl-goal-card.editing { border-color: rgba(59, 130, 246, 0.35); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08), 0 12px 28px rgba(37, 99, 235, 0.08); }
+        .edit-mode-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(59, 130, 246, 0.06); border: 1.5px solid rgba(59, 130, 246, 0.2); border-radius: 14px; padding: 10px 14px; margin-bottom: 16px; animation: slideDown 0.3s ease; }
+        .edit-mode-bar-label { display: flex; align-items: center; gap: 8px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.83rem; font-weight: 700; color: #3b82f6; }
+        .edit-cancel-btn { background: none; border: 1.5px solid rgba(59, 130, 246, 0.25); border-radius: 8px; padding: 4px 12px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.78rem; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.15s; }
+        .edit-cancel-btn:hover { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.05); }
 
         /* ── Goals Creator - Right Section ── */
         .goals-control-right { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 36px 32px; overflow-y: auto; }
@@ -543,11 +624,11 @@ export default function GoalsPage() {
         .dynamic-sub { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.86rem; color: var(--text-sub); line-height: 1.6; }
 
         /* ── Step Dots ── */
-        .step-dots { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 24px; background: rgba(15, 21, 32, 0.95); border-radius: 16px; padding: 12px 24px; box-shadow: 0 8px 32px rgba(15, 21, 32, 0.15); border: 1px solid rgba(255,255,255,0.06); }
+        .step-dots { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 24px; background: #ffffff; border-radius: 16px; padding: 12px 24px; box-shadow: 0 4px 16px rgba(37, 99, 235, 0.06); border: 1.5px solid rgba(37, 99, 235, 0.08); }
         .step-dot-wrapper { display: flex; align-items: center; gap: 0; position: relative; }
-        .step-dot { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; border: 1.5px solid rgba(255,255,255,0.12); }
-        .dot-active { transform: scale(1.15); border-color: rgba(255, 255, 255, 0.3); }
-        .dot-num { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.4); }
+        .step-dot { width: 30px; height: 30px; border-radius: 50%; background: rgba(37, 99, 235, 0.05); display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; border: 1.5px solid rgba(37, 99, 235, 0.15); }
+        .dot-active { transform: scale(1.15); border-color: rgba(37, 99, 235, 0.3); }
+        .dot-num { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; color: #94a3b8; }
         .dot-active .dot-num { color: #ffffff; }
         .dot-label { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 600; margin-left: 8px; white-space: nowrap; transition: all 0.3s ease; }
         .dot-connector { height: 2px; width: 40px; margin: 0 10px; transition: background 0.4s; flex-shrink: 0; }
@@ -684,34 +765,6 @@ export default function GoalsPage() {
         @media (max-width: 600px) { .dot-connector { width: 16px; } .dot-label { display: none; } .field-row { grid-template-columns: 1fr; } }
       `}</style>
 
-      {/* ── Left Panel ── */}
-      <div className="page-left">
-        <div className="brand-badge"><Sparkles size={11} /> Syntra AI</div>
-        <h2 className="left-title">Define your <span>mission</span> parameters.</h2>
-        <p className="left-sub">Set health, career, and financial goals. Syntra tracks every milestone and optimises your trajectory.</p>
-        <div className="left-steps">
-          {[
-            { label: "Define Objective" },
-            { label: "Set Details" },
-            { label: "Add Milestones" },
-            { label: "Review Goals" },
-          ].map((s, i) => (
-            <div className={`left-step ${i === step ? "active" : ""}`} key={i}>
-              <div
-                className="left-step-dot"
-                style={{
-                  background: i === step ? "#ffffff" : completed.has(i) ? "#10b981" : "rgba(255,255,255,0.25)",
-                  boxShadow: i === step ? "0 0 10px rgba(255,255,255,0.8)" : completed.has(i) ? "0 0 8px rgba(16,185,129,0.5)" : "none"
-                }}
-              />
-              <span className={`left-step-text ${i === step ? "active" : ""}`} style={{ color: completed.has(i) && i !== step ? "#10b981" : undefined }}>
-                {s.label} {completed.has(i) && i !== step && "✓"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* ── Right Panel: Split View ── */}
       <div className="page-right">
 
@@ -774,7 +827,7 @@ export default function GoalsPage() {
                 }
 
                 return (
-                  <div className="gcl-goal-card" key={goal._id}>
+                  <div className={`gcl-goal-card ${editingGoalId === goal._id ? "editing" : ""}`} key={goal._id}>
                     <div className="gcl-goal-top" onClick={() => setExpandedGoalId(isExp ? null : goal._id || null)}>
                       <div className="gcl-domain-icon" style={{ background: dc.ring.background, color: dc.ring.color }}>
                         {dc.icon}
@@ -795,6 +848,20 @@ export default function GoalsPage() {
                       <div className="gcl-expand-btn">
                         {total > 0 ? (isExp ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}
                       </div>
+                      <button
+                        className="gcl-goal-edit-btn"
+                        onClick={(e) => { e.stopPropagation(); startEditing(goal); }}
+                        title="Edit goal"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        className="gcl-goal-del-btn"
+                        onClick={(e) => { e.stopPropagation(); goal._id && deleteGoal(goal._id); }}
+                        title="Delete goal"
+                      >
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                     {total > 0 && (
                       <div className="gcl-ms-bar">
@@ -840,14 +907,6 @@ export default function GoalsPage() {
               <ArrowLeft size={14} /> <span>Return to Dashboard</span>
             </div>
 
-            {/* Active Twin Missions Widget */}
-            {goals.length > 0 && (
-              <ActiveMissionsWidget goals={goals} onToggleMilestone={toggleMilestone} floatXP={floatXP} />
-            )}
-
-            {/* Badge Showcase */}
-            <BadgeShowcase userBadges={data?.badges || []} />
-
             <div className="title-container">
               <h1 className="dynamic-title">
                 <span className="title-accent">{typedTitle}</span>
@@ -855,6 +914,15 @@ export default function GoalsPage() {
               </h1>
               <p className="dynamic-sub">Define objectives, lock in milestones, and let Syntra optimize your path.</p>
             </div>
+
+            {editingGoalId && (
+              <div className="edit-mode-bar">
+                <div className="edit-mode-bar-label">
+                  <Pencil size={14} /> Editing goal — modify details below
+                </div>
+                <button className="edit-cancel-btn" onClick={cancelEdit}>Cancel</button>
+              </div>
+            )}
 
             <StepDots current={step} completed={completed} />
 
@@ -868,8 +936,8 @@ export default function GoalsPage() {
             {submitted ? (
               <div className="success-card">
                 <div className="success-icon"><CheckCircle2 size={34} color="#fff" /></div>
-                <h2 className="success-title">Mission Established</h2>
-                <p className="success-sub">Your goal has been logged and your milestones are now tracked. Syntra is recalibrating your optimal trajectory.</p>
+                <h2 className="success-title">{editingGoalId ? "Goal Updated" : "Mission Established"}</h2>
+                <p className="success-sub">{editingGoalId ? "Your goal has been updated successfully. Syntra is recalibrating your trajectory." : "Your goal has been logged and your milestones are now tracked. Syntra is recalibrating your optimal trajectory."}</p>
               </div>
             ) : (
               <div className={`step-card ${animating ? (animDir === "forward" ? "slide-exit-forward" : "slide-exit-backward") : (animDir === "forward" ? "slide-enter-forward" : "slide-enter-backward")}`}>
@@ -960,8 +1028,66 @@ export default function GoalsPage() {
                       </div>
                     </div>
                     <div className="card-body">
+
+                      {/* AI generation row */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                        <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--text-sub)" }}>
+                          Let AI suggest milestones for <em style={{ color: "var(--primary)", fontStyle: "normal" }}>{title}</em>
+                        </span>
+                        <button
+                          className="add-btn"
+                          style={{ background: "linear-gradient(135deg,#2563eb,#8b5cf6)", color: "#fff", border: "none", gap: 6, minWidth: 130 }}
+                          onClick={generateSuggestions}
+                          disabled={suggestLoading}
+                        >
+                          <Sparkles size={13} />
+                          {suggestLoading ? "Generating…" : aiSuggestions.length > 0 ? "Regenerate" : "Generate with AI"}
+                        </button>
+                      </div>
+
+                      {/* AI suggestion chips */}
+                      {aiSuggestions.length > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#8b5cf6", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                            <Sparkles size={11} /> AI Suggestions — tap to add
+                          </div>
+                          <div className="ms-chips">
+                            {aiSuggestions.map((s, i) => {
+                              const selected = milestones.includes(s);
+                              return (
+                                <div
+                                  key={i}
+                                  className="chip"
+                                  onClick={() => toggleSuggestion(s)}
+                                  style={{
+                                    cursor: "pointer",
+                                    background: selected ? "linear-gradient(135deg,#2563eb15,#8b5cf615)" : "#f8fafc",
+                                    border: selected ? "1.5px solid #8b5cf6" : "1.5px solid #e2e8f0",
+                                    color: selected ? "#5b21b6" : "var(--text-main)",
+                                    userSelect: "none",
+                                  }}
+                                >
+                                  {selected ? <CheckCircle2 size={11} style={{ color: "#8b5cf6", flexShrink: 0 }} /> : <Plus size={11} style={{ flexShrink: 0 }} />}
+                                  {s}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Divider */}
+                      {aiSuggestions.length > 0 && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 14px" }}>
+                          <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+                          <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600 }}>or add custom</span>
+                          <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+                        </div>
+                      )}
+
+                      {/* Manual input */}
                       <div className="field">
-                        <label className="form-label">Add Milestone <span className="opt-tag">(optional)</span></label>
+                        <label className="form-label">Custom Milestone <span className="opt-tag">(optional)</span></label>
                         <div className="add-row">
                           <input
                             type="text"
@@ -977,24 +1103,29 @@ export default function GoalsPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Selected milestones */}
                       {milestones.length > 0 && (
-                        <div>
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--text-sub)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                            Selected ({milestones.length})
+                          </div>
                           <div className="ms-chips">
                             {milestones.map((m, i) => (
-                              <div key={i} className="chip">
+                              <div key={i} className="chip" style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", color: "#166534" }}>
                                 {m}
                                 <span className="chip-x" onClick={() => removeMilestone(i)}>✕</span>
                               </div>
                             ))}
                           </div>
-                          <div style={{ marginTop: 12, fontSize: "0.8rem", color: "var(--primary)", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ marginTop: 10, fontSize: "0.8rem", color: "var(--primary)", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
                             <CheckCircle2 size={14} /> {milestones.length} milestone{milestones.length !== 1 ? "s" : ""} queued
                           </div>
                         </div>
                       )}
-                      {milestones.length === 0 && (
+                      {milestones.length === 0 && aiSuggestions.length === 0 && !suggestLoading && (
                         <div style={{ fontSize: "0.84rem", color: "#94a3b8", textAlign: "center", padding: "16px 0" }}>
-                          No milestones added yet — you can skip this step.
+                          Generate AI suggestions or add milestones manually — you can also skip this step.
                         </div>
                       )}
                     </div>
@@ -1099,7 +1230,7 @@ export default function GoalsPage() {
                       disabled={loading}
                       style={{ background: btnGradients[3], boxShadow: btnShadows[3] }}
                     >
-                      <Rocket size={14} /> {loading ? "Establishing mission..." : "Establish Goal"}
+                      <Rocket size={14} /> {loading ? (editingGoalId ? "Saving changes..." : "Establishing mission...") : (editingGoalId ? "Save Changes" : "Establish Goal")}
                     </button>
                   )}
                 </div>

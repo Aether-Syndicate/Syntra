@@ -82,6 +82,8 @@ const aitwinReflectionSchema = z.object({
   riskAlerts: z.array(z.string().min(15)).max(3),
   // Confidence is enforced at the schema level — no bypass possible
   confidence: z.number().int().min(0).max(100),
+  leadIndicator: z.string().min(3).max(50),
+  primaryRisk: z.string().min(3).max(50),
 });
 
 // ================================================================
@@ -214,7 +216,9 @@ OUTPUT:
     "career": ["Front-load your hardest cognitive task to before 11am when alertness peaks despite the deficit.", "Your study momentum is genuine — protect it by not scheduling deep work after 3pm today."]
   },
   "riskAlerts": ["Two more nights below 6h will produce measurable drops in financial decision quality and a study retention collapse."],
-  "confidence": 84
+  "confidence": 84,
+  "leadIndicator": "Sleep Recovery",
+  "primaryRisk": "Sleep Debt"
 }`.trim(),
   },
   {
@@ -238,7 +242,9 @@ OUTPUT:
     "career": ["If stress is work-related: schedule one 15-minute boundary-setting conversation this week.", "Protect your study block — it is a stress-relief mechanism, not just a career tool."]
   },
   "riskAlerts": ["Stress-spending loop detected: elevated cortisol is driving discretionary purchases which create financial anxiety which elevates cortisol."],
-  "confidence": 81
+  "confidence": 81,
+  "leadIndicator": "Savings Rate",
+  "primaryRisk": "Budget Overrun"
 }`.trim(),
   },
   {
@@ -262,7 +268,9 @@ OUTPUT:
     "career": ["Log your study or work activity today — even 30 minutes of intentional skill time counts."]
   },
   "riskAlerts": [],
-  "confidence": 35
+  "confidence": 35,
+  "leadIndicator": "Daily Logging",
+  "primaryRisk": "Insufficient Data"
 }`.trim(),
   },
 ];
@@ -458,6 +466,8 @@ ${selectedExample}
 5. recommendations: each domain gets 1-2 distinct, non-overlapping concrete actions with exact numbers/foods.
 6. riskAlerts: return ONLY the top 2-3 highest priority risks.
 7. confidence: integer, must not exceed ${confidence} — this ceiling is absolute.
+8. leadIndicator: 2-5 word label for the single behavior that will most determine success toward the personal mission (e.g. "Sleep Consistency", "DSA Study Hours", "Savings Rate"). Pick from the data — do NOT invent a generic label.
+9. primaryRisk: 2-5 word label for the top risk right now (e.g. "Sleep Debt", "Budget Overrun", "Study Dropout"). Derived from riskAlerts or behavior flags.
 
 ━━━ RETURN ONLY THIS JSON — NO TEXT OUTSIDE THE BRACES ━━━
 {
@@ -471,7 +481,9 @@ ${selectedExample}
     "career":   ["string"]
   },
   "riskAlerts": [],
-  "confidence": <integer max ${confidence}>
+  "confidence": <integer max ${confidence}>,
+  "leadIndicator": "string",
+  "primaryRisk": "string"
 }
 `.trim();
 }

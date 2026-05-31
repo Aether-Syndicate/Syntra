@@ -167,7 +167,9 @@ function calculateTwinContext(
   const avgSaved = avg(savedValues);
   const avgProductivity = avg(productivityValues);
   const avgMood = avg(moodValues);
-  const weeklyWorkouts = Math.round(avg(workoutFlags) * 7 * 10) / 10;
+  const weeklyWorkouts = healthLogs.length >= 7
+    ? Math.round(avg(workoutFlags) * 7 * 10) / 10
+    : healthLogs.filter(l => l.domainData?.workoutMinutes > 0).length;
 
   // Use profile for income/budget if available — otherwise derive from logs
   const monthlyIncome = userProfile?.monthlyIncome || 0;

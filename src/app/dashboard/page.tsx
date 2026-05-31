@@ -11,13 +11,10 @@ import {
   Zap,
   TrendingDown,
   CheckCircle2,
-  ChevronRight,
   RefreshCw,
-  Compass,
-  Calendar,
   Layers,
   Database,
-  History
+  History,
 } from "lucide-react";
 
 type LogType = {
@@ -173,9 +170,8 @@ export default function DashboardPage() {
 
   // Extract variables
   const name = data.user?.name || "AANA";
-  const rawMission = data.user?.personalMission || "Crack Google Internship 2027";
-  const mission = rawMission.replace(/^["']|["']$/g, ""); // Clean quotes
-  const healthConstraints = data.user?.healthConstraints || "none";
+  const rawMission = data.user?.personalMission || "Achieve Personal Optimization";
+  const mission = rawMission.replace(/^["']|["']$/g, "");
   const healthScore = data.scorecards?.health ?? 72;
   const financeScore = data.scorecards?.finance ?? 82;
   const careerScore = data.scorecards?.career ?? 88;
@@ -222,20 +218,9 @@ export default function DashboardPage() {
     twinStateBg = "rgba(245, 158, 11, 0.08)";
   }
 
-  // Goal & Milestones
+  // Goal
   const activeGoal: GoalType | null = data.goals && data.goals.length > 0 ? data.goals[0] : null;
   const goalTitle = activeGoal ? activeGoal.title : mission;
-  const rawMilestones = activeGoal?.milestones || [
-    { text: "Resume Prep & Formatting", completed: true },
-    { text: "DSA Foundations Bootcamp", completed: true },
-    { text: "Trees & Graphs Mastery", completed: true },
-    { text: "System Design Essentials", completed: false },
-    { text: "Mock Technical Interviews", completed: false },
-    { text: "Full Application Submissions", completed: false },
-  ];
-
-  const completedMilestones = rawMilestones.filter((m) => m.completed).length;
-  const progressPercent = Math.round((completedMilestones / rawMilestones.length) * 100) || 41;
 
   // Days remaining calculation
   let daysRemaining = 412;
@@ -246,12 +231,6 @@ export default function DashboardPage() {
       daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }
   }
-
-  // Mission control velocity variables
-  const weeklyVelocity = streak >= 5 ? 3.1 : 2.3;
-  const targetYear = new Date();
-  targetYear.setMonth(targetYear.getMonth() + 10);
-  const formattedCompletionDate = targetYear.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const handleActionClick = (actionText: string) => {
     if (completedActions.includes(actionText)) return;
@@ -1160,75 +1139,6 @@ export default function DashboardPage() {
           cursor: not-allowed;
         }
 
-        /* ── TODAY'S DIRECTIVE ── */
-        .directive-card-inner {
-          background: linear-gradient(135deg, rgba(37, 99, 235, 0.02) 0%, rgba(139, 92, 246, 0.02) 100%);
-          border: 1px solid rgba(37, 99, 235, 0.15);
-          border-radius: 20px;
-          padding: 24px 30px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 30px;
-        }
-        .directive-left {
-          flex: 1;
-        }
-        .directive-badge {
-          background: var(--primary);
-          color: #fff;
-          font-size: 0.65rem;
-          font-weight: 800;
-          padding: 5px 12px;
-          border-radius: 99px;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          display: inline-block;
-          margin-bottom: 12px;
-        }
-        .directive-objective {
-          font-family: 'Sora', sans-serif;
-          font-size: 1.35rem;
-          font-weight: 800;
-          color: var(--text-main);
-          margin-bottom: 8px;
-          letter-spacing: -0.01em;
-        }
-        .directive-reason {
-          font-size: 0.88rem;
-          line-height: 1.5;
-          color: var(--text-sub);
-        }
-        .directive-right {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          min-width: 170px;
-          background: #ffffff;
-          padding: 16px;
-          border-radius: 16px;
-          border: 1px solid var(--border);
-        }
-        .gain-label {
-          font-size: 0.65rem;
-          font-weight: 700;
-          color: var(--text-sub);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          margin-bottom: 4px;
-        }
-        .gain-pill {
-          background: var(--success-glow);
-          color: var(--success);
-          font-family: 'JetBrains Mono', monospace;
-          font-weight: 700;
-          font-size: 0.85rem;
-          padding: 5px 10px;
-          border-radius: 8px;
-          display: flex;
-          justify-content: space-between;
-        }
-
         /* ── SECTION 6: ANATOMICAL TWIN ── */
         .anatomical-grid {
           display: grid;
@@ -1688,8 +1598,7 @@ export default function DashboardPage() {
         }
         @media (max-width: 640px) {
           .behavioral-grid { grid-template-columns: 1fr; }
-          .directive-card-inner { flex-direction: column; align-items: stretch; gap: 16px; }
-          .eac-metrics-grid { grid-template-columns: 1fr; }
+.eac-metrics-grid { grid-template-columns: 1fr; }
         }
       `}</style>
 
@@ -1737,7 +1646,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="msb-row">
                   <span className="msb-row-label">Trajectory Alignment</span>
-                  <span className="msb-row-val" style={{ color: "var(--primary)" }}>82% Aligned</span>
+                  <span className="msb-row-val" style={{ color: "var(--primary)" }}>
+                    {aiData?.confidence != null ? `${aiData.confidence}% Aligned` : `${twinSync}% Aligned`}
+                  </span>
                 </div>
                 <div className="msb-row">
                   <span className="msb-row-label">Days Remaining</span>
@@ -1745,11 +1656,15 @@ export default function DashboardPage() {
                 </div>
                 <div className="msb-row">
                   <span className="msb-row-label">Lead Indicator</span>
-                  <span className="msb-row-val" style={{ color: "var(--success)" }}>DSA Consistency</span>
+                  <span className="msb-row-val" style={{ color: "var(--success)" }}>
+                    {aiData?.leadIndicator || "—"}
+                  </span>
                 </div>
                 <div className="msb-row">
                   <span className="msb-row-label">Primary Risk</span>
-                  <span className="msb-row-val" style={{ color: "var(--warning)" }}>Sleep Recovery</span>
+                  <span className="msb-row-val" style={{ color: "var(--warning)" }}>
+                    {aiData?.primaryRisk || "—"}
+                  </span>
                 </div>
               </div>
 
@@ -2008,8 +1923,8 @@ export default function DashboardPage() {
 
             {/* Visualizer Column */}
             <div className="trajectory-visualizer">
-              <div className="tv-glow-text">78%</div>
-              <div className="tv-subtext">Google Internship Readiness</div>
+              <div className="tv-glow-text">{twinSync}%</div>
+              <div className="tv-subtext">{activeGoal ? `${activeGoal.title} Readiness` : "Digital Twin Synchronization"}</div>
               <div className="tv-outcome-box">
                 <div className="tv-outcome-label">Projected Outcome</div>
                 <div className="tv-outcome-val">Career Acceleration Likely in 4-6 months</div>
@@ -2019,136 +1934,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* SECTION 3: MISSION CONTROL & VELOCITY (SWAPPED HIGHER) */}
-        <div id="mission-control" className="widget-card" style={{ background: "linear-gradient(135deg, rgba(37,99,235,0.015) 0%, rgba(139,92,246,0.015) 100%)", borderColor: "rgba(37,99,235,0.15)" }}>
-          <div className="widget-header">
-            <h3 className="widget-header-title" style={{ color: "var(--primary)" }}>
-              <Compass className="widget-header-icon" size={18} style={{ color: "var(--primary)" }} />Mission Control
-            </h3>
-            <span className="widget-header-badge" style={{ background: "var(--primary)", color: "#fff" }}>Target Synthesis</span>
-          </div>
-
-          <div className="mission-control-box">
-
-            {/* Left Block: Mission Status & Velocity */}
-            <div className="mc-left">
-              <span className="mc-mission-label">Active Core Goal</span>
-              <h3 className="mc-mission-title">{goalTitle}</h3>
-
-              <div className="mc-progress-section">
-                <div className="mc-progress-header">
-                  <span>Milestones Cleared</span>
-                  <span>{progressPercent}% Complete</span>
-                </div>
-                <div className="mc-progress-track">
-                  <div className="mc-progress-fill" style={{ width: `${progressPercent}%` }} />
-                </div>
-              </div>
-
-              {/* Mission Velocity Engine */}
-              <div className="mission-velocity-console">
-                <div className="mvc-row-flex">
-                  <span className="mvc-label">Mission Velocity</span>
-                  <span className="mvc-val">+{weeklyVelocity}% / week</span>
-                </div>
-                <div className="mvc-row-flex">
-                  <span className="mvc-label">Projected Completion</span>
-                  <span className="mvc-val" style={{ color: "var(--success)" }}>{formattedCompletionDate}</span>
-                </div>
-
-                <div className="mvc-pace-box">
-                  <span>Pace maintained: reached in 8 months</span>
-                </div>
-                <div className="mvc-pace-box" style={{ background: "var(--success-glow)", color: "var(--success)", borderLeftColor: "var(--success)", marginTop: "4px" }}>
-                  <span>Optimized Twin pace: reached in 5 months</span>
-                </div>
-              </div>
-
-              {/* Dynamic Core & Secondary Goals List */}
-              {data.goals && data.goals.length > 0 ? (
-                <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <span style={{ fontSize: "0.68rem", fontWeight: 800, color: "var(--text-sub)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Precision Goal Tracking</span>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    {data.goals.map((g, idx) => (
-                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: idx === 0 ? "rgba(37, 99, 235, 0.02)" : "#ffffff", border: idx === 0 ? "1px dashed rgba(37, 99, 235, 0.25)" : "1px solid var(--border)", borderRadius: "12px", padding: "8px 14px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: idx === 0 ? "var(--primary)" : "var(--text-sub)", animation: idx === 0 ? "glow 1.5s infinite" : "none" }} />
-                          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-main)" }}>{g.title}</span>
-                        </div>
-                        <span style={{ fontSize: "0.65rem", fontWeight: 800, color: idx === 0 ? "var(--primary)" : "var(--text-sub)", textTransform: "uppercase", letterSpacing: "0.02em" }}>
-                          {idx === 0 ? "ACTIVE" : `${g.priority || "NORMAL"} Priority`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <span style={{ fontSize: "0.68rem", fontWeight: 800, color: "var(--text-sub)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Precision Goal Tracking</span>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", border: "1px dashed rgba(15, 23, 42, 0.12)", borderRadius: "12px", padding: "10px 14px" }}>
-                    <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--text-sub)" }}>No active goals synced. Add a goal to initialize telemetry.</span>
-                    <Link href="/goals" style={{ fontSize: "0.72rem", fontWeight: 800, color: "var(--primary)", textDecoration: "none", textTransform: "uppercase" }}>Add Goal</Link>
-                  </div>
-                </div>
-              )}
-
-            </div>
-
-            {/* Right Milestones List */}
-            <div className="mc-milestones-card">
-              {rawMilestones.map((m, idx) => (
-                <div key={idx} className="mc-milestone-row">
-                  <span className="mc-milestone-bullet">
-                    {m.completed ? (
-                      <CheckCircle2 size={18} style={{ color: "var(--success)" }} />
-                    ) : idx === completedMilestones ? (
-                      <Activity size={18} style={{ color: "var(--primary)", animation: "glow 1.5s infinite" }} />
-                    ) : (
-                      <div style={{ width: 10, height: 10, borderRadius: "50%", border: "2px solid #94a3b8" }} />
-                    )}
-                  </span>
-                  <span className={`mc-milestone-text ${m.completed ? "completed" : ""}`}>
-                    {m.text}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-          </div>
-        </div>
-
-        {/* SECTION 4: TODAY'S DIRECTIVE */}
-        <div className="widget-card">
-          <div className="widget-header">
-            <h3 className="widget-header-title">
-              <Zap className="widget-header-icon" size={18} />Today's Directive
-            </h3>
-            <span className="widget-header-badge">Primary Objective</span>
-          </div>
-
-          <div className="directive-card-inner">
-            <div className="directive-left">
-              <span className="directive-badge">Focus Objective</span>
-              <h4 className="directive-objective">Complete 2 DSA Session Blocks</h4>
-              <p className="directive-reason">
-                Reason: Career progression is currently identified by your Twin as the highest leverage variable for the 12-month mission window.
-              </p>
-            </div>
-            <div className="directive-right">
-              <span className="gain-label">Expected Gains</span>
-              <div className="gain-pill" style={{ marginBottom: 6 }}>
-                <span>Career</span>
-                <span>+4</span>
-              </div>
-              <div className="gain-pill" style={{ color: "var(--accent)", background: "var(--accent-glow)" }}>
-                <span>Twin Sync</span>
-                <span>+2</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 5: DIGITAL TWIN REASONING & GUIDANCE FEED WITH ACTION BUTTONS */}
+        {/* SECTION 4: DIGITAL TWIN REASONING & GUIDANCE FEED WITH ACTION BUTTONS */}
         <div className="widget-card">
           <div className="widget-header">
             <h3 className="widget-header-title">

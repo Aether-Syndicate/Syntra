@@ -325,25 +325,61 @@ function useTypewriter(fullText: string) {
 export default function ProfilePage() {
   const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch full user profile details dynamically
+  const { data: profileRes, mutate: mutateProfile } = useSWR<any>("/api/profile", fetcher);
 
   const { data: dashData } = useSWR<any>("/api/dashboard", fetcher, {
     dedupingInterval: 60000,
     revalidateOnFocus: true,
   });
   const userBadges = dashData?.dashboard?.gamification?.badges || [];
+  const streak = dashData?.dashboard?.gamification?.streak || 0;
 
   const [profile, setProfile] = useState({
     name: "",
     email: "",
     age: "",
-    avatarId: "aether" as string,
+    avatarId: "1",
     optimizationVector: "career" as OptVector,
+    gender: "male",
+    height: "",
+    weight: "",
+    averageSleep: "7",
+    workoutFrequency: "3",
+    activityLevel: "moderately_active",
+    healthConstraints: "none",
+    customHealthConstraint: "",
+    monthlyIncome: "",
+    currentSavings: "",
+    spendingStyle: "3",
+    hoursStudied: "3",
+    learningProfile: "",
+    archetype: "",
+    personalMission: "",
   });
 
-  // Edit mode
+  // Edit mode toggles and state fields
   const [editMode, setEditMode] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editAge, setEditAge] = useState("");
+  const [editGender, setEditGender] = useState("male");
+  const [editHeight, setEditHeight] = useState("");
+  const [editWeight, setEditWeight] = useState("");
+  const [editSleep, setEditSleep] = useState("7");
+  const [editWorkouts, setEditWorkouts] = useState("3");
+  const [editActivity, setEditActivity] = useState("moderately_active");
+  const [editConstraints, setEditConstraints] = useState("none");
+  const [editCustomConstraint, setEditCustomConstraint] = useState("");
+  const [editIncome, setEditIncome] = useState("");
+  const [editSavings, setEditSavings] = useState("");
+  const [editSpending, setEditSpending] = useState("3");
+  const [editStudy, setEditStudy] = useState("3");
+  const [editLearning, setEditLearning] = useState("");
+  const [editArchetype, setEditArchetype] = useState("");
+  const [editMission, setEditMission] = useState("");
 
   // Credentials drawer
   const [credsOpen, setCredsOpen] = useState(false);
@@ -357,7 +393,7 @@ export default function ProfilePage() {
   const [pwSuccess, setPwSuccess] = useState(false);
 
   // Sync states
-  const [syncStatuses, setSyncStatuses] = useState<Record<string, SyncStatus>>({
+  const [syncStatuses, setSyncStatuses] = useState<Record<string, "idle" | "syncing" | "synced">>({
     health: "idle",
     finance: "idle",
     coursera: "idle",
@@ -366,21 +402,45 @@ export default function ProfilePage() {
   // Optimization vector pulse
   const [vectorPulse, setVectorPulse] = useState(false);
 
+  // Populate data when SWR response resolves
   useEffect(() => {
     setMounted(true);
-    if (session?.user) {
+    if (profileRes?.success && profileRes?.user) {
+      const u = profileRes.user;
+      const p = u.profile || {};
       setProfile({
-        name: session.user.name || "",
-        email: session.user.email || "",
-        age: (session.user as any).age || "",
-        avatarId: (session.user as any).avatarId || "aether",
-        optimizationVector: (session.user as any).optimizationVector || "career",
+        name: u.name || "",
+        email: u.email || "",
+        age: typeof u.age !== "undefined" ? String(u.age) : "",
+        avatarId: String(u.avatarId || "1"),
+        optimizationVector: u.optimizationVector || "career",
+        gender: p.gender || "male",
+        height: typeof p.height !== "undefined" ? String(p.height) : "",
+        weight: typeof p.weight !== "undefined" ? String(p.weight) : "",
+        averageSleep: String(p.averageSleep || "7"),
+        workoutFrequency: String(p.workoutFrequency || "3"),
+        activityLevel: p.activityLevel || "moderately_active",
+        healthConstraints: u.healthConstraints || "none",
+        customHealthConstraint: u.healthConstraints !== "none" && u.healthConstraints !== "mild" && u.healthConstraints !== "strict" ? u.healthConstraints : "",
+        monthlyIncome: typeof p.monthlyIncome !== "undefined" ? String(p.monthlyIncome) : "",
+        currentSavings: typeof p.currentSavings !== "undefined" ? String(p.currentSavings) : "",
+        spendingStyle: String(p.spendingStyle || "3"),
+        hoursStudied: String(p.hoursStudied || "3"),
+        learningProfile: p.learningProfile || "",
+        archetype: p.archetype || "",
+        personalMission: u.personalMission || "",
       });
+    } else if (session?.user) {
+      setProfile(p => ({
+        ...p,
+        name: session.user?.name || "",
+        email: session.user?.email || "",
+      }));
     }
-  }, [session]);
+  }, [profileRes, session]);
 
   const selectedAvatar =
-    PREMIUM_AVATARS.find(a => a.id === profile.avatarId) || PREMIUM_AVATARS[0];
+    PREMIUM_AVATARS.find(a => String(a.id === "aether" ? "1" : a.id === "chronos" ? "2" : a.id === "apex" ? "3" : "4") === String(profile.avatarId)) || PREMIUM_AVATARS[0];
 
   const vectorMeta: Record<OptVector, { label: string; color: string; bg: string; icon: any; desc: string }> = {
     career:  { label: "Career Layer",  color: "#0066FF", bg: "#eff6ff", icon: Briefcase, desc: "Focus duration thresholds & production output metrics." },
@@ -388,7 +448,6 @@ export default function ProfilePage() {
     finance: { label: "Finance Layer", color: "#10b981", bg: "#f0fdf4", icon: Wallet,     desc: "Run-rate curves, micro-spending & risk parameters." },
   };
   const activeVector = vectorMeta[profile.optimizationVector];
-  const VectorIcon = activeVector.icon;
 
   const twinText = useTypewriter("Twin Profile");
 
@@ -396,14 +455,106 @@ export default function ProfilePage() {
   const handleEditStart = () => {
     setEditName(profile.name);
     setEditEmail(profile.email);
+    setEditAge(profile.age);
+    setEditGender(profile.gender);
+    setEditHeight(profile.height);
+    setEditWeight(profile.weight);
+    setEditSleep(profile.averageSleep);
+    setEditWorkouts(profile.workoutFrequency);
+    setEditActivity(profile.activityLevel);
+    const isStandardConstraint = ["none", "diabetes", "hypertension", "asthma"].includes(profile.healthConstraints || "none");
+    setEditConstraints(isStandardConstraint ? (profile.healthConstraints || "none") : "custom");
+    setEditCustomConstraint(isStandardConstraint ? "" : (profile.healthConstraints || ""));
+    setEditIncome(profile.monthlyIncome);
+    setEditSavings(profile.currentSavings);
+    setEditSpending(profile.spendingStyle);
+    setEditStudy(profile.hoursStudied);
+    setEditLearning(profile.learningProfile);
+    setEditArchetype(profile.archetype);
+    setEditMission(profile.personalMission);
     setEditMode(true);
   };
-  const handleEditSave = () => {
-    setProfile(p => ({ ...p, name: editName, email: editEmail }));
-    setEditMode(false);
-    // TODO: API integration hook — call PATCH /api/profile with { name: editName, email: editEmail }
+
+  const handleEditSave = async () => {
+    setLoading(true);
+    try {
+      const finalHealthConstraint = editConstraints === "custom" ? (editCustomConstraint || "none") : editConstraints;
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName,
+          age: editAge ? Number(editAge) : undefined,
+          avatarId: Number(profile.avatarId) || 1,
+          optimizationVector: profile.optimizationVector,
+          personalMission: editMission,
+          healthConstraints: finalHealthConstraint,
+          gender: editGender,
+          height: editHeight ? Number(editHeight) : undefined,
+          weight: editWeight ? Number(editWeight) : undefined,
+          averageSleep: Number(editSleep) || 7,
+          workoutFrequency: Number(editWorkouts) || 3,
+          activityLevel: editActivity,
+          monthlyIncome: editIncome ? Number(editIncome) : undefined,
+          currentSavings: editSavings ? Number(editSavings) : undefined,
+          spendingStyle: Number(editSpending) || 3,
+          hoursStudied: Number(editStudy) || 3,
+          learningProfile: editLearning,
+          archetype: editArchetype,
+        }),
+      });
+
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Failed to update profile.");
+
+      mutateProfile();
+      setEditMode(false);
+      window.dispatchEvent(new Event("syntra-refresh"));
+      alert("Twin parameters successfully updated & potential scores recalculated!");
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Failed to save profile changes.");
+    } finally {
+      setLoading(false);
+    }
   };
+
   const handleEditCancel = () => setEditMode(false);
+
+  // Avatar selector persistence
+  const handleAvatarSelect = async (avId: string) => {
+    setProfile(p => ({ ...p, avatarId: avId === "aether" ? "1" : avId === "chronos" ? "2" : avId === "apex" ? "3" : "4" }));
+    const numericalId = avId === "aether" ? 1 : avId === "chronos" ? 2 : avId === "apex" ? 3 : 4;
+    try {
+      await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarId: numericalId }),
+      });
+      mutateProfile();
+      window.dispatchEvent(new Event("syntra-refresh"));
+    } catch (e) {
+      console.error("Failed to save avatar select:", e);
+    }
+  };
+
+  // Optimization vector selector persistence
+  const handleVectorSelect = async (v: OptVector) => {
+    setProfile(p => ({ ...p, optimizationVector: v }));
+    setVectorPulse(true);
+    setTimeout(() => setVectorPulse(false), 600);
+    try {
+      await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ optimizationVector: v }),
+      });
+      mutateProfile();
+      window.dispatchEvent(new Event("syntra-refresh"));
+    } catch (e) {
+      console.error("Failed to save vector choice:", e);
+    }
+  };
 
   // Password update handler
   const handlePwSubmit = () => {
@@ -411,13 +562,25 @@ export default function ProfilePage() {
     if (!currentPw) { setPwError("Current password is required."); return; }
     if (newPw.length < 8) { setPwError("New password must be at least 8 characters."); return; }
     if (newPw !== confirmPw) { setPwError("Passwords do not match."); return; }
-    // TODO: API integration hook — call POST /api/auth/change-password
-    setPwSuccess(true);
-    setTimeout(() => {
-      setPwSuccess(false);
-      setCredsOpen(false);
-      setCurrentPw(""); setNewPw(""); setConfirmPw("");
-    }, 2200);
+    
+    fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+    })
+      .then(async (res) => {
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || "Failed to rotate credentials.");
+        setPwSuccess(true);
+        setTimeout(() => {
+          setPwSuccess(false);
+          setCredsOpen(false);
+          setCurrentPw(""); setNewPw(""); setConfirmPw("");
+        }, 2200);
+      })
+      .catch((err) => {
+        setPwError(err.message || "Credential mutation failed.");
+      });
   };
 
   // Sync handler
@@ -428,13 +591,6 @@ export default function ProfilePage() {
       setSyncStatuses(s => ({ ...s, [key]: "synced" }));
       setTimeout(() => setSyncStatuses(s => ({ ...s, [key]: "idle" })), 3000);
     }, 1800);
-  };
-
-  // Vector select handler
-  const handleVectorSelect = (v: OptVector) => {
-    setProfile(p => ({ ...p, optimizationVector: v }));
-    setVectorPulse(true);
-    setTimeout(() => setVectorPulse(false), 600);
   };
 
   if (!mounted) return null;
@@ -448,7 +604,7 @@ export default function ProfilePage() {
       alignItems: "stretch",
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@700&display=swap');
 
         /* ── SIDEBAR ── */
         .pf-left {
@@ -519,8 +675,6 @@ export default function ProfilePage() {
         .pf-btn-save:hover { background:#0033bb; transform:translateY(-1px); }
         .pf-btn-cancel { display:flex; align-items:center; gap:6px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; padding:9px 18px; color:#64748b; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:'Inter',sans-serif; }
         .pf-btn-cancel:hover { background:#e2e8f0; }
-        .pf-edit-input { font-size:0.88rem; font-weight:600; color:#0044DD; background:#eff4ff; border:1.5px solid #b8d0ff; border-radius:8px; padding:4px 10px; outline:none; font-family:'Inter',sans-serif; transition:border-color 0.15s; }
-        .pf-edit-input:focus { border-color:#0044DD; }
 
         /* Creds button */
         .pf-creds-btn { display:inline-flex; align-items:center; gap:7px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 14px; font-size:0.77rem; font-weight:700; color:#475569; cursor:pointer; transition:all 0.18s; font-family:'Inter',sans-serif; margin-top:10px; margin-left:14px; }
@@ -538,7 +692,6 @@ export default function ProfilePage() {
         .pf-avatar-ring { width:90px; height:90px; border-radius:50%; background:#fff; border:3px solid #fff; box-shadow:0 6px 20px rgba(0,68,221,0.25); display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative; z-index:1; }
         .pf-avatar-inner { width:80px; height:80px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; }
         .pf-avatar-meta { padding-bottom:6px; display:flex; flex-direction:column; justify-content:flex-end; flex:1; }
-        .pf-avatar-meta-top { display:flex; align-items:flex-start; justify-content:space-between; }
         .pf-hero-name { font-family:'DM Sans',sans-serif; font-size:1.35rem; font-weight:800; color:#0d1117; letter-spacing:-0.03em; line-height:1.2; }
         .pf-twin-badge { display:inline-flex; align-items:center; gap:5px; background:linear-gradient(90deg,#eff4ff,#e8edfc); border:1px solid #c7d7fb; border-radius:9999px; padding:4px 10px; font-size:0.68rem; font-weight:700; color:#0044DD; letter-spacing:0.06em; text-transform:uppercase; margin-top:8px; width:fit-content; }
 
@@ -635,7 +788,7 @@ export default function ProfilePage() {
         .pf-pw-input { flex:1; border:none; background:transparent; padding:10px 12px; font-size:0.85rem; font-weight:500; color:#0d1117; outline:none; font-family:'Inter',sans-serif; }
         .pf-pw-toggle { padding:0 12px; border:none; background:transparent; cursor:pointer; color:#94a3b8; display:flex; align-items:center; transition:color 0.15s; }
         .pf-pw-toggle:hover { color:#0044DD; }
-        .pf-pw-error { font-size:0.75rem; font-weight:600; color:#ef4444; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:8px 12px; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+        .pf-pw-error { font-size:0.75rem; font-weight:600; color:#ef4444; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
         .pf-pw-success { font-size:0.8rem; font-weight:600; color:#10b981; background:#f0fdf4; border:1px solid #a7f3d0; border-radius:10px; padding:12px 16px; text-align:center; display:flex; align-items:center; justify-content:center; gap:8px; }
         .pf-pw-submit { width:100%; background:#0044DD; border:none; border-radius:12px; padding:12px; color:#fff; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:'Inter',sans-serif; margin-top:4px; }
         .pf-pw-submit:hover { background:#0033bb; transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,68,221,0.25); }
@@ -653,6 +806,18 @@ export default function ProfilePage() {
 
         /* Active chip */
         .pf-active-chip { margin-left:auto; display:flex; align-items:center; gap:5px; font-size:0.68rem; font-weight:700; color:#0044DD; background:#eff4ff; border:1px solid #c7d7fb; border-radius:9999px; padding:4px 10px; flex-shrink:0; }
+
+        /* ── EXTENDED FORM CONTROLS ── */
+        .pf-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px; }
+        .pf-form-group { display:flex; flex-direction:column; gap:6px; }
+        .pf-form-label { font-size:0.7rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.06em; }
+        .pf-form-input { padding:10px 12px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:0.86rem; color:#1d1d1f; outline:none; transition:all 0.15s; font-family:'Inter',sans-serif; background:#fff; height:42px; }
+        .pf-form-input:focus { border-color:#0044DD; box-shadow:0 0 0 3px rgba(0,68,221,0.1); }
+        .pf-form-select { padding:10px 12px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:0.86rem; color:#1d1d1f; outline:none; transition:all 0.15s; font-family:'Inter',sans-serif; background:#fff; height:42px; -webkit-appearance:none; }
+        .pf-form-select:focus { border-color:#0044DD; }
+        .pf-form-slider-wrap { display:flex; align-items:center; gap:12px; }
+        .pf-form-slider { -webkit-appearance:none; flex:1; height:4px; border-radius:99px; background:#e4e8f2; outline:none; cursor:pointer; }
+        .pf-form-slider-val { font-size:0.88rem; font-weight:700; color:#0044DD; font-family:'JetBrains Mono',monospace; width:44px; text-align:right; }
 
         @media (max-width:860px) { .pf-left { display:none; } .pf-right { padding:28px 16px; } }
         @media (max-width:600px) { .pf-avatar-grid { grid-template-columns:repeat(2,1fr); } .pf-sync-grid { grid-template-columns:1fr 1fr; } .pf-vector-grid { grid-template-columns:1fr; } .pf-badge-grid { grid-template-columns:repeat(3,1fr); } }
@@ -785,7 +950,7 @@ export default function ProfilePage() {
                 <div className="pf-avatar-meta">
                   <div className="pf-avatar-meta-top">
                     <div>
-                      <div className="pf-hero-name">{editMode ? (editName || "Your Name") : (profile.name || "Your Name")}</div>
+                      <div className="pf-hero-name">{profile.name || "Your Name"}</div>
                       <div className="pf-twin-badge">
                         <Sparkles size={10} /> Syntra AI Twin — {selectedAvatar.name}
                       </div>
@@ -794,22 +959,46 @@ export default function ProfilePage() {
                 </div>
               </div>
 
+              {/* Core Profile Edit Fields */}
               <div className="pf-info-section">
-                <InfoRow icon={User} label="Full Name" value={profile.name}
-                  editing={editMode} editValue={editName} onEdit={setEditName} />
-                <div className="pf-info-divider" />
-                <InfoRow icon={Mail} label="Email Address" value={profile.email}
-                  editing={editMode} editValue={editEmail} onEdit={setEditEmail} />
-                <div className="pf-info-divider" />
-                <InfoRow icon={Calendar} label="Age" value={profile.age ? `${profile.age} years` : "—"} />
-                <div className="pf-info-divider" />
-                <InfoRow icon={Shield} label="Access Level" value="Authenticated Member" accent />
+                {editMode ? (
+                  <div className="pf-form-grid" style={{ gridTemplateColumns: "1fr" }}>
+                    <div className="pf-form-group">
+                      <label className="pf-form-label">Full Name</label>
+                      <input className="pf-form-input" value={editName} onChange={e => setEditName(e.target.value)} placeholder="Full Name" />
+                    </div>
+                    <div className="pf-form-group">
+                      <label className="pf-form-label">Email Address</label>
+                      <input className="pf-form-input" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="Email" />
+                    </div>
+                    <div className="pf-form-group">
+                      <label className="pf-form-label">Age</label>
+                      <input className="pf-form-input" type="number" value={editAge} onChange={e => setEditAge(e.target.value)} placeholder="Age (min. 13)" />
+                    </div>
+                    <div className="pf-form-group">
+                      <label className="pf-form-label">Personal Mission</label>
+                      <input className="pf-form-input" value={editMission} onChange={e => setEditMission(e.target.value)} placeholder="Enter your personal mission narrative" />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <InfoRow icon={User} label="Full Name" value={profile.name} />
+                    <div className="pf-info-divider" />
+                    <InfoRow icon={Mail} label="Email Address" value={profile.email} />
+                    <div className="pf-info-divider" />
+                    <InfoRow icon={Calendar} label="Age" value={profile.age ? `${profile.age} years` : "—"} />
+                    <div className="pf-info-divider" />
+                    <InfoRow icon={Target} label="Personal Mission" value={profile.personalMission || "Achieve Personal Optimization"} />
+                    <div className="pf-info-divider" />
+                    <InfoRow icon={Shield} label="Access Level" value="Authenticated Member" accent />
+                  </>
+                )}
               </div>
 
               {editMode && (
-                <div className="pf-edit-actions">
-                  <button className="pf-btn-save" onClick={handleEditSave}>
-                    <Save size={13} /> Save Changes
+                <div className="pf-edit-actions" style={{ paddingLeft: 0, paddingRight: 0 }}>
+                  <button className="pf-btn-save" onClick={handleEditSave} disabled={loading}>
+                    {loading ? <RefreshCw size={13} className="spinning" /> : <Save size={13} />} Save Changes
                   </button>
                   <button className="pf-btn-cancel" onClick={handleEditCancel}>
                     <X size={13} /> Cancel
@@ -817,9 +1006,221 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              <button className="pf-creds-btn" onClick={() => setCredsOpen(true)}>
-                <Lock size={12} /> Update Credentials
-              </button>
+              {!editMode && (
+                <button className="pf-creds-btn" onClick={() => setCredsOpen(true)} style={{ marginLeft: 0 }}>
+                  <Lock size={12} /> Update Credentials
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── NEW SECTION CARD: DIGITAL TWIN PARAMETERS & HABITS ── */}
+          <div className="pf-card">
+            <div className="pf-card-header">
+              <div className="pf-icon-ring" style={{ background: "rgba(0, 68, 221, 0.05)" }}>
+                <Cpu size={17} color="#0044DD" />
+              </div>
+              <div>
+                <div className="pf-card-title">Digital Twin Telemetry Settings</div>
+                <div className="pf-card-sub">Anatomical, financial, and behavioral settings derived from onboarding</div>
+              </div>
+            </div>
+            <div className="pf-card-body">
+              {editMode ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  {/* Health Section */}
+                  <div>
+                    <h4 style={{ fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", color: "#ef4444", borderBottom: "1.5px solid #f1f5f9", paddingBottom: "6px", marginBottom: "14px", fontFamily: "'Inter', sans-serif" }}>1. Anatomical &amp; rest parameters</h4>
+                    <div className="pf-form-grid">
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Gender</label>
+                        <select className="pf-form-select" value={editGender} onChange={e => setEditGender(e.target.value)}>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="non-binary">Non-Binary</option>
+                        </select>
+                      </div>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Height (cm)</label>
+                        <input className="pf-form-input" type="number" min="100" max="250" value={editHeight} onChange={e => setEditHeight(e.target.value)} placeholder="cm" />
+                      </div>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Weight (kg)</label>
+                        <input className="pf-form-input" type="number" min="30" max="300" value={editWeight} onChange={e => setEditWeight(e.target.value)} placeholder="kg" />
+                      </div>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Activity Level</label>
+                        <select className="pf-form-select" value={editActivity} onChange={e => setEditActivity(e.target.value)}>
+                          <option value="sedentary">Mostly sitting — desk job, little exercise</option>
+                          <option value="lightly_active">Lightly active — occasional walks or gym</option>
+                          <option value="moderately_active">Moderately active — gym 3–4× per week</option>
+                          <option value="very_active">Very active — intense training 5–6× per week</option>
+                          <option value="athlete">Athlete — training twice a day</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pf-form-grid" style={{ gridTemplateColumns: "1fr" }}>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Average Sleep Routine</label>
+                        <div className="pf-form-slider-wrap">
+                          <input className="pf-form-slider" type="range" min="4" max="10" step="0.5" value={editSleep} onChange={e => setEditSleep(e.target.value)} />
+                          <span className="pf-form-slider-val">{editSleep}h</span>
+                        </div>
+                      </div>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Workout Frequency</label>
+                        <div className="pf-form-slider-wrap">
+                          <input className="pf-form-slider" type="range" min="0" max="7" step="1" value={editWorkouts} onChange={e => setEditWorkouts(e.target.value)} />
+                          <span className="pf-form-slider-val">{editWorkouts}×/wk</span>
+                        </div>
+                      </div>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Health Constraints</label>
+                        <select className="pf-form-select" value={editConstraints} onChange={e => setEditConstraints(e.target.value)}>
+                          <option value="none">None — I'm generally healthy</option>
+                          <option value="diabetes">Diabetes</option>
+                          <option value="hypertension">High Blood Pressure</option>
+                          <option value="asthma">Asthma</option>
+                          <option value="custom">Other</option>
+                        </select>
+                      </div>
+                      {editConstraints === "custom" && (
+                        <div className="pf-form-group">
+                          <label className="pf-form-label">Custom Health Constraint Description</label>
+                          <input className="pf-form-input" value={editCustomConstraint} onChange={e => setEditCustomConstraint(e.target.value)} placeholder="Specify thyroid, migraines, etc..." />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Finance Section */}
+                  <div>
+                    <h4 style={{ fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", color: "#10b981", borderBottom: "1.5px solid #f1f5f9", paddingBottom: "6px", marginBottom: "14px", fontFamily: "'Inter', sans-serif" }}>2. Financial parameters</h4>
+                    <div className="pf-form-grid">
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Monthly Income (₹)</label>
+                        <input className="pf-form-input" type="number" value={editIncome} onChange={e => setEditIncome(e.target.value)} placeholder="Monthly Income" />
+                      </div>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Current Savings (₹)</label>
+                        <input className="pf-form-input" type="number" value={editSavings} onChange={e => setEditSavings(e.target.value)} placeholder="Savings Value" />
+                      </div>
+                    </div>
+                    <div className="pf-form-grid" style={{ gridTemplateColumns: "1fr" }}>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Spending Style (Budget Frugality)</label>
+                        <div className="pf-form-slider-wrap">
+                          <input className="pf-form-slider" type="range" min="1" max="5" step="1" value={editSpending} onChange={e => setEditSpending(e.target.value)} />
+                          <span className="pf-form-slider-val" style={{ width: "90px" }}>
+                            {editSpending === "1" ? "Very frugal" : editSpending === "2" ? "Careful" : editSpending === "3" ? "Balanced" : editSpending === "4" ? "Generous" : "Big spender"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Career Section */}
+                  <div>
+                    <h4 style={{ fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", color: "#0066FF", borderBottom: "1.5px solid #f1f5f9", paddingBottom: "6px", marginBottom: "14px", fontFamily: "'Inter', sans-serif" }}>3. Behavioral &amp; Career parameters</h4>
+                    <div className="pf-form-grid">
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Situation/Learning Profile</label>
+                        <select className="pf-form-select" value={editLearning} onChange={e => setEditLearning(e.target.value)}>
+                          <option value="">Select situation...</option>
+                          <option value="student">Student — exams or placement prep</option>
+                          <option value="professional">Working professional — career growth</option>
+                          <option value="founder">Founder / builder — working on a product</option>
+                          <option value="freelancer">Freelancer — managing clients and projects</option>
+                          <option value="job_seeker">Actively looking for a job</option>
+                        </select>
+                      </div>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Twin Focus Archetype</label>
+                        <select className="pf-form-select" value={editArchetype} onChange={e => setEditArchetype(e.target.value)}>
+                          <option value="">Select Archetype</option>
+                          <option value="chronos">Chronos (Learning · Growth · Knowledge)</option>
+                          <option value="apex">Apex (Productivity · Discipline · Execution)</option>
+                          <option value="nexus">Nexus (Wealth · Planning · Stability)</option>
+                          <option value="titan">Titan (Fitness · Energy · Health)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="pf-form-grid" style={{ gridTemplateColumns: "1fr" }}>
+                      <div className="pf-form-group">
+                        <label className="pf-form-label">Daily Study/Upskilling Routine</label>
+                        <div className="pf-form-slider-wrap">
+                          <input className="pf-form-slider" type="range" min="0" max="14" step="0.5" value={editStudy} onChange={e => setEditStudy(e.target.value)} />
+                          <span className="pf-form-slider-val">{editStudy}h/day</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="pf-info-section">
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "10px 14px 4px", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase", color: "#ef4444", letterSpacing: "0.06em", fontFamily: "'Inter', sans-serif" }}>
+                    <HeartPulse size={12} /> Anatomical &amp; Rest
+                  </div>
+                  <InfoRow icon={User} label="Gender" value={profile.gender ? (profile.gender === "non-binary" ? "Non-Binary" : profile.gender.replace(/\b\w/g, c => c.toUpperCase())) : "—"} />
+                  <div className="pf-info-divider" />
+                  <InfoRow icon={Calendar} label="Height / Weight" value={profile.height && profile.weight ? `${profile.height} cm / ${profile.weight} kg` : "—"} />
+                  <div className="pf-info-divider" />
+                  <InfoRow icon={HeartPulse} label="Activity Level" value={profile.activityLevel ? (
+                    profile.activityLevel === "sedentary" ? "Mostly sitting (Desk job)" :
+                    profile.activityLevel === "lightly_active" ? "Lightly Active (gym/occasional walks)" :
+                    profile.activityLevel === "moderately_active" ? "Moderately Active (gym 3-4x/week)" :
+                    profile.activityLevel === "very_active" ? "Very Active (gym 5-6x/week)" :
+                    profile.activityLevel === "athlete" ? "Athlete (2x daily training)" : profile.activityLevel.replace("_", " ").toUpperCase()
+                  ) : "—"} />
+                  <div className="pf-info-divider" />
+                  <InfoRow icon={Zap} label="Daily Sleep Routine" value={profile.averageSleep ? `${profile.averageSleep} hours/night` : "—"} />
+                  <div className="pf-info-divider" />
+                  <InfoRow icon={Flame} label="Weekly Workout Frequency" value={profile.workoutFrequency ? `${profile.workoutFrequency} workouts/week` : "—"} />
+                  <div className="pf-info-divider" />
+                  <InfoRow icon={Shield} label="Health Constraints" value={profile.healthConstraints ? (
+                    profile.healthConstraints === "none" ? "None (Generally Healthy)" :
+                    profile.healthConstraints === "diabetes" ? "Diabetes" :
+                    profile.healthConstraints === "hypertension" ? "High Blood Pressure" :
+                    profile.healthConstraints === "asthma" ? "Asthma" : profile.healthConstraints.replace(/\b\w/g, c => c.toUpperCase())
+                  ) : "—"} />
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "18px 14px 4px", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase", color: "#10b981", letterSpacing: "0.06em", fontFamily: "'Inter', sans-serif" }}>
+                    <Wallet size={12} /> Financial Parameters
+                  </div>
+                  <InfoRow icon={Wallet} label="Monthly Income" value={profile.monthlyIncome ? `₹${Number(profile.monthlyIncome).toLocaleString("en-IN")}` : "—"} />
+                  <div className="pf-info-divider" />
+                  <InfoRow icon={Trophy} label="Savings Portfolio Balance" value={profile.currentSavings ? `₹${Number(profile.currentSavings).toLocaleString("en-IN")}` : "—"} />
+                  <div className="pf-info-divider" />
+                  <InfoRow icon={Briefcase} label="Spending Frugality Profile" value={
+                    profile.spendingStyle === "1" ? "Very frugal" :
+                    profile.spendingStyle === "2" ? "Careful" :
+                    profile.spendingStyle === "3" ? "Balanced" :
+                    profile.spendingStyle === "4" ? "Generous" :
+                    profile.spendingStyle === "5" ? "Big spender" : "—"
+                  } />
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "18px 14px 4px", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase", color: "#0066FF", letterSpacing: "0.06em", fontFamily: "'Inter', sans-serif" }}>
+                    <Briefcase size={12} /> Habits &amp; Upskilling
+                  </div>
+                  <InfoRow icon={Zap} label="Situation Profile" value={profile.learningProfile ? (
+                    profile.learningProfile === "student" ? "Student — exams or placement prep" :
+                    profile.learningProfile === "professional" ? "Working professional — career growth" :
+                    profile.learningProfile === "founder" ? "Founder / builder — working on a product" :
+                    profile.learningProfile === "freelancer" ? "Freelancer — managing clients and projects" :
+                    profile.learningProfile === "job_seeker" ? "Actively looking for a job" : profile.learningProfile.replace("_", " ").toUpperCase()
+                  ) : "—"} />
+                  <div className="pf-info-divider" />
+                  <InfoRow icon={BookOpen} label="Twin Optimization Archetype" value={profile.archetype ? (
+                    profile.archetype === "chronos" ? "Chronos (Learning · Growth · Knowledge)" :
+                    profile.archetype === "apex" ? "Apex (Productivity · Discipline · Execution)" :
+                    profile.archetype === "nexus" ? "Nexus (Wealth · Planning · Stability)" :
+                    profile.archetype === "titan" ? "Titan (Fitness · Energy · Health)" : profile.archetype.toUpperCase()
+                  ) : "—"} />
+                  <div className="pf-info-divider" />
+                  <InfoRow icon={Target} label="Daily Study / Upskilling hours" value={profile.hoursStudied ? `${profile.hoursStudied} hours/day` : "—"} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -836,34 +1237,38 @@ export default function ProfilePage() {
             </div>
             <div className="pf-card-body">
               <div className="pf-avatar-grid">
-                {PREMIUM_AVATARS.map(av => (
-                  <div
-                    key={av.id}
-                    className={`pf-avatar-card${profile.avatarId === av.id ? " selected" : ""}`}
-                    style={{
-                      background: "linear-gradient(135deg,#f8fafc,#f1f5f9)",
-                      ["--av-accent" as any]: av.accentColor,
-                    }}
-                    onClick={() => setProfile(p => ({ ...p, avatarId: av.id }))}
-                  >
-                    {profile.avatarId === av.id && (
-                      <div className="pf-avatar-check">
-                        <Check size={10} color="#fff" />
+                {PREMIUM_AVATARS.map(av => {
+                  const avNumericalId = av.id === "aether" ? "1" : av.id === "chronos" ? "2" : av.id === "apex" ? "3" : "4";
+                  const isSelected = String(profile.avatarId) === String(avNumericalId);
+                  return (
+                    <div
+                      key={av.id}
+                      className={`pf-avatar-card${isSelected ? " selected" : ""}`}
+                      style={{
+                        background: "linear-gradient(135deg,#f8fafc,#f1f5f9)",
+                        ["--av-accent" as any]: av.accentColor,
+                      }}
+                      onClick={() => handleAvatarSelect(av.id)}
+                    >
+                      {isSelected && (
+                        <div className="pf-avatar-check">
+                          <Check size={10} color="#fff" />
+                        </div>
+                      )}
+                      <div className="pf-avatar-card-img" style={{ background: av.bg }}>
+                        {av.svg}
                       </div>
-                    )}
-                    <div className="pf-avatar-card-img" style={{ background: av.bg }}>
-                      {av.svg}
+                      <div className="pf-avatar-card-name" style={{ color: isSelected ? av.accentColor : "#374151" }}>
+                        {av.name}
+                      </div>
                     </div>
-                    <div className="pf-avatar-card-name" style={{ color: profile.avatarId === av.id ? av.accentColor : "#374151" }}>
-                      {av.name}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          {/* ── NEURAL SYNC OVERVIEW (Active Sync Buttons) ── */}
+          {/* ── NEURAL SYNC OVERVIEW ── */}
           <div className="pf-card">
             <div className="pf-card-header">
               <div className="pf-icon-ring" style={{ background: "#dbeafe" }}>
@@ -876,86 +1281,28 @@ export default function ProfilePage() {
             </div>
             <div className="pf-card-body">
               <div className="pf-sync-grid">
-                {/* Apple Health */}
-                {(() => {
-                  const st = syncStatuses.health;
-                  return (
-                    <div
-                      className={`pf-sync-card${st === "syncing" ? " syncing" : ""}${st === "synced" ? " synced" : ""}`}
-                      style={{
-                        background: st === "syncing"
-                          ? "linear-gradient(90deg,#fef2f2,#fee2e2,#fef2f2)"
-                          : st === "synced" ? "#f0fdf4" : "#fef2f2",
-                        borderColor: st === "synced" ? "#10b981" : "#fecaca",
-                      }}
-                      onClick={() => handleSync("health")}
-                    >
-                      <div className="pf-sync-icon" style={{ background: "#fee2e2" }}>
-                        <HeartPulse size={17} color="#ef4444" className={st === "syncing" ? "" : ""} />
-                      </div>
-                      <div className="pf-sync-label" style={{ color: "#ef4444" }}>Apple Health</div>
-                      <div className="pf-sync-status" style={{ color: st === "synced" ? "#10b981" : "#ef4444" }}>
-                        {st === "idle" && <><RefreshCw size={11}/> Tap to Sync</>}
-                        {st === "syncing" && <><RefreshCw size={11} className="spinning"/> Pulling live metrics...</>}
-                        {st === "synced" && <><Check size={11}/> Synced</>}
-                      </div>
+                {[
+                  { key: "health", icon: HeartPulse, label: "Apple Health", color: "#ef4444" },
+                  { key: "finance", icon: Wallet, label: "Bank Account", color: "#10b981" },
+                  { key: "coursera", icon: BookOpen, label: "Coursera API", color: "#0066FF" }
+                ].map(s => (
+                  <div
+                    key={s.key}
+                    className={`pf-sync-card${syncStatuses[s.key] === "syncing" ? " syncing" : ""}`}
+                    style={{ background: "#f8fafc", borderColor: syncStatuses[s.key] === "synced" ? "#10b981" : "#e2e8f0" }}
+                    onClick={() => handleSync(s.key)}
+                  >
+                    <div className="pf-sync-icon" style={{ background: `${s.color}15` }}>
+                      <s.icon size={17} color={s.color} />
                     </div>
-                  );
-                })()}
-
-                {/* Bank Account */}
-                {(() => {
-                  const st = syncStatuses.finance;
-                  return (
-                    <div
-                      className={`pf-sync-card${st === "syncing" ? " syncing" : ""}`}
-                      style={{
-                        background: st === "syncing"
-                          ? "linear-gradient(90deg,#f0fdf4,#dcfce7,#f0fdf4)"
-                          : st === "synced" ? "#f0fdf4" : "#f0fdf4",
-                        borderColor: st === "synced" ? "#10b981" : "#a7f3d0",
-                      }}
-                      onClick={() => handleSync("finance")}
-                    >
-                      <div className="pf-sync-icon" style={{ background: "#dcfce7" }}>
-                        <Wallet size={17} color="#10b981" />
-                      </div>
-                      <div className="pf-sync-label" style={{ color: "#10b981" }}>Bank Account</div>
-                      <div className="pf-sync-status" style={{ color: st === "synced" ? "#10b981" : "#10b981" }}>
-                        {st === "idle" && <><RefreshCw size={11}/> Tap to Sync</>}
-                        {st === "syncing" && <><RefreshCw size={11} className="spinning"/> Pulling live metrics...</>}
-                        {st === "synced" && <><Check size={11}/> Synced</>}
-                      </div>
+                    <div className="pf-sync-label" style={{ color: s.color }}>{s.label}</div>
+                    <div className="pf-sync-status" style={{ color: syncStatuses[s.key] === "synced" ? "#10b981" : s.color }}>
+                      {syncStatuses[s.key] === "idle" && <><RefreshCw size={11}/> Sync</>}
+                      {syncStatuses[s.key] === "syncing" && <><RefreshCw size={11} className="spinning"/> Syncing...</>}
+                      {syncStatuses[s.key] === "synced" && <><Check size={11}/> Synced</>}
                     </div>
-                  );
-                })()}
-
-                {/* Coursera */}
-                {(() => {
-                  const st = syncStatuses.coursera;
-                  return (
-                    <div
-                      className={`pf-sync-card${st === "syncing" ? " syncing" : ""}`}
-                      style={{
-                        background: st === "syncing"
-                          ? "linear-gradient(90deg,#eff6ff,#dbeafe,#eff6ff)"
-                          : st === "synced" ? "#f0fdf4" : "#eff6ff",
-                        borderColor: st === "synced" ? "#10b981" : "#bfdbfe",
-                      }}
-                      onClick={() => handleSync("coursera")}
-                    >
-                      <div className="pf-sync-icon" style={{ background: "#dbeafe" }}>
-                        <BookOpen size={17} color="#0066FF" />
-                      </div>
-                      <div className="pf-sync-label" style={{ color: "#0066FF" }}>Coursera API</div>
-                      <div className="pf-sync-status" style={{ color: st === "synced" ? "#10b981" : "#0066FF" }}>
-                        {st === "idle" && <><RefreshCw size={11}/> Tap to Sync</>}
-                        {st === "syncing" && <><RefreshCw size={11} className="spinning"/> Pulling live metrics...</>}
-                        {st === "synced" && <><Check size={11}/> Synced</>}
-                      </div>
-                    </div>
-                  );
-                })()}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -979,9 +1326,10 @@ export default function ProfilePage() {
                     ub.toLowerCase() === badge.title.toLowerCase() || 
                     ub.toLowerCase() === badge.id.toLowerCase() ||
                     ub.toLowerCase() === badge.id.replace("_", " ").toLowerCase()
-                  ) || (badge.id === "neural_init" && userBadges.length > 0)
-                    || (badge.id === "apex_optimizer" && userBadges.includes("Rising Twin"))
-                    || (badge.id === "grand_architect" && userBadges.includes("Month Master"));
+                  ) || (badge.id === "week_warrior" && streak >= 7)
+                    || (badge.id === "neural_init" && userBadges.length > 0)
+                    || (badge.id === "apex_optimizer" && (userBadges.includes("Rising Twin") || userBadges.includes("Apex Optimizer")))
+                    || (badge.id === "grand_architect" && (userBadges.includes("Month Master") || userBadges.includes("Grand Architect")));
 
                   return (
                     <div

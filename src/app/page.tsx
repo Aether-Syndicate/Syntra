@@ -113,7 +113,7 @@ export default function HomePage() {
 
   return (
     <div style={{ background: "#ffffff", color: "#111111", fontFamily: '"Inter", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', overflowX: "hidden" }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -650,7 +650,7 @@ export default function HomePage() {
           .feature-row.reverse { direction: ltr; }
           .footer-top { grid-template-columns: 1fr; gap: 40px; }
         }
-      `}</style>
+      ` }} />
 
       {/* NAVBAR */}
       <div className={`nav-wrapper ${scrolled ? "sticky" : ""}`}>

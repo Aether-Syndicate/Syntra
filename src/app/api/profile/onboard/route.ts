@@ -139,6 +139,17 @@ export async function POST(req: Request) {
       monthlyIncome: income,
       monthlyBudget: Math.round(income * 0.8), // save 20%
       targetSavingsRate: targetSavingsRate || 20,
+      gender: gender || "male",
+      height: Number(height) || 175,
+      weight: Number(weight) || 70,
+      averageSleep: Number(averageSleep) || 7,
+      workoutFrequency: Number(workoutFrequency) || 3,
+      activityLevel: activityLevel || "moderately_active",
+      currentSavings: Number(currentSavings) || 0,
+      spendingStyle: Number(spendingStyle) || 3,
+      hoursStudied: Number(hoursStudied) || 3,
+      learningProfile: learningProfile || "",
+      archetype: archetype || "",
     };
     user.goals = [startingGoal];
     user.markModified("profile");

@@ -5,7 +5,6 @@ export const config = {
   matcher: [
     // Protected pages
     "/dashboard/:path*",
-    "/onboarding/:path*",
     "/ingestion/:path*",
     "/simulator/:path*",
     "/goals/:path*",

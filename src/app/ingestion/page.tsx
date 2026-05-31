@@ -6,8 +6,7 @@ import {
   HeartPulse, Wallet, Briefcase, Sparkles, ArrowLeft,
   Brain, Zap, Droplets, Moon, Dumbbell, Activity,
   TrendingUp, AlertTriangle, CheckCircle2, Send,
-  ChevronDown, ChevronUp, Upload, Flame, Target,
-  BookOpen, Clock, MessageSquare, Coffee,
+  Upload, Flame, Clock, MessageSquare,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
@@ -290,9 +289,9 @@ export default function IngestionPage() {
   const [calibrating, setCalibrating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [batchOpen, setBatchOpen] = useState(false);
+  const [todayLogged, setTodayLogged] = useState(false);
 
-  // Latest data for yesterday snapshot
+  // Latest data for snapshot
   const [latest, setLatest] = useState<LatestData | null>(null);
   const [currentScores, setCurrentScores] = useState({ health: 50, finance: 50, career: 50 });
   const [streak, setStreak] = useState(0);
@@ -304,10 +303,10 @@ export default function IngestionPage() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
-  // Domain states
+  // Domain states — initialised to zero; pre-filled with today's log if one exists
   const [health, setHealth] = useState<HealthData>({
-    sleepHours: 7, workoutMinutes: 30, stressLevel: 4,
-    moodScore: 6, energyLevel: 6, waterGlasses: 6,
+    sleepHours: 0, workoutMinutes: 0, stressLevel: 1,
+    moodScore: 1, energyLevel: 1, waterGlasses: 0,
     skippedMeals: [], caloriesConsumed: "", calorieGoal: "",
     mealsEatenToday: "",
   });
@@ -316,7 +315,7 @@ export default function IngestionPage() {
     spendingCategory: "food", biggestExpenseToday: "", impulseSpend: false,
   });
   const [career, setCareer] = useState<CareerData>({
-    hoursStudied: "", productivityRating: 6,
+    hoursStudied: "", productivityRating: 1,
     sessionsCompleted: "", courseName: "", goalWorkedOn: "", blockerToday: "",
   });
   const [dailyNote, setDailyNote] = useState("");
@@ -331,7 +330,7 @@ export default function IngestionPage() {
     return formatDate(lastSync);
   }, [lastSync, latest]);
 
-  // Fetch yesterday's data
+  // Fetch latest data; pre-fill form if a log already exists for today
   useEffect(() => {
     setMounted(true);
     fetch("/api/log/latest", { credentials: "include" })
@@ -342,6 +341,58 @@ export default function IngestionPage() {
           if (d.scores) setCurrentScores(d.scores);
           if (typeof d.streak === "number") setStreak(d.streak);
           if (d.lastLogDate) setLastSync(d.lastLogDate);
+
+          const isToday = (dateStr: string) =>
+            new Date(dateStr).toDateString() === new Date().toDateString();
+
+          const loggedToday =
+            (d.latest?.health && isToday(d.latest.health.date)) ||
+            (d.latest?.finance && isToday(d.latest.finance.date)) ||
+            (d.latest?.career && isToday(d.latest.career.date));
+          if (loggedToday) setTodayLogged(true);
+
+          if (d.latest?.health && isToday(d.latest.health.date)) {
+            const h = d.latest.health.data;
+            setHealth({
+              sleepHours: h.sleepHours ?? 0,
+              workoutMinutes: h.workoutMinutes ?? 0,
+              stressLevel: h.stressLevel ?? 1,
+              moodScore: h.moodScore ?? 1,
+              energyLevel: h.energyLevel ?? 1,
+              waterGlasses: h.waterGlasses ?? 0,
+              skippedMeals: h.skippedMeals ?? [],
+              caloriesConsumed: h.caloriesConsumed != null ? String(h.caloriesConsumed) : "",
+              calorieGoal: h.calorieGoal != null ? String(h.calorieGoal) : "",
+              mealsEatenToday: h.mealsEatenToday ?? "",
+            });
+          }
+
+          if (d.latest?.finance && isToday(d.latest.finance.date)) {
+            const f = d.latest.finance.data;
+            setFinance({
+              amountSaved: f.amountSaved != null ? String(f.amountSaved) : "",
+              discretionarySpent: f.discretionarySpent != null ? String(f.discretionarySpent) : "",
+              spendingCategory: f.spendingCategory ?? "food",
+              biggestExpenseToday: f.biggestExpenseToday ?? "",
+              impulseSpend: f.impulseSpend ?? false,
+            });
+          }
+
+          if (d.latest?.career && isToday(d.latest.career.date)) {
+            const c = d.latest.career.data;
+            setCareer({
+              hoursStudied: c.hoursStudied != null ? String(c.hoursStudied) : "",
+              productivityRating: c.productivityRating ?? 1,
+              sessionsCompleted: c.sessionsCompleted != null ? String(c.sessionsCompleted) : "",
+              courseName: c.courseName ?? "",
+              goalWorkedOn: c.goalWorkedOn ?? "",
+              blockerToday: c.blockerToday ?? "",
+            });
+          }
+
+          if (d.latest?.reflection && isToday(d.latest.reflection.date)) {
+            setDailyNote(d.latest.reflection.data?.note ?? "");
+          }
         }
       })
       .catch(() => {});
@@ -860,13 +911,25 @@ export default function IngestionPage() {
         <p className="hero-sub">
           Log your health, finances, and career progress. Your twin updates in real time.
         </p>
+        {todayLogged && (
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "8px 16px", borderRadius: 10,
+            background: "#f0fdf4", border: "1px solid #bbf7d0",
+            fontSize: "0.82rem", fontWeight: 600, color: "#16a34a",
+            marginBottom: 4,
+          }}>
+            <CheckCircle2 size={14} />
+            Today&apos;s log loaded — form pre-filled with your earlier entries. Update and re-submit to overwrite.
+          </div>
+        )}
       </div>
 
-      {/* ── YESTERDAY SNAPSHOT ── */}
+      {/* ── SNAPSHOT ── */}
       {latest && (latest.health || latest.finance || latest.career) && (
         <div className="ing-hero fade-in fade-in-1" style={{ paddingTop: 0 }}>
           <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-            <Clock size={12} /> Last Logged
+            <Clock size={12} /> {todayLogged ? "Today's Log" : "Last Logged"}
           </div>
           <div className="snapshot-row">
             <div className="snap-card" style={{ borderLeft: "3px solid #3b82f6" }}>

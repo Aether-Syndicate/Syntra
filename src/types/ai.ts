@@ -67,6 +67,8 @@ export interface aitwinReflectionResponse {
   };
   riskAlerts: string[];            // cross-domain warnings (can be empty [])
   confidence: number;              // integer 0–100, capped by confidenceScore.ts
+  leadIndicator: string;           // 2-5 word label for the #1 success driver, e.g. "Sleep Consistency"
+  primaryRisk: string;             // 2-5 word label for the top current risk, e.g. "Budget Overrun"
 }
 
 // ── Simulator Types ──────────────────────────────────────────────

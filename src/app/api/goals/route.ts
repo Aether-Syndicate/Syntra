@@ -73,6 +73,46 @@ export async function GET() {
   }
 }
 
+export async function PATCH(req: Request) {
+  try {
+    const session = await getSession();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { goalId, title, domain, priority, targetDate, milestones } = await req.json();
+
+    if (!goalId || !title || !domain || !priority) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (!["health", "finance", "career"].includes(domain)) {
+      return NextResponse.json({ error: "Invalid domain" }, { status: 400 });
+    }
+
+    await connectDB();
+
+    const updateFields: Record<string, unknown> = {
+      "goals.$.title": title,
+      "goals.$.domain": domain,
+      "goals.$.priority": priority,
+      "goals.$.milestones": milestones || [],
+      "goals.$.targetDate": targetDate ? new Date(targetDate) : null,
+    };
+
+    const user = await User.findOneAndUpdate(
+      { email: session.user.email, "goals._id": new mongoose.Types.ObjectId(goalId) },
+      { $set: updateFields },
+      { new: true }
+    );
+
+    return NextResponse.json({ success: true, goals: user?.goals });
+  } catch (error) {
+    console.error("[GOALS PATCH ERROR]", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     const session = await getSession();

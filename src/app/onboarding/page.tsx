@@ -149,7 +149,7 @@ function validateStep3(f: Record<string, string>) {
   if (!f.learningProfile) e.learningProfile = "Please select your situation";
   return e;
 }
-function validateStep4(arch: string) {
+function validateStep4(arch: string): Record<string, string> {
   return arch ? {} : { archetype: "Please choose your twin" };
 }
 
@@ -232,6 +232,7 @@ export default function OnboardingPage() {
       if (!pending) throw new Error("Signup details not found. Please go back and fill in your details.");
       const { name, email, password } = JSON.parse(pending);
 
+      // 1. Register User
       const rr = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) });
       const rd = await rr.json();
       if (!rr.ok) {
@@ -239,6 +240,11 @@ export default function OnboardingPage() {
         throw new Error(rd.message || "Registration failed.");
       }
 
+      // 2. Sign In immediately to establish session cookies for subsequent API calls
+      const sr = await signIn("credentials", { email, password, redirect: false });
+      if (sr?.error) throw new Error("Sign-in failed. Please log in manually.");
+
+      // 3. Save Onboarding Profile (now authorized under active session)
       const or = await fetch("/api/profile/onboard", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -252,8 +258,6 @@ export default function OnboardingPage() {
       if (!or.ok) throw new Error(od.message || "Failed to save profile.");
 
       sessionStorage.removeItem("syntra_pending_signup");
-      const sr = await signIn("credentials", { email, password, redirect: false });
-      if (sr?.error) throw new Error("Sign-in failed. Please log in manually.");
       window.dispatchEvent(new Event("syntra-refresh"));
       setShowWow(true);
     } catch (err: unknown) {

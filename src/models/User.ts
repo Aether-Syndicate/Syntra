@@ -31,6 +31,18 @@ export interface IUser extends Document {
     monthlyIncome: number;
     monthlyBudget: number;
     targetSavingsRate: number;
+    // Extended Onboarding Profile Fields (for viewing and editing)
+    gender?: string;
+    height?: number;
+    weight?: number;
+    averageSleep?: number;
+    workoutFrequency?: number;
+    activityLevel?: string;
+    currentSavings?: number;
+    spendingStyle?: number;
+    hoursStudied?: number;
+    learningProfile?: string;
+    archetype?: string;
   };
   scores: {
     health: number;
@@ -108,6 +120,19 @@ const UserSchema = new Schema<IUser>(
       monthlyIncome: { type: Number, default: 0 },
       monthlyBudget: { type: Number, default: 0 },
       targetSavingsRate: { type: Number, default: 20 },
+      
+      // Extended Onboarding Profile Fields
+      gender: { type: String, default: "male" },
+      height: { type: Number, default: 175 },
+      weight: { type: Number, default: 70 },
+      averageSleep: { type: Number, default: 7 },
+      workoutFrequency: { type: Number, default: 3 },
+      activityLevel: { type: String, default: "moderately_active" },
+      currentSavings: { type: Number, default: 0 },
+      spendingStyle: { type: Number, default: 3 },
+      hoursStudied: { type: Number, default: 3 },
+      learningProfile: { type: String, default: "" },
+      archetype: { type: String, default: "" },
     },
 
     aiSnapshot: {

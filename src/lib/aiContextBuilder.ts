@@ -58,6 +58,34 @@ function calculateTwinContext(
       )
     : 50; // neutral when no calorie data
 
+  // Water intake (hydration tracking)
+  const waterValues = healthLogs
+    .map(l => l.domainData?.waterGlasses)
+    .filter((v): v is number => typeof v === "number");
+
+  // Meal consistency — count days with no skipped meals
+  const mealLogDays = healthLogs.filter(l => Array.isArray(l.domainData?.skippedMeals));
+  const mealConsistency = mealLogDays.length > 0
+    ? Math.round(
+        mealLogDays.filter(l => l.domainData.skippedMeals.length === 0).length
+        / mealLogDays.length * 100
+      )
+    : 100; // assume full consistency if never logged
+
+  // Skipped meal pattern — which meals are skipped most?
+  const allSkipped: string[] = [];
+  mealLogDays.forEach(l => {
+    if (Array.isArray(l.domainData.skippedMeals)) {
+      allSkipped.push(...l.domainData.skippedMeals);
+    }
+  });
+  const skipCounts: Record<string, number> = {};
+  allSkipped.forEach(m => { skipCounts[m] = (skipCounts[m] || 0) + 1; });
+  const totalLogDays = Math.max(mealLogDays.length, 1);
+  const skippedMealPattern = Object.entries(skipCounts)
+    .map(([meal, count]) => `skipped ${meal} ${count}/${totalLogDays} days`)
+    .join(", ") || "no skipped meals detected";
+
   // ─── Finance ────────────────────────────────────────────────────
   const savedValues = financeLogs
     .map(l => l.domainData?.amountSaved)
@@ -71,6 +99,27 @@ function calculateTwinContext(
     .map(l => l.domainData?.spendingTime)
     .filter((v): v is number => typeof v === "number");
 
+  // Biggest expense names — for spending pattern analysis
+  const expenseNames = financeLogs
+    .map(l => l.domainData?.biggestExpenseToday)
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+
+  // Frequency count to find top spending categories
+  const expenseFreq: Record<string, number> = {};
+  expenseNames.forEach(n => { expenseFreq[n.toLowerCase()] = (expenseFreq[n.toLowerCase()] || 0) + 1; });
+  const topExpenseNames = Object.entries(expenseFreq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([name, count]) => `${name} (${count}x)`);
+
+  // Impulse spend rate
+  const impulseFlags = financeLogs
+    .map(l => l.domainData?.impulseSpend)
+    .filter((v): v is boolean => typeof v === "boolean");
+  const impulseSpendRate = impulseFlags.length > 0
+    ? Math.round(impulseFlags.filter(v => v === true).length / impulseFlags.length * 100)
+    : 0;
+
   // ─── Career ─────────────────────────────────────────────────────
   const studyValues = careerLogs
     .map(l => l.domainData?.hoursStudied)
@@ -79,6 +128,37 @@ function calculateTwinContext(
   const productivityValues = careerLogs
     .map(l => l.domainData?.productivityRating)
     .filter((v): v is number => typeof v === "number");
+
+  // Course names — deduplicated, most recent first
+  const courseNames = careerLogs
+    .map(l => l.domainData?.courseName)
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+  const recentCourseNames = [...new Set(courseNames)].slice(0, 3);
+
+  // Goal worked on — most recent 3
+  const goalFocusEntries = careerLogs
+    .map(l => l.domainData?.goalWorkedOn)
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+  const recentGoalFocus = goalFocusEntries.slice(0, 3);
+
+  // Blockers — most recent 3
+  const blockerEntries = careerLogs
+    .map(l => l.domainData?.blockerToday)
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+  const recentBlockers = blockerEntries.slice(0, 3);
+
+  // ─── Reflection / Daily Notes ───────────────────────────────────
+  const reflectionLogs = logs.filter(l => l.domain === "reflection");
+  const recentDailyNotes = reflectionLogs
+    .map(l => l.domainData?.note)
+    .filter((v): v is string => typeof v === "string" && v.length > 0)
+    .slice(0, 3);
+
+  // Meals/Foods Eaten — most recent 5
+  const mealsEatenList = healthLogs
+    .map(l => l.domainData?.mealsEatenToday)
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+  const recentMealsEaten = mealsEatenList.slice(0, 5);
 
   // ─── Derived ────────────────────────────────────────────────────
   const avgSleep = avg(sleepValues);
@@ -183,6 +263,8 @@ function calculateTwinContext(
       stressLevel: avgStress,
       calorieAdherence,
       spendingVsBudget,
+      waterIntake: avg(waterValues),
+      mealConsistency,
     },
     trends: {
       sleep: getTrend(sleepValues),
@@ -200,6 +282,16 @@ function calculateTwinContext(
       workoutMoodCorrelation,
       lateNightSpending,
       weekendDropoff,
+    },
+    qualitative: {
+      recentDailyNotes,
+      recentCourseNames,
+      recentGoalFocus,
+      recentBlockers,
+      topExpenseNames,
+      impulseSpendRate,
+      skippedMealPattern,
+      recentMealsEaten,
     },
     logCount: logs.length,
     daysActive: Math.min(Math.floor(logs.length / 3), 14),

@@ -395,6 +395,11 @@ export interface FinanceDomainInput {
     downPaymentPercent?: number; // e.g. 20 for 20% down (rest via loan)
     targetYear?: number;        // e.g. 2028
     priority: "high" | "medium" | "low";
+    monthsRemaining?: number;
+    requiredMonthlySavings?: number;
+    actualMonthlySavings?: number;
+    deficit?: number;
+    deficitText?: string;
   }>;
 }
 
@@ -536,15 +541,25 @@ function summariseWealthGoals(
       ? Math.ceil(stillNeeded / (yearsToGoal * 12))
       : null;
 
+    // Use pre-computed calculations if available from the backend math helper
+    const monthsRemaining = g.monthsRemaining ?? (yearsToGoal ? yearsToGoal * 12 : 24);
+    const reqSavings = g.requiredMonthlySavings ?? requiredMonthly;
+    const actualMonthlySavings = g.actualMonthlySavings ?? disposable;
+    const deficitText = g.deficitText ?? (reqSavings && actualMonthlySavings < reqSavings ? `User is Rs. ${Math.max(0, reqSavings - actualMonthlySavings).toLocaleString("en-IN")} short` : "User is on track");
+
     return [
       `GOAL: "${g.goalLabel}" (${g.goalType}, priority: ${g.priority})`,
       `  Total Cost: Rs.${g.targetAmount.toLocaleString("en-IN")}`,
       `  Down Payment Needed (${g.downPaymentPercent ?? 20}%): Rs.${Math.round(downPayment).toLocaleString("en-IN")}`,
       `  Already Saved: Rs.${Math.round(alreadySaved).toLocaleString("en-IN")}`,
       `  Still Needed for Down Payment: Rs.${Math.round(stillNeeded).toLocaleString("en-IN")}`,
+      `  Months Remaining to Target: ${monthsRemaining} months`,
+      `  Required Monthly Savings (Down Payment Needed / Months Remaining): Rs.${reqSavings?.toLocaleString("en-IN")}/month`,
+      `  Actual Monthly Savings Surplus: Rs.${actualMonthlySavings.toLocaleString("en-IN")}/month`,
+      `  Pre-calculated Savings Deficit: ${deficitText}`,
       `  At current monthly surplus (Rs.${disposable.toLocaleString("en-IN")}): ${monthsAtCurrentRate} months`,
       yearsToGoal !== null
-        ? `  Target Year: ${g.targetYear} (${yearsToGoal} years away) → requires Rs.${requiredMonthly?.toLocaleString("en-IN")}/month`
+        ? `  Target Year: ${g.targetYear} (${yearsToGoal} years away)`
         : "  No target year set",
     ].join("\n");
   });

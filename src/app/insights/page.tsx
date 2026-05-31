@@ -113,6 +113,7 @@ export default function InsightsPage() {
   const [mounted, setMounted] = useState(false);
   const [typedTitle, setTypedTitle] = useState("");
   const [activeSection, setActiveSection] = useState(0);
+  const [domainSubTab, setDomainSubTab] = useState<"health" | "finance" | "career">("health");
   const [animating, setAnimating] = useState(false);
   const fullTitle = "Twin Verdict";
 
@@ -287,59 +288,240 @@ export default function InsightsPage() {
         );
 
       /* ── 1: Domain Analysis ── */
-      case 1:
+      case 1: {
+        const healthData = data?.health || {};
+        const financeData = data?.finance || {};
+        const careerData = data?.career || {};
+
+        const currentRecs = 
+          domainSubTab === "health" 
+            ? ai.recommendations?.health || [] 
+            : domainSubTab === "finance" 
+            ? ai.recommendations?.finance || [] 
+            : ai.recommendations?.career || [];
+
         return (
           <div className={`section-content ${animating ? "section-exit" : "section-enter"}`}>
             <SectionHeader icon={BarChart3} title="Cross-Domain Ripple Analysis" sub="Dynamic systemic feedback tracking" />
 
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 14 }}>
-              {domainCards.map((card, idx) => {
-                const Icon = card.icon;
-                return (
-                  <div key={idx} className="insight-card domain-card">
-                    <div style={{ height: 3, background: `linear-gradient(90deg,${card.gradFrom},${card.gradTo})`, borderRadius: "20px 20px 0 0" }} />
-                    <div style={{ padding: "18px 22px" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 40, height: 40, borderRadius: 12, background: card.accentBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <Icon size={18} style={{ color: card.accent }} />
-                          </div>
-                          <div>
-                            <span style={{ fontWeight: 700, fontSize: "0.97rem", color: "#0f172a" }}>{card.title}</span>
-                            <div style={{ fontSize: "0.73rem", color: "#94a3b8", fontWeight: 500, marginTop: 1 }}>Domain Intelligence</div>
-                          </div>
+            {/* Sub-tab Navigation */}
+            <div className="subtab-nav">
+              <button className={`subtab-btn ${domainSubTab === "health" ? "subtab-active health" : ""}`} onClick={() => setDomainSubTab("health")}>
+                <HeartPulse size={14} /> Health Board
+              </button>
+              <button className={`subtab-btn ${domainSubTab === "finance" ? "subtab-active finance" : ""}`} onClick={() => setDomainSubTab("finance")}>
+                <Wallet size={14} /> Finance Board
+              </button>
+              <button className={`subtab-btn ${domainSubTab === "career" ? "subtab-active career" : ""}`} onClick={() => setDomainSubTab("career")}>
+                <Briefcase size={14} /> Career Board
+              </button>
+            </div>
+
+            {/* Sub-tab content boards */}
+            {domainSubTab === "health" && (
+              <div className="domain-detail-board animate-fade-in">
+                {/* Visual meal planner grid */}
+                <div className="board-widget">
+                  <div className="widget-header">
+                    <Sparkles size={14} style={{ color: "#ef4444" }} />
+                    <span>Dynamic Daily Meal Planner & Nutrients</span>
+                  </div>
+                  <div className="meal-grid">
+                    {(healthData.todaysMealPlan || []).map((meal: any, mIdx: number) => (
+                      <div key={mIdx} className="meal-card">
+                        <div className="meal-time">
+                          <span className="meal-name">{meal.meal}</span>
+                          <span className="meal-cal">{meal.calories} kcal</span>
                         </div>
-                        <div style={{ padding: "5px 12px", borderRadius: 9999, background: card.accentBg, color: card.accent, fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.02em" }}>
-                          {card.trend}
+                        <div className="meal-desc">{meal.items}</div>
+                        <div className="meal-footer">
+                          <span className="meal-time-tag">⏱️ {meal.prepTime}</span>
+                          <span className="meal-fix-tag">✨ {meal.fix}</span>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                </div>
 
-                      {/* Progress bar for domain */}
-                      <div style={{ height: 4, background: "#f1f5f9", borderRadius: 9999, marginBottom: 14, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: card.items.length > 0 ? "72%" : "25%", background: `linear-gradient(90deg,${card.gradFrom},${card.gradTo})`, borderRadius: 9999, transition: "width 1s ease" }} />
+                {/* AI recommendations card */}
+                <div className="board-widget">
+                  <div className="widget-header">
+                    <Lightbulb size={14} style={{ color: "#ef4444" }} />
+                    <span>Twin Health Directives</span>
+                  </div>
+                  <div className="recs-list">
+                    {currentRecs.map((rec: string, rIdx: number) => (
+                      <div key={rIdx} className="rec-item-bullet health">
+                        <CheckCircle2 size={14} className="bullet-icon" />
+                        <span>{rec}</span>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
-                      <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-                        {card.items?.length > 0 ? (
-                          card.items.slice(0, 3).map((item, i) => (
-                            <div key={i} style={{ display: "flex", gap: 10, padding: "10px 12px", background: "#f8fafc", borderRadius: 10, border: "1px solid #f1f5f9" }}>
-                              <ChevronRight size={14} style={{ color: card.accent, flexShrink: 0, marginTop: 2 }} />
-                              <span style={{ fontSize: "0.85rem", color: "#475569", lineHeight: 1.55 }}>{item}</span>
+            {domainSubTab === "finance" && (
+              <div className="domain-detail-board animate-fade-in">
+                {/* Wealth roadmap card */}
+                <div className="board-widget highlight-finance">
+                  <div className="widget-header">
+                    <TrendingUp size={14} style={{ color: "#10b981" }} />
+                    <span>Pre-Computation Wealth Runway</span>
+                  </div>
+                  <div className="wealth-roadmap-container">
+                    {(financeData.wealthGoals || []).length > 0 ? (
+                      (financeData.wealthGoals || []).map((goal: any, gIdx: number) => (
+                        <div key={gIdx} className="wealth-goal-card" style={{ marginBottom: 12 }}>
+                          <div className="wealth-goal-header">
+                            <span className="goal-title">{goal.goalLabel}</span>
+                            <span className="goal-deficit-badge" style={{ color: goal.deficit > 0 ? "#ef4444" : "#10b981" }}>
+                              {goal.deficit > 0 ? "Deficit Alert" : "On Track"}
+                            </span>
+                          </div>
+                          <div className="wealth-stats-grid">
+                            <div className="stat-box">
+                              <span className="stat-lbl">Required Monthly Savings</span>
+                              <span className="stat-num">Rs. {goal.requiredMonthlySavings.toLocaleString("en-IN")}</span>
                             </div>
-                          ))
-                        ) : (
-                          <div style={{ fontSize: "0.84rem", color: "#94a3b8", lineHeight: 1.6, padding: "8px 0" }}>
-                            No active intelligence recommendations available.
+                            <div className="stat-box">
+                              <span className="stat-lbl">Months Remaining</span>
+                              <span className="stat-num">{goal.monthsRemaining} months</span>
+                            </div>
                           </div>
-                        )}
+                          <div className="deficit-status-box" style={{ background: goal.deficit > 0 ? "#fef2f2" : "#f0fdf4", marginTop: 8 }}>
+                            <AlertTriangle size={14} style={{ color: goal.deficit > 0 ? "#ef4444" : "#10b981" }} />
+                            <span className="deficit-text">{goal.deficitText}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="wealth-goal-card empty">
+                        <span className="goal-title">No Active Wealth Goals</span>
+                        <p className="deficit-text">Set up your target downpayment goals inside the Goals console to sync calculations.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Investment checklist */}
+                <div className="board-widget">
+                  <div className="widget-header">
+                    <CheckCircle2 size={14} style={{ color: "#10b981" }} />
+                    <span>Investment Portfolio Optimization</span>
+                  </div>
+                  <div className="portfolio-checklist">
+                    <div className="checklist-item done">
+                      <input type="checkbox" checked readOnly />
+                      <div>
+                        <strong>Broad Index Fund (Savings Rate Allocation)</strong>
+                        <p>Diverting savings into low-cost index tracker weekly</p>
+                      </div>
+                    </div>
+                    <div className="checklist-item done">
+                      <input type="checkbox" checked readOnly />
+                      <div>
+                        <strong>Emergency Runway (3x monthly budget)</strong>
+                        <p>Stable capital buffer parked inside liquid vault</p>
+                      </div>
+                    </div>
+                    <div className="checklist-item">
+                      <input type="checkbox" readOnly />
+                      <div>
+                        <strong>Section 80C ELSS Optimization</strong>
+                        <p>Tax-efficient mutual funds lockup to optimize monthly tax burden</p>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+
+                {/* AI Recommendations */}
+                <div className="board-widget">
+                  <div className="widget-header">
+                    <Lightbulb size={14} style={{ color: "#10b981" }} />
+                    <span>Twin Finance Directives</span>
+                  </div>
+                  <div className="recs-list">
+                    {currentRecs.map((rec: string, rIdx: number) => (
+                      <div key={rIdx} className="rec-item-bullet finance">
+                        <CheckCircle2 size={14} className="bullet-icon" />
+                        <span>{rec}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {domainSubTab === "career" && (
+              <div className="domain-detail-board animate-fade-in">
+                {/* Pareto Skill Matrix */}
+                <div className="board-widget">
+                  <div className="widget-header">
+                    <Target size={14} style={{ color: "#0055EE" }} />
+                    <span>Pareto Upskilling Matrix (80/20 Leverage)</span>
+                  </div>
+                  <table className="pareto-table">
+                    <thead>
+                      <tr>
+                        <th>High-Leverage Skill</th>
+                        <th>Impact</th>
+                        <th>Target Time</th>
+                        <th>Curated Source</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(careerData.paretoSkills || []).map((skill: any, sIdx: number) => (
+                        <tr key={sIdx}>
+                          <td><strong>{skill.skill}</strong></td>
+                          <td><span className={`priority-badge ${skill.priority.toLowerCase()}`}>{skill.priority}</span></td>
+                          <td>{skill.hoursRequired}</td>
+                          <td><span className="source-link">{skill.source}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Weekly Study block timeline */}
+                <div className="board-widget">
+                  <div className="widget-header">
+                    <Briefcase size={14} style={{ color: "#0055EE" }} />
+                    <span>Curated Weekly Study Blocks</span>
+                  </div>
+                  <div className="study-timeline">
+                    {(careerData.studyBlocks || []).map((block: any, bIdx: number) => (
+                      <div key={bIdx} className="timeline-block">
+                        <div className="block-time">{block.time}</div>
+                        <div className="block-details">
+                          <strong className="block-day">{block.day}</strong>
+                          <p className="block-focus">{block.focus}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI Recommendations */}
+                <div className="board-widget">
+                  <div className="widget-header">
+                    <Lightbulb size={14} style={{ color: "#0055EE" }} />
+                    <span>Twin Career Directives</span>
+                  </div>
+                  <div className="recs-list">
+                    {currentRecs.map((rec: string, rIdx: number) => (
+                      <div key={rIdx} className="rec-item-bullet career">
+                        <CheckCircle2 size={14} className="bullet-icon" />
+                        <span>{rec}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
+      }
 
       /* ── 2: Behavioral Snapshot ── */
       case 2:
@@ -762,6 +944,328 @@ const css = `
     font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.18s;
   }
   .outline-btn:hover { background: #fff; border-color: #0044DD; color: #0044DD; transform: translateY(-1px); }
+
+  /* Domain Sub-tabs & boards */
+  .subtab-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: #0f1520;
+    border-radius: 14px;
+    padding: 6px;
+  }
+  .subtab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .subtab-btn:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.05);
+  }
+  .subtab-active {
+    color: #fff !important;
+  }
+  .subtab-active.health { background: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
+  .subtab-active.finance { background: #10b981; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+  .subtab-active.career { background: #0055EE; box-shadow: 0 4px 12px rgba(0, 85, 238, 0.3); }
+
+  .domain-detail-board {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .board-widget {
+    background: #fff;
+    border: 1px solid #e8ebf4;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 18px rgba(0,68,220,0.04);
+    text-align: left;
+  }
+  .board-widget.highlight-finance {
+    border-left: 4px solid #10b981;
+  }
+  .widget-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #475569;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 8px;
+  }
+  
+  /* Meal Grid */
+  .meal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media(max-width: 640px) {
+    .meal-grid { grid-template-columns: 1fr; }
+  }
+  .meal-card {
+    background: #f8fafc;
+    border: 1px solid #eef1f8;
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.2s;
+  }
+  .meal-card:hover {
+    transform: translateY(-2px);
+    border-color: #ef4444;
+  }
+  .meal-time {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .meal-name {
+    font-weight: 700;
+    font-size: 0.86rem;
+    color: #0f172a;
+  }
+  .meal-cal {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #ef4444;
+    background: #fee2e2;
+    padding: 2px 8px;
+    border-radius: 9999px;
+  }
+  .meal-desc {
+    font-size: 0.8rem;
+    color: #475569;
+    line-height: 1.5;
+    flex: 1;
+  }
+  .meal-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 6px;
+    margin-top: 4px;
+  }
+  .meal-time-tag { color: #f97316; }
+  .meal-fix-tag { color: #0044DD; }
+
+  /* Wealth Goal Card */
+  .wealth-goal-card {
+    background: #f8fafc;
+    border: 1px solid #eef1f8;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .wealth-goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .goal-title {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #0f172a;
+  }
+  .goal-deficit-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .wealth-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .stat-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+  }
+  .stat-lbl {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+  }
+  .stat-num {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #0f172a;
+  }
+  .deficit-status-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .deficit-text {
+    line-height: 1.4;
+  }
+
+  /* Portfolio Checklist */
+  .portfolio-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #eef1f8;
+    border-radius: 10px;
+  }
+  .checklist-item.done {
+    border-left: 3px solid #10b981;
+  }
+  .checklist-item input[type="checkbox"] {
+    margin-top: 4px;
+    cursor: pointer;
+  }
+  .checklist-item strong {
+    font-size: 0.84rem;
+    color: #0f172a;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .checklist-item p {
+    font-size: 0.76rem;
+    color: #64748b;
+    margin: 0;
+  }
+
+  /* Pareto Table */
+  .pareto-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    text-align: left;
+  }
+  .pareto-table th {
+    padding: 10px 12px;
+    font-weight: 700;
+    color: #475569;
+    border-bottom: 1.5px solid #cbd5e1;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+  }
+  .pareto-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+  }
+  .priority-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .priority-badge.high { background: #fee2e2; color: #dc2626; }
+  .priority-badge.medium { background: #fef3c7; color: #d97706; }
+  .source-link {
+    color: #0055EE;
+    font-weight: 600;
+  }
+
+  /* Study Timeline */
+  .study-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .timeline-block {
+    display: flex;
+    gap: 16px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #eef1f8;
+  }
+  .block-time {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #0055EE;
+    width: 130px;
+    flex-shrink: 0;
+    border-right: 1px solid #cbd5e1;
+    padding-right: 8px;
+    display: flex;
+    align-items: center;
+  }
+  .block-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .block-day {
+    font-size: 0.84rem;
+    color: #0f172a;
+  }
+  .block-focus {
+    font-size: 0.76rem;
+    color: #64748b;
+    margin: 0;
+  }
+
+  /* Bullets for recommendations */
+  .recs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .rec-item-bullet {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+  .rec-item-bullet.health { background: #fff5f5; border: 1px solid #fee2e2; color: #991b1b; }
+  .rec-item-bullet.health .bullet-icon { color: #ef4444; flex-shrink: 0; margin-top: 2px; }
+  .rec-item-bullet.finance { background: #f0fdf4; border: 1px solid #dcfce7; color: #166534; }
+  .rec-item-bullet.finance .bullet-icon { color: #10b981; flex-shrink: 0; margin-top: 2px; }
+  .rec-item-bullet.career { background: #f0f4ff; border: 1px solid #dbeafe; color: #1e40af; }
+  .rec-item-bullet.career .bullet-icon { color: #0055EE; flex-shrink: 0; margin-top: 2px; }
 
   @media (max-width: 860px) {
     .page-left { display: none; }

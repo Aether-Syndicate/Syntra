@@ -78,9 +78,13 @@ export function buildSimulatorPrompt(
   const direction = scenario.percentChange > 0 ? "increase" : "decrease";
   const magnitude = Math.abs(scenario.percentChange);
 
-  // Safely extract specific goals if they exist on the context (fallback to generic if not)
-  // This forces Gemini to pull the exact car/house from the user's data
-  const specificWealthGoals = (currentContext as any).finance?.wealthGoals?.map((g: any) => g.goalLabel).join(", ") || "Dream Car / Home Downpayment";
+  // Safely extract specific goals if they exist on the context with precomputed math
+  const specificWealthGoals = (currentContext as any).finance?.wealthGoals?.map((g: any) => {
+    if (typeof g.requiredMonthlySavings === "number") {
+      return `${g.goalLabel} (Requires Rs. ${g.requiredMonthlySavings.toLocaleString("en-IN")}/month, actual savings: Rs. ${g.actualMonthlySavings?.toLocaleString("en-IN")}/month, Deficit: ${g.deficitText})`;
+    }
+    return g.goalLabel;
+  }).join(", ") || "Dream Car / Home Downpayment";
   const specificHealthGaps = (currentContext as any).health?.historicalNutrientGaps ? JSON.stringify((currentContext as any).health.historicalNutrientGaps) : "Nutrient gaps / Weight goals";
 
   return `

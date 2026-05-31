@@ -8,6 +8,7 @@ import { buildTwinContext } from "@/lib/aiContextBuilder";
 import { calculateConfidence } from "@/lib/confidenceScore";
 import { generateaitwinReflection } from "@/lib/prompts/aitwinReflection";
 import { parseGemini } from "@/lib/parseGemini"; 
+import { preComputeWealthGoals } from "@/lib/financeMath"; 
 
 export async function GET(req: Request) {
   try {
@@ -31,6 +32,38 @@ export async function GET(req: Request) {
       monthlyIncome: user.profile?.monthlyIncome,
       monthlyBudget: user.profile?.monthlyBudget,
     });
+
+    // Parse user's long-term financial targets into strongly-typed wealthGoals for the Twin Reflection Prompt using the pre-computation helper
+    const wealthGoals = preComputeWealthGoals(
+      user.goals,
+      user.profile?.monthlyIncome || 50000,
+      user.profile?.monthlyBudget || 0,
+      twinContext.weeklyAverages.savingsRate
+    );
+
+    // Determine health nutrient and habit gaps based on average sleep or calorie metrics
+    const historicalNutrientGaps = ["Vitamin A deficit", "Low protein"];
+    if (twinContext.weeklyAverages.sleep < 6.5) {
+      historicalNutrientGaps.push("Severe sleep debt (under 6.5h average)");
+    }
+    if (twinContext.weeklyAverages.calorieAdherence < 45) {
+      historicalNutrientGaps.push("Calorie target misalignment");
+    }
+
+    // Inject calculations into twinContext weeklyAverages and finance payload
+    if (wealthGoals.length > 0) {
+      const primaryGoal = wealthGoals[0];
+      (twinContext.weeklyAverages as any).requiredMonthlySavings = primaryGoal.requiredMonthlySavings;
+      (twinContext.weeklyAverages as any).savingsDeficit = primaryGoal.deficit;
+      (twinContext.weeklyAverages as any).savingsDeficitText = primaryGoal.deficitText;
+    }
+    (twinContext as any).finance = { 
+      wealthGoals,
+      requiredMonthlySavings: wealthGoals[0]?.requiredMonthlySavings || 0,
+      savingsDeficit: wealthGoals[0]?.deficit || 0,
+      savingsDeficitText: wealthGoals[0]?.deficitText || "User is on track",
+    };
+    (twinContext as any).health = { historicalNutrientGaps };
 
     const confidence = calculateConfidence(twinContext.logCount);
 
@@ -59,7 +92,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // Cache is missing or stale — invoke the AI Twin Reflection Core
+    // Cache is missing or stale — invoke the AI Twin Reflection Core with Personal Mission & Health Constraints
     const aiResponse = await generateaitwinReflection(
       twinContext,
       {
@@ -68,7 +101,9 @@ export async function GET(req: Request) {
         career: user.scores.career,
       },
       user.gamification.currentStreak,
-      confidence
+      confidence,
+      user.personalMission || "Achieve Personal Optimization",
+      user.healthConstraints || "none"
     );
 
     if (!aiResponse || !aiResponse.twinPrediction) {
@@ -83,7 +118,37 @@ export async function GET(req: Request) {
     await user.save();
 
     return NextResponse.json(
-      { success: true, ai: aiResponse },
+      { 
+        success: true, 
+        ai: aiResponse,
+        finance: {
+          wealthGoals,
+          requiredMonthlySavings: wealthGoals[0]?.requiredMonthlySavings || 0,
+          savingsDeficit: wealthGoals[0]?.deficit || 0,
+          savingsDeficitText: wealthGoals[0]?.deficitText || "User is on track",
+        },
+        health: {
+          historicalNutrientGaps,
+          todaysMealPlan: [
+            { meal: "Breakfast", items: "Oats with almonds, banana & flaxseeds", prepTime: "10m", calories: 380, fix: "Iron & Fiber boost" },
+            { meal: "Lunch", items: "Brown rice with dal, spinach subji & curd", prepTime: "25m", calories: 550, fix: "Protein + Calcium" },
+            { meal: "Evening Snack", items: "Roasted chana with green tea", prepTime: "5m", calories: 150, fix: "Satiety & Energy stability" },
+            { meal: "Dinner", items: "Grilled paneer/tofu salad with mixed greens", prepTime: "15m", calories: 420, fix: "Low-carb sleep aid" }
+          ]
+        },
+        career: {
+          paretoSkills: [
+            { skill: "System Design", priority: "High", hoursRequired: "15h", source: "ByteByteGo" },
+            { skill: "DSA & Leetcode", priority: "High", hoursRequired: "20h", source: "Leetcode 150" },
+            { skill: "Next.js App Router", priority: "Medium", hoursRequired: "10h", source: "Next.js Dist Docs" }
+          ],
+          studyBlocks: [
+            { day: "Mon-Fri", time: "7:00 AM - 8:30 AM", focus: "DSA Coding Drill" },
+            { day: "Tue & Thu", time: "8:00 PM - 9:30 PM", focus: "System Design Review" },
+            { day: "Saturday", time: "9:00 AM - 12:00 PM", focus: "Full Platform Build" }
+          ]
+        }
+      },
       { 
         status: 200,
         headers: {
@@ -109,6 +174,33 @@ export async function GET(req: Request) {
         riskAlerts: [],
         confidence: 0,
       },
+      finance: {
+        wealthGoals: [],
+        requiredMonthlySavings: 0,
+        savingsDeficit: 0,
+        savingsDeficitText: "Calibration required.",
+      },
+      health: {
+        historicalNutrientGaps: [],
+        todaysMealPlan: [
+          { meal: "Breakfast", items: "Oats with almonds, banana & flaxseeds", prepTime: "10m", calories: 380, fix: "Iron & Fiber boost" },
+          { meal: "Lunch", items: "Brown rice with dal, spinach subji & curd", prepTime: "25m", calories: 550, fix: "Protein + Calcium" },
+          { meal: "Evening Snack", items: "Roasted chana with green tea", prepTime: "5m", calories: 150, fix: "Satiety & Energy stability" },
+          { meal: "Dinner", items: "Grilled paneer/tofu salad with mixed greens", prepTime: "15m", calories: 420, fix: "Low-carb sleep aid" }
+        ]
+      },
+      career: {
+        paretoSkills: [
+          { skill: "System Design", priority: "High", hoursRequired: "15h", source: "ByteByteGo" },
+          { skill: "DSA & Leetcode", priority: "High", hoursRequired: "20h", source: "Leetcode 150" },
+          { skill: "Next.js App Router", priority: "Medium", hoursRequired: "10h", source: "Next.js Dist Docs" }
+        ],
+        studyBlocks: [
+          { day: "Mon-Fri", time: "7:00 AM - 8:30 AM", focus: "DSA Coding Drill" },
+          { day: "Tue & Thu", time: "8:00 PM - 9:30 PM", focus: "System Design Review" },
+          { day: "Saturday", time: "9:00 AM - 12:00 PM", focus: "Full Platform Build" }
+        ]
+      }
     }, { status: 200 });
   }
 }

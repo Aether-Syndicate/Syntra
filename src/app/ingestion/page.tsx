@@ -1,285 +1,197 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  HeartPulse,
-  Wallet,
-  Briefcase,
-  Upload,
-  CheckCircle2,
-  ShieldAlert,
-  Sparkles,
-  ArrowLeft,
-  ArrowRight,
-  ChevronLeft,
-  AlertTriangle,
-  Brain,
-  Zap,
+  HeartPulse, Wallet, Briefcase, Sparkles, ArrowLeft,
+  Brain, Zap, Droplets, Moon, Dumbbell, Activity,
+  TrendingUp, AlertTriangle, CheckCircle2, Send,
+  ChevronDown, ChevronUp, Upload, Flame, Target,
+  BookOpen, Clock, MessageSquare, Coffee,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
    Types
 ───────────────────────────────────────────── */
 interface HealthData {
-  sleepHours: string;
-  workoutMinutes: string;
-  stressLevel: string;
-  moodScore: string;
-  energyLevel: string;
+  sleepHours: number;
+  workoutMinutes: number;
+  stressLevel: number;
+  moodScore: number;
+  energyLevel: number;
+  waterGlasses: number;
+  skippedMeals: string[];
   caloriesConsumed: string;
   calorieGoal: string;
+  mealsEatenToday: string;
 }
 
 interface FinanceData {
   amountSaved: string;
   discretionarySpent: string;
   spendingCategory: string;
+  biggestExpenseToday: string;
+  impulseSpend: boolean;
 }
 
 interface CareerData {
   hoursStudied: string;
-  productivityRating: string;
+  productivityRating: number;
   sessionsCompleted: string;
   courseName: string;
+  goalWorkedOn: string;
+  blockerToday: string;
 }
 
-interface DomainFile {
-  file: File | null;
-}
-
-interface BatchFiles {
-  health: DomainFile;
-  finance: DomainFile;
-  career: DomainFile;
-}
-
-/* ─────────────────────────────────────────────
-   Helpers
-───────────────────────────────────────────── */
-function calcHealthProgress(d: HealthData): number {
-  const required = [d.sleepHours, d.workoutMinutes, d.stressLevel];
-  const optional = [d.moodScore, d.energyLevel, d.caloriesConsumed, d.calorieGoal];
-  const reqFilled = required.filter(Boolean).length;
-  const optFilled = optional.filter(Boolean).length;
-  return Math.round((reqFilled / 3) * 70 + (optFilled / 4) * 30);
-}
-
-function calcFinanceProgress(d: FinanceData): number {
-  const filled = [d.amountSaved, d.discretionarySpent].filter(Boolean).length;
-  return Math.round((filled / 2) * 100);
-}
-
-function calcCareerProgress(d: CareerData): number {
-  const required = [d.hoursStudied, d.productivityRating];
-  const optional = [d.sessionsCompleted, d.courseName];
-  const reqFilled = required.filter(Boolean).length;
-  const optFilled = optional.filter(Boolean).length;
-  return Math.round((reqFilled / 2) * 70 + (optFilled / 2) * 30);
-}
-
-function calcBatchProgress(b: BatchFiles): number {
-  const count = [b.health.file, b.finance.file, b.career.file].filter(Boolean).length;
-  return count === 0 ? 0 : Math.round((count / 3) * 100);
+interface LatestData {
+  health: { data: any; date: string } | null;
+  finance: { data: any; date: string } | null;
+  career: { data: any; date: string } | null;
+  reflection: { data: any; date: string } | null;
 }
 
 /* ─────────────────────────────────────────────
-   Ranged Input with validation
+   Scoring — client-side preview (mirrors server)
 ───────────────────────────────────────────── */
-function RangedField({
-  label, req, opt, value, onChange, min, max, placeholder,
+function previewHealthScore(h: HealthData): number {
+  let s = 0;
+  if (h.sleepHours >= 7 && h.sleepHours <= 9) s += 40;
+  else if (h.sleepHours >= 6 || h.sleepHours === 10) s += 20;
+  else s += 5;
+  if (h.workoutMinutes >= 60) s += 40;
+  else if (h.workoutMinutes >= 30) s += 25;
+  else if (h.workoutMinutes > 0) s += 10;
+  s += Math.max(0, 20 - h.stressLevel * 2);
+  if (h.waterGlasses >= 8) s += 5;
+  else if (h.waterGlasses <= 2) s -= 3;
+  return Math.max(0, Math.min(100, s));
+}
+
+function previewFinanceScore(f: FinanceData): number {
+  let s = 50;
+  const saved = Number(f.amountSaved) || 0;
+  const spent = Number(f.discretionarySpent) || 0;
+  if (saved >= 100) s += 30;
+  else if (saved > 0) s += 15;
+  if (spent === 0) s += 20;
+  else if (spent < 50) s += 10;
+  else if (spent > 100) s -= 20;
+  if (f.impulseSpend) s -= 5;
+  return Math.max(0, Math.min(100, s));
+}
+
+function previewCareerScore(c: CareerData): number {
+  let s = 0;
+  const hrs = Number(c.hoursStudied) || 0;
+  if (hrs >= 4) s += 50;
+  else if (hrs >= 2) s += 30;
+  else if (hrs > 0) s += 10;
+  s += c.productivityRating * 5;
+  return Math.max(0, Math.min(100, s));
+}
+
+/* ─────────────────────────────────────────────
+   Slider Component
+───────────────────────────────────────────── */
+function SyncSlider({
+  label, value, onChange, min, max, step, icon, unit, color,
 }: {
-  label: string; req?: boolean; opt?: boolean;
-  value: string; onChange: (v: string) => void;
-  min: number; max: number; placeholder?: string;
+  label: string; value: number; onChange: (v: number) => void;
+  min: number; max: number; step: number;
+  icon: React.ReactNode; unit?: string; color: string;
 }) {
-  const num = parseFloat(value);
-  const isOutOfRange = value !== "" && (!isNaN(num) && (num < min || num > max));
-
+  const pct = ((value - min) / (max - min)) * 100;
   return (
-    <div className="field">
-      <label className="form-label">
-        {label}
-        {req && <span className="req">*</span>}
-        {opt && <span className="opt-tag">(optional)</span>}
-      </label>
-      <div style={{ position: "relative" }}>
-        <input
-          type="number"
-          min={min}
-          max={max}
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => {
-            onChange(e.target.value);
-          }}
-          onKeyDown={(e) => {
-            const cur = parseFloat(value + e.key);
-            if (!isNaN(cur) && cur > max && e.key !== "Backspace" && e.key !== "Delete" && e.key !== "Tab") {
-               e.preventDefault();
-            }
-          }}
-          className={`form-input${isOutOfRange ? " input-error" : ""}`}
-          style={isOutOfRange ? { borderColor: "#ef4444", background: "#fff5f5", color: "#dc2626" } : {}}
-        />
-        {isOutOfRange && (
-          <div style={{
-            position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-          }}>
-            <AlertTriangle size={14} color="#ef4444" />
-          </div>
-        )}
-      </div>
-      {isOutOfRange && (
-        <span style={{ fontSize: "0.72rem", color: "#ef4444", fontWeight: 600, marginTop: 2 }}>
-          Must be between {min} and {max}
+    <div className="sync-slider">
+      <div className="slider-header">
+        <div className="slider-label-group">
+          <span className="slider-icon" style={{ color }}>{icon}</span>
+          <span className="slider-label">{label}</span>
+        </div>
+        <span className="slider-value" style={{ color }}>
+          {value}{unit || ""}
         </span>
-      )}
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   FormField – reusable
-───────────────────────────────────────────── */
-function FormField({
-  label, req, opt, type, value, onChange, placeholder,
-}: {
-  label: string; req?: boolean; opt?: boolean; type: string;
-  value: string; onChange: (v: string) => void; placeholder?: string;
-}) {
-  return (
-    <div className="field">
-      <label className="form-label">
-        {label}
-        {req && <span className="req">*</span>}
-        {opt && <span className="opt-tag">(optional)</span>}
-      </label>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="form-input"
-      />
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   Domain Ingest Card
-───────────────────────────────────────────── */
-function IngestCard({
-  domain, label, icon, gradient, file, onFile,
-}: {
-  domain: string; label: string; icon: React.ReactNode;
-  gradient: string; file: File | null; onFile: (f: File | null) => void;
-}) {
-  return (
-    <div className="ingest-card">
-      <div className="ingest-card-header" style={{ background: gradient }}>
-        <div className="ingest-icon">{icon}</div>
-        <span className="ingest-label">{label}</span>
-        <span className="ingest-sub">CSV / Excel</span>
       </div>
-      <div className="ingest-card-body">
-        <label className="ingest-drop">
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            style={{ display: "none" }}
-            onChange={(e) => onFile(e.target.files?.[0] || null)}
-          />
-          {file ? (
-            <div className="ingest-file-ready">
-              <CheckCircle2 size={18} color="#0044DD" />
-              <span className="ingest-filename">{file.name}</span>
-            </div>
-          ) : (
-            <div className="ingest-placeholder">
-              <Upload size={20} color="#94a3b8" />
-              <span>Drop file or click</span>
-              <span className="ingest-formats">.csv .xlsx .xls</span>
-            </div>
-          )}
-        </label>
-        {file && (
-          <button className="ingest-remove" onClick={() => onFile(null)}>
-            Remove
-          </button>
-        )}
+      <div className="slider-track-wrap">
+        <input
+          type="range" min={min} max={max} step={step} value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="slider-input"
+          style={{
+            background: `linear-gradient(to right, ${color} 0%, ${color} ${pct}%, #e2e8f0 ${pct}%, #e2e8f0 100%)`
+          }}
+        />
       </div>
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────
-   Progress Bar
+   Pill Selector
 ───────────────────────────────────────────── */
-function ProgressBar({ pct, gradient }: { pct: number; gradient: string }) {
+function PillSelect({
+  label, options, selected, onToggle, color,
+}: {
+  label: string; options: { value: string; label: string }[];
+  selected: string[]; onToggle: (v: string) => void; color: string;
+}) {
   return (
-    <div className="progress-track">
-      <div
-        className="progress-fill"
-        style={{ width: `${pct}%`, background: gradient }}
-      />
+    <div className="pill-group">
+      <span className="pill-label">{label}</span>
+      <div className="pill-row">
+        {options.map((opt) => {
+          const active = selected.includes(opt.value);
+          return (
+            <button
+              key={opt.value}
+              className={`pill ${active ? "pill-active" : ""}`}
+              onClick={() => onToggle(opt.value)}
+              style={active ? { background: color, borderColor: color, color: "#fff" } : {}}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────
-   Step Dots
+   Score Impact Card
 ───────────────────────────────────────────── */
-const STEPS = ["Health", "Finance", "Career", "Batch"];
-
-const STEP_COLORS = [
-  "linear-gradient(135deg,#0044DD,#0066FF)",
-  "linear-gradient(135deg,#0055EE,#3322EE)",
-  "linear-gradient(135deg,#0066FF,#0044DD)",
-  "linear-gradient(135deg,#3322EE,#0066FF)",
-];
-
-function StepDots({ current, completed }: { current: number; completed: Set<number> }) {
+function ImpactPreview({
+  label, oldScore, newScore, color, icon
+}: {
+  label: string; oldScore: number; newScore: number; color: string; icon: React.ReactNode;
+}) {
+  const diff = newScore - oldScore;
+  const isUp = diff > 0;
+  const isDown = diff < 0;
   return (
-    <div className="step-dots">
-      {STEPS.map((label, i) => (
-        <div key={i} className="step-dot-wrapper">
-          <div
-            className={`step-dot ${i === current ? "dot-active" : ""} ${completed.has(i) ? "dot-done" : ""}`}
-            style={
-              i === current
-                ? { background: STEP_COLORS[i], boxShadow: "0 0 0 3px rgba(0,85,238,0.25)" }
-                : completed.has(i)
-                ? { background: "#0055EE" }
-                : {}
-            }
-          >
-            {completed.has(i) && i !== current ? (
-              <CheckCircle2 size={11} color="#fff" />
-            ) : (
-              <span className="dot-num">{i + 1}</span>
-            )}
-          </div>
-          <span
-            className="dot-label"
-            style={{ color: i === current ? "#60a5fa" : completed.has(i) ? "#60a5fa" : "#94a3b8" }}
-          >
-            {label}
+    <div className="impact-card">
+      <div className="impact-icon" style={{ color }}>{icon}</div>
+      <div className="impact-info">
+        <span className="impact-label">{label}</span>
+        <div className="impact-scores">
+          <span className="impact-old">{oldScore}</span>
+          <span className="impact-arrow">→</span>
+          <span className="impact-new" style={{ color: isDown ? "#ef4444" : isUp ? "#10b981" : color }}>
+            {newScore}
           </span>
-          {i < STEPS.length - 1 && (
-            <div
-              className="dot-connector"
-              style={{ background: completed.has(i) ? "#0055EE" : "rgba(255,255,255,0.15)" }}
-            />
+          {diff !== 0 && (
+            <span className={`impact-diff ${isDown ? "diff-neg" : "diff-pos"}`}>
+              {isUp ? "+" : ""}{diff}
+            </span>
           )}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────
-   Calibrating Screen
+   Calibrating Screen (preserved)
 ───────────────────────────────────────────── */
 function CalibratingScreen() {
   const [phase, setPhase] = useState(0);
@@ -303,17 +215,12 @@ function CalibratingScreen() {
     <div className="calibrating-overlay">
       <style>{`
         @keyframes brainPulse {
-          0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(0,102,255,0.6), 0 0 40px rgba(0,68,221,0.4); }
-          50% { transform: scale(1.08); opacity: 0.9; box-shadow: 0 0 0 24px rgba(0,102,255,0), 0 0 80px rgba(0,68,221,0.8); }
+          0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(59,130,246,0.6), 0 0 40px rgba(59,130,246,0.4); }
+          50% { transform: scale(1.08); opacity: 0.9; box-shadow: 0 0 0 24px rgba(59,130,246,0), 0 0 80px rgba(99,102,241,0.8); }
         }
         @keyframes ringExpand {
           0% { transform: scale(0.8); opacity: 0.8; }
           100% { transform: scale(2.2); opacity: 0; }
-        }
-        @keyframes dashLine {
-          0% { stroke-dashoffset: 300; opacity: 0.3; }
-          50% { stroke-dashoffset: 0; opacity: 1; }
-          100% { stroke-dashoffset: -300; opacity: 0.3; }
         }
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(10px); }
@@ -323,124 +230,56 @@ function CalibratingScreen() {
           0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
           40% { opacity: 1; transform: scale(1.2); }
         }
-        @keyframes scanLine {
-          0% { top: 10%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 90%; opacity: 0; }
-        }
         .calibrating-overlay {
           position: fixed; inset: 0; z-index: 9999;
           background: linear-gradient(135deg, #000510 0%, #000d2e 50%, #00082a 100%);
           display: flex; flex-direction: column; align-items: center; justify-content: center;
-          font-family: 'Inter','DM Sans',-apple-system,sans-serif;
+          font-family: 'Plus Jakarta Sans','Inter',sans-serif;
         }
-        .brain-wrapper {
-          position: relative; width: 160px; height: 160px;
-          display: flex; align-items: center; justify-content: center;
-          margin-bottom: 40px;
-        }
-        .brain-core {
-          width: 100px; height: 100px; border-radius: 50%;
-          background: linear-gradient(135deg, #0033bb, #0066ff, #3322ee);
-          display: flex; align-items: center; justify-content: center;
-          animation: brainPulse 1.8s ease-in-out infinite;
-          position: relative; z-index: 2;
-        }
-        .ring {
-          position: absolute; border-radius: 50%;
-          border: 2px solid rgba(0,102,255,0.5);
-          animation: ringExpand 2.4s ease-out infinite;
-        }
-        .ring-1 { width: 100px; height: 100px; animation-delay: 0s; }
-        .ring-2 { width: 100px; height: 100px; animation-delay: 0.8s; }
-        .ring-3 { width: 100px; height: 100px; animation-delay: 1.6s; }
-        .scan-line {
-          position: absolute; left: 0; right: 0; height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(0,150,255,0.8), transparent);
-          animation: scanLine 2s ease-in-out infinite;
-          z-index: 3;
-        }
-        .calib-title {
-          font-family: 'DM Sans', sans-serif;
-          font-size: 1.8rem; font-weight: 800;
-          color: #ffffff; letter-spacing: -0.04em;
-          margin-bottom: 8px;
-        }
-        .calib-subtitle {
-          font-size: 0.85rem; color: rgba(255,255,255,0.45);
-          margin-bottom: 32px;
-        }
-        .calib-phase {
-          font-size: 0.88rem; font-weight: 600;
-          color: #60a5fa; letter-spacing: 0.02em;
-          animation: fadeInUp 0.4s ease; min-height: 22px;
-          margin-bottom: 28px;
-        }
+        .calib-brain { position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; margin-bottom: 40px; }
+        .calib-core { width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #6366f1); display: flex; align-items: center; justify-content: center; animation: brainPulse 1.8s ease-in-out infinite; position: relative; z-index: 2; }
+        .calib-ring { position: absolute; border-radius: 50%; border: 2px solid rgba(59,130,246,0.5); animation: ringExpand 2.4s ease-out infinite; width: 100px; height: 100px; }
+        .calib-ring:nth-child(2) { animation-delay: 0.8s; }
+        .calib-ring:nth-child(3) { animation-delay: 1.6s; }
+        .calib-title { font-size: 1.8rem; font-weight: 800; color: #ffffff; letter-spacing: -0.04em; margin-bottom: 8px; }
+        .calib-sub { font-size: 0.85rem; color: rgba(255,255,255,0.45); margin-bottom: 32px; }
+        .calib-phase { font-size: 0.88rem; font-weight: 600; color: #60a5fa; animation: fadeInUp 0.4s ease; min-height: 22px; margin-bottom: 28px; }
         .calib-dots { display: flex; gap: 8px; margin-bottom: 40px; }
-        .calib-dot {
-          width: 8px; height: 8px; border-radius: 50%;
-          background: #0055EE;
-          animation: dotBlink 1.4s ease-in-out infinite;
-        }
+        .calib-dot { width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; animation: dotBlink 1.4s ease-in-out infinite; }
         .calib-dot:nth-child(2) { animation-delay: 0.2s; }
         .calib-dot:nth-child(3) { animation-delay: 0.4s; }
-        .calib-progress-track {
-          width: 280px; height: 3px;
-          background: rgba(255,255,255,0.1); border-radius: 9999px; overflow: hidden;
-        }
-        .calib-progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #0044DD, #0066FF, #3322EE);
-          border-radius: 9999px;
-          transition: width 0.6s ease;
-        }
-        .calib-grid {
-          position: fixed; inset: 0; pointer-events: none; overflow: hidden; opacity: 0.04;
-          background-image: linear-gradient(#0066FF 1px, transparent 1px),
-            linear-gradient(90deg, #0066FF 1px, transparent 1px);
-          background-size: 48px 48px;
-        }
-        .corner-badge {
-          position: fixed; top: 24px; left: 24px;
-          display: flex; align-items: center; gap: 8px;
-          font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.4);
-          letter-spacing: 0.1em; text-transform: uppercase;
-        }
+        .calib-track { width: 280px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 9999px; overflow: hidden; }
+        .calib-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #6366f1); border-radius: 9999px; transition: width 0.6s ease; }
+        .calib-badge { position: fixed; top: 24px; left: 24px; display: flex; align-items: center; gap: 8px; font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.4); letter-spacing: 0.1em; text-transform: uppercase; }
       `}</style>
-      <div className="calib-grid" />
-      <div className="corner-badge"><Sparkles size={11} /> Syntra AI</div>
-
-      <div className="brain-wrapper">
-        <div className="scan-line" />
-        <div className="ring ring-1" />
-        <div className="ring ring-2" />
-        <div className="ring ring-3" />
-        <div className="brain-core">
-          <Brain size={40} color="#ffffff" />
-        </div>
+      <div className="calib-badge"><Sparkles size={11} /> Syntra AI</div>
+      <div className="calib-brain">
+        <div className="calib-ring" />
+        <div className="calib-ring" />
+        <div className="calib-ring" />
+        <div className="calib-core"><Brain size={40} color="#ffffff" /></div>
       </div>
-
       <h2 className="calib-title">Syntra Core Calibrating...</h2>
-      <p className="calib-subtitle">Your AI twin is syncing with your data</p>
-
+      <p className="calib-sub">Your AI twin is syncing with your data</p>
       <div className="calib-phase" key={phase}>{phases[phase]}</div>
-
-      <div className="calib-dots">
-        <div className="calib-dot" />
-        <div className="calib-dot" />
-        <div className="calib-dot" />
-      </div>
-
-      <div className="calib-progress-track">
-        <div
-          className="calib-progress-fill"
-          style={{ width: `${Math.round((phase / (phases.length - 1)) * 100)}%` }}
-        />
+      <div className="calib-dots"><div className="calib-dot" /><div className="calib-dot" /><div className="calib-dot" /></div>
+      <div className="calib-track">
+        <div className="calib-fill" style={{ width: `${Math.round((phase / (phases.length - 1)) * 100)}%` }} />
       </div>
     </div>
   );
 }
+
+const formatDate = (d: string) => {
+  const date = new Date(d);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffH = Math.floor(diffMs / (1000 * 60 * 60));
+  if (diffH < 1) return "Just now";
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  return diffD === 1 ? "Yesterday" : `${diffD} days ago`;
+};
 
 /* ─────────────────────────────────────────────
    Main Page
@@ -448,611 +287,903 @@ function CalibratingScreen() {
 export default function IngestionPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [step, setStep] = useState(0);
-  const [animDir, setAnimDir] = useState<"forward" | "backward">("forward");
-  const [animating, setAnimating] = useState(false);
-  const [completed, setCompleted] = useState<Set<number>>(new Set());
   const [calibrating, setCalibrating] = useState(false);
-
-  const [typedTitle, setTypedTitle] = useState("");
-  const fullTitle = "Feed Your AI Twin";
-
-  const [health, setHealth] = useState<HealthData>({
-    sleepHours: "", workoutMinutes: "", stressLevel: "",
-    moodScore: "", energyLevel: "", caloriesConsumed: "", calorieGoal: "",
-  });
-  const [finance, setFinance] = useState<FinanceData>({
-    amountSaved: "", discretionarySpent: "", spendingCategory: "food",
-  });
-  const [career, setCareer] = useState<CareerData>({
-    hoursStudied: "", productivityRating: "", sessionsCompleted: "", courseName: "",
-  });
-  const [batchFiles, setBatchFiles] = useState<BatchFiles>({
-    health: { file: null },
-    finance: { file: null },
-    career: { file: null },
-  });
-
-  // ── FRONTEND EXCEL PARSING STATE ─────────────────────────────────────────
-  // Stores parsed rows from SheetJS for each domain after file selection.
-  const [parsedRows, setParsedRows] = useState<{
-    health: Record<string, unknown>[];
-    finance: Record<string, unknown>[];
-    career: Record<string, unknown>[];
-  }>({ health: [], finance: [], career: [] });
-
-  // Stores per-domain parse error messages shown below each ingest card.
-  const [parseErrors, setParseErrors] = useState<{
-    health: string; finance: string; career: string;
-  }>({ health: "", finance: "", career: "" });
-  // ─────────────────────────────────────────────────────────────────────────
-
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [batchOpen, setBatchOpen] = useState(false);
 
+  // Latest data for yesterday snapshot
+  const [latest, setLatest] = useState<LatestData | null>(null);
+  const [currentScores, setCurrentScores] = useState({ health: 50, finance: 50, career: 50 });
+  const [streak, setStreak] = useState(0);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+
+  // File upload states
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadDomain, setUploadDomain] = useState<"health" | "finance" | "career">("health");
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  // Domain states
+  const [health, setHealth] = useState<HealthData>({
+    sleepHours: 7, workoutMinutes: 30, stressLevel: 4,
+    moodScore: 6, energyLevel: 6, waterGlasses: 6,
+    skippedMeals: [], caloriesConsumed: "", calorieGoal: "",
+    mealsEatenToday: "",
+  });
+  const [finance, setFinance] = useState<FinanceData>({
+    amountSaved: "", discretionarySpent: "",
+    spendingCategory: "food", biggestExpenseToday: "", impulseSpend: false,
+  });
+  const [career, setCareer] = useState<CareerData>({
+    hoursStudied: "", productivityRating: 6,
+    sessionsCompleted: "", courseName: "", goalWorkedOn: "", blockerToday: "",
+  });
+  const [dailyNote, setDailyNote] = useState("");
+
+  // Computed preview scores
+  const previewH = useMemo(() => previewHealthScore(health), [health]);
+  const previewF = useMemo(() => previewFinanceScore(finance), [finance]);
+  const previewC = useMemo(() => previewCareerScore(career), [career]);
+
+  const lastSyncText = useMemo(() => {
+    if (!lastSync) return "Never synced";
+    return formatDate(lastSync);
+  }, [lastSync, latest]);
+
+  // Fetch yesterday's data
   useEffect(() => {
     setMounted(true);
-    let idx = 0, deleting = false;
-    let tid: NodeJS.Timeout;
-    const tick = () => {
-      if (!deleting) {
-        setTypedTitle(fullTitle.substring(0, idx + 1));
-        idx++;
-        if (idx === fullTitle.length) { deleting = true; tid = setTimeout(tick, 3500); }
-        else tid = setTimeout(tick, 110);
-      } else {
-        setTypedTitle(fullTitle.substring(0, idx - 1));
-        idx--;
-        if (idx === 0) { deleting = false; tid = setTimeout(tick, 600); }
-        else tid = setTimeout(tick, 50);
-      }
-    };
-    tid = setTimeout(tick, 200);
-    return () => clearTimeout(tid);
+    fetch("/api/log/latest", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          setLatest(d.latest);
+          if (d.scores) setCurrentScores(d.scores);
+          if (typeof d.streak === "number") setStreak(d.streak);
+          if (d.lastLogDate) setLastSync(d.lastLogDate);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const goTo = useCallback((target: number) => {
-    if (animating) return;
-    setAnimDir(target > step ? "forward" : "backward");
-    setAnimating(true);
-    setTimeout(() => {
-      setStep(target);
-      setMessage("");
-      setAnimating(false);
-    }, 320);
-  }, [animating, step]);
+  const toggleMeal = useCallback((meal: string) => {
+    setHealth(p => ({
+      ...p,
+      skippedMeals: p.skippedMeals.includes(meal)
+        ? p.skippedMeals.filter(m => m !== meal)
+        : [...p.skippedMeals, meal],
+    }));
+  }, []);
 
-  // ── FRONTEND EXCEL/CSV PARSING HANDLER ───────────────────────────────────
-  // Called when a user selects a file in any IngestCard.
-  // For .xlsx/.xls files: uses SheetJS to parse client-side before upload.
-  // For .csv files: stores the file as-is (no frontend parsing needed).
-  const handleDomainFile = useCallback(
-    async (domain: "health" | "finance" | "career", file: File | null) => {
-      // Update the file in batchFiles state and reset parse state for this domain
-      setBatchFiles(p => ({ ...p, [domain]: { file } }));
-      setParseErrors(p => ({ ...p, [domain]: "" }));
-      setParsedRows(p => ({ ...p, [domain]: [] }));
-
-      if (!file) return;
-
-      // Only parse Excel files on the frontend; CSVs are uploaded as-is
-      const isExcel =
-        file.name.toLowerCase().endsWith(".xlsx") ||
-        file.name.toLowerCase().endsWith(".xls");
-
-      if (!isExcel) return;
-
-      try {
-        // Dynamically import SheetJS to keep the initial bundle lean
-        const XLSX = await import("xlsx");
-
-        // Read the file into an ArrayBuffer for SheetJS
-        const arrayBuffer = await file.arrayBuffer();
-
-        // ── FRONTEND PARSING: parse the workbook from binary data ──
-        const workbook = XLSX.read(arrayBuffer, { type: "array" });
-
-        // Read only the first worksheet
-        const firstSheetName = workbook.SheetNames[0];
-        if (!firstSheetName) {
-          setParseErrors(p => ({ ...p, [domain]: "Workbook contains no sheets." }));
-          return;
-        }
-
-        const worksheet = workbook.Sheets[firstSheetName];
-
-        // Convert sheet rows to JSON objects using SheetJS utility
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
-
-        // Validate: the sheet must not be empty
-        if (!rows || rows.length === 0) {
-          setParseErrors(p => ({
-            ...p,
-            [domain]: "The sheet appears to be empty. Please check your file.",
-          }));
-          return;
-        }
-
-        // Store parsed rows in state — available for inspection or submission
-        setParsedRows(p => ({ ...p, [domain]: rows }));
-        // ── END FRONTEND PARSING ──────────────────────────────────
-      } catch (err) {
-        // Show a user-friendly error if parsing fails for any reason
-        setParseErrors(p => ({
-          ...p,
-          [domain]:
-            err instanceof Error
-              ? `Parse error: ${err.message}`
-              : "Failed to parse file. Please ensure it is a valid Excel workbook.",
-        }));
-      }
-    },
-    []
+  const canSubmit = !!(
+    health.sleepHours > 0 &&
+    finance.amountSaved !== "" &&
+    finance.discretionarySpent !== "" &&
+    career.hoursStudied !== ""
   );
-  // ─────────────────────────────────────────────────────────────────────────
 
-  // Validation helpers
-  const isRangedValid = (v: string, min: number, max: number) => {
-    if (v === "") return true;
-    const n = parseFloat(v);
-    return !isNaN(n) && n >= min && n <= max;
-  };
-
-  const progress = [
-    calcHealthProgress(health),
-    calcFinanceProgress(finance),
-    calcCareerProgress(career),
-    calcBatchProgress(batchFiles),
-  ];
-
-  const stressValid = isRangedValid(health.stressLevel, 1, 10);
-  const moodValid = isRangedValid(health.moodScore, 1, 10);
-  const energyValid = isRangedValid(health.energyLevel, 1, 10);
-  const prodValid = isRangedValid(career.productivityRating, 1, 10);
-
-  const canNext = [
-    !!(health.sleepHours && health.workoutMinutes && health.stressLevel && stressValid && moodValid && energyValid),
-    !!(finance.amountSaved && finance.discretionarySpent),
-    !!(career.hoursStudied && career.productivityRating && prodValid),
-    true,
-  ][step];
-
-  const handleNext = () => {
-    if (!canNext) {
-      setMessage("Please fill in all required fields correctly before continuing.");
-      return;
-    }
-    setCompleted(prev => new Set([...prev, step]));
-    if (step < 3) goTo(step + 1);
-  };
-
-  const handleBack = () => {
-    if (step > 0) goTo(step - 1);
-  };
-
-  const submitAll = async () => {
+  const handleSubmit = async () => {
+    if (!canSubmit || loading) return;
     setLoading(true);
     setMessage("");
     try {
-      const h = await fetch("/api/log", {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ domain: "health", data: {
-          sleepHours: Number(health.sleepHours), workoutMinutes: Number(health.workoutMinutes),
-          stressLevel: Number(health.stressLevel),
-          moodScore: health.moodScore ? Number(health.moodScore) : undefined,
-          energyLevel: health.energyLevel ? Number(health.energyLevel) : undefined,
-          caloriesConsumed: health.caloriesConsumed ? Number(health.caloriesConsumed) : undefined,
-          calorieGoal: health.calorieGoal ? Number(health.calorieGoal) : undefined,
-        }}),
+      const res = await fetch("/api/log/daily", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          health: {
+            sleepHours: health.sleepHours,
+            workoutMinutes: health.workoutMinutes,
+            stressLevel: health.stressLevel,
+            moodScore: health.moodScore || undefined,
+            energyLevel: health.energyLevel || undefined,
+            waterGlasses: health.waterGlasses || undefined,
+            skippedMeals: health.skippedMeals.length > 0 ? health.skippedMeals : undefined,
+            caloriesConsumed: health.caloriesConsumed ? Number(health.caloriesConsumed) : undefined,
+             calorieGoal: health.calorieGoal ? Number(health.calorieGoal) : undefined,
+             mealsEatenToday: health.mealsEatenToday.trim() || undefined,
+           },
+          finance: {
+            amountSaved: Number(finance.amountSaved),
+            discretionarySpent: Number(finance.discretionarySpent),
+            spendingCategory: finance.spendingCategory || undefined,
+            biggestExpenseToday: finance.biggestExpenseToday || undefined,
+            impulseSpend: finance.impulseSpend || undefined,
+          },
+          career: {
+            hoursStudied: Number(career.hoursStudied),
+            productivityRating: career.productivityRating,
+            sessionsCompleted: career.sessionsCompleted ? Number(career.sessionsCompleted) : undefined,
+            courseName: career.courseName || undefined,
+            goalWorkedOn: career.goalWorkedOn || undefined,
+            blockerToday: career.blockerToday || undefined,
+          },
+          dailyNote: dailyNote.trim() || undefined,
+        }),
       });
-      const hd = await h.json();
-      if (!hd.success) throw new Error(hd.message || "Health ingestion failed.");
-
-      const f = await fetch("/api/log", {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ domain: "finance", data: {
-          amountSaved: Number(finance.amountSaved),
-          discretionarySpent: Number(finance.discretionarySpent),
-          spendingCategory: finance.spendingCategory,
-        }}),
-      });
-      const fd = await f.json();
-      if (!fd.success) throw new Error(fd.message || "Finance ingestion failed.");
-
-      const c = await fetch("/api/log", {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ domain: "career", data: {
-          hoursStudied: Number(career.hoursStudied),
-          productivityRating: Number(career.productivityRating),
-          sessionsCompleted: career.sessionsCompleted ? Number(career.sessionsCompleted) : undefined,
-          courseName: career.courseName || undefined,
-        }}),
-      });
-      const cd = await c.json();
-      if (!cd.success) throw new Error(cd.message || "Career ingestion failed.");
-
-      // Upload each batch file separately by domain
-      for (const domain of ["health", "finance", "career"] as const) {
-        const fileObj = batchFiles[domain].file;
-        if (!fileObj) continue;
-        const formData = new FormData();
-        formData.append("file", fileObj);
-        formData.append("domain", domain);
-        const fileName = fileObj.name.toLowerCase();
-        const endpoint =
-          fileName.endsWith(".xlsx") || fileName.endsWith(".xls")
-            ? "/api/upload/excel"
-            : "/api/upload/csv";
-        const response = await fetch(endpoint, { method: "POST", credentials: "include", body: formData });
-        const data = await response.json();
-        if (!data.success) throw new Error(data.message || `${domain} batch upload failed.`);
-      }
-
+      const d = await res.json();
+      if (!d.success) throw new Error(d.message || "Submission failed.");
       window.dispatchEvent(new Event("syntra-refresh"));
-      setCompleted(new Set([0, 1, 2, 3]));
       setLoading(false);
       setCalibrating(true);
-      setTimeout(() => router.push("/insights"), 4200);
+      setTimeout(() => router.push("/dashboard"), 4200);
     } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : "Submission failed. Please retry.");
+      setMessage(err instanceof Error ? err.message : "Submission failed.");
       setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      setUploadMessage({ text: "Please select a CSV or Excel file first.", type: "error" });
+      return;
+    }
+
+    setUploadLoading(true);
+    setUploadMessage(null);
+
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+    formData.append("domain", uploadDomain);
+
+    const isCsv = uploadFile.name.endsWith(".csv");
+    const endpoint = isCsv ? "/api/upload/csv" : "/api/upload/excel";
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      const d = await res.json();
+      if (!res.ok || !d.success) {
+        throw new Error(d.message || "Failed to upload file.");
+      }
+
+      setUploadMessage({ text: d.message || "Spreadsheet ingested successfully!", type: "success" });
+      setUploadFile(null);
+      
+      const fileInput = document.getElementById("csv-file-input") as HTMLInputElement;
+      if (fileInput) fileInput.value = "";
+      
+      setTimeout(() => {
+        fetch("/api/log/latest", { credentials: "include" })
+          .then(r => r.json())
+          .then(latestData => {
+            if (latestData.success) {
+              setLatest(latestData.latest);
+              if (latestData.scores) setCurrentScores(latestData.scores);
+              if (typeof latestData.streak === "number") setStreak(latestData.streak);
+              if (latestData.lastLogDate) setLastSync(latestData.lastLogDate);
+            }
+          })
+          .catch(() => {});
+      }, 1500);
+
+      window.dispatchEvent(new Event("syntra-refresh"));
+    } catch (err: any) {
+      setUploadMessage({ text: err.message || "File import failed.", type: "error" });
+    } finally {
+      setUploadLoading(false);
     }
   };
 
   if (!mounted) return null;
   if (calibrating) return <CalibratingScreen />;
 
-  const isError = (msg: string) =>
-    msg.toLowerCase().includes("fail") || msg.includes("select") ||
-    msg.includes("fill") || msg.includes("complete") || msg.includes("required");
 
-  const gradients = [
-    "linear-gradient(90deg,#0044DD,#0066FF)",
-    "linear-gradient(90deg,#0055EE,#3322EE)",
-    "linear-gradient(90deg,#0066FF,#0044DD)",
-    "linear-gradient(90deg,#3322EE,#0066FF)",
+  const DAILY_PROMPTS = [
+    "What was the highlight of your day?",
+    "What's one thing you'd change about today?",
+    "How do you feel right now in one sentence?",
+    "What are you grateful for today?",
+    "What's on your mind?",
   ];
-  const btnGradients = [
-    "linear-gradient(135deg,#0044DD,#0066FF)",
-    "linear-gradient(135deg,#0055EE,#3322EE)",
-    "linear-gradient(135deg,#0066FF,#0044DD)",
-    "linear-gradient(135deg,#3322EE,#0066FF)",
-  ];
-  const btnShadows = [
-    "0 4px 14px rgba(0,68,221,0.35)",
-    "0 4px 14px rgba(0,85,238,0.35)",
-    "0 4px 14px rgba(0,102,255,0.3)",
-    "0 4px 14px rgba(51,34,238,0.35)",
-  ];
-
-  const iconRings = [
-    { bg: "#dbeafe", color: "#0044DD" },
-    { bg: "#dbeafe", color: "#0055EE" },
-    { bg: "#e0e7ff", color: "#0044DD" },
-    { bg: "#e0e7ff", color: "#3322EE" },
-  ];
+  const todayPrompt = DAILY_PROMPTS[new Date().getDate() % DAILY_PROMPTS.length];
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#f7f8fc",
-      fontFamily: '"Inter","DM Sans",-apple-system,sans-serif',
-      display: "flex",
-      alignItems: "stretch",
-    }}>
+    <div className="ingestion-root">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
-        .page-left { width: 340px; min-height: 100vh; flex-shrink: 0; background: linear-gradient(140deg, #0044DD 0%, #0066FF 55%, #3322EE 100%); display: flex; flex-direction: column; justify-content: center; padding: 48px 44px; position: relative; overflow: hidden; }
-        .page-left::before { content: ''; position: absolute; top: -80px; left: -80px; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%); pointer-events: none; }
-        .page-left::after { content: ''; position: absolute; bottom: -60px; right: -60px; width: 260px; height: 260px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%); pointer-events: none; }
-        .page-right { flex: 1; background: #f7f8fc; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 32px; min-height: 100vh; }
-        .brand-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 9999px; padding: 6px 14px; font-size: 0.72rem; font-weight: 700; color: #ffffff; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 28px; }
-        .left-title { font-family: 'DM Sans', sans-serif; font-size: 2rem; font-weight: 800; color: #ffffff; line-height: 1.2; letter-spacing: -0.04em; margin-bottom: 14px; }
-        .left-title span { color: rgba(255,255,255,0.75); font-weight: 300; }
-        .left-sub { font-size: 0.83rem; color: rgba(255,255,255,0.72); line-height: 1.7; margin-bottom: 36px; }
-        .left-steps { display: flex; flex-direction: column; gap: 14px; }
-        .left-step { display: flex; align-items: center; gap: 12px; }
-        .left-step-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .left-step-text { font-size: 0.8rem; font-weight: 500; color: rgba(255,255,255,0.45); }
-        .left-step-text.active { color: #ffffff; font-weight: 600; }
-        .main-wrapper { width: 100%; max-width: 680px; }
-        .exit-bar { display: inline-flex; align-items: center; gap: 8px; font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 600; color: #64748b; text-decoration: none; margin-bottom: 28px; padding: 7px 14px; border-radius: 9999px; background: #ffffff; border: 1px solid #e2e8f0; transition: all 0.2s ease; cursor: pointer; width: fit-content; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-        .exit-bar:hover { color: #0044DD; border-color: #0044DD; background: #eff4ff; transform: translateX(-2px); }
-        .title-container { margin-bottom: 24px; }
-        .dynamic-title { font-family: 'DM Sans', sans-serif; font-size: clamp(1.6rem, 3.5vw, 2.2rem); font-weight: 800; color: #111111; letter-spacing: -0.04em; margin-bottom: 6px; display: flex; align-items: center; gap: 2px; }
-        .title-accent { color: #0044DD; }
-        .cursor { display: inline-block; width: 3px; height: 2rem; background-color: #0044DD; margin-left: 4px; animation: blink 0.7s infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
-        .dynamic-sub { font-family: 'Inter', sans-serif; font-size: 0.85rem; color: #5a5a6a; line-height: 1.6; }
-        .step-dots { display: flex; align-items: center; gap: 0; margin-bottom: 20px; background: #0f1520; border-radius: 14px; padding: 12px 20px; }
-        .step-dot-wrapper { display: flex; align-items: center; gap: 0; }
-        .step-dot { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; flex-shrink: 0; }
-        .dot-active { transform: scale(1.15); }
-        .dot-num { font-size: 0.7rem; font-weight: 700; color: #64748b; }
-        .dot-label { font-size: 0.7rem; font-weight: 600; margin-left: 6px; white-space: nowrap; transition: color 0.3s; }
-        .dot-connector { height: 2px; width: 36px; margin: 0 8px; transition: background 0.4s; flex-shrink: 0; }
-        .progress-track { height: 4px; background: #e2e8f0; width: 100%; border-radius: 0; overflow: hidden; }
-        .progress-fill { height: 100%; border-radius: 0; transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1); }
-        .step-card { background: #fff; border-radius: 20px; border: 1px solid #e8ebf4; overflow: hidden; box-shadow: 0 8px 32px rgba(0,68,221,0.08), 0 1px 4px rgba(0,0,0,0.04); }
-        .card-header { padding: 20px 24px 16px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 14px; }
-        .icon-ring { width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .card-label { display: flex; flex-direction: column; gap: 2px; }
-        .card-title { font-size: 1rem; font-weight: 700; color: #111111; letter-spacing: -0.01em; }
-        .card-sub { font-size: 0.78rem; color: #94a3b8; font-weight: 500; }
-        .card-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 13px; }
-        .field { display: flex; flex-direction: column; gap: 5px; }
-        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .form-label { font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 600; color: #475569; letter-spacing: 0.01em; }
-        .req { color: #0044DD; margin-left: 2px; }
-        .opt-tag { font-size: 0.72rem; color: #94a3b8; font-weight: 400; margin-left: 4px; }
-        .form-input { font-family: 'Inter', sans-serif; font-size: 0.88rem; padding: 10px 13px; border-radius: 10px; border: 1px solid #cbd5e1; background: #f7f8fc; color: #111111; transition: all 0.18s; width: 100%; box-sizing: border-box; -moz-appearance: textfield; }
-        .form-input::-webkit-outer-spin-button, .form-input::-webkit-inner-spin-button { -webkit-appearance: none; }
-        .form-input:focus { outline: none; border-color: #0044DD; background: #fff; box-shadow: 0 0 0 3px rgba(0,68,221,0.1); }
-        .form-input::placeholder { color: #b0bac6; font-size: 0.84rem; }
-        .input-error { border-color: #ef4444 !important; background: #fff5f5 !important; color: #dc2626 !important; }
-        .input-error:focus { box-shadow: 0 0 0 3px rgba(239,68,68,0.15) !important; }
-        .section-divider { height: 1px; background: #eef1f8; margin: 2px 0; }
-        .card-footer { padding: 16px 24px 22px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #eef1f8; background: #f7f8fc; }
-        .nav-btn { display: flex; align-items: center; gap: 7px; padding: 10px 18px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; cursor: pointer; transition: all 0.18s; white-space: nowrap; }
-        .nav-btn:hover { border-color: #0044DD; color: #0044DD; background: #eff4ff; }
-        .submit-btn { flex: 1; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 0.88rem; font-weight: 600; color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.18s; }
-        .submit-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
-        .submit-btn:disabled { background: #94a3b8 !important; box-shadow: none !important; cursor: not-allowed; transform: none; filter: none; }
-        .progress-label { font-size: 0.73rem; font-weight: 600; color: #94a3b8; text-align: right; padding: 4px 24px 0; }
-        .live-status-banner { display: flex; align-items: center; gap: 12px; border-radius: 12px; padding: 12px 16px; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 500; margin-bottom: 14px; border: 1px solid; }
-        @keyframes slideInForward { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
-        @keyframes slideInBackward { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
-        @keyframes slideOutForward { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(-40px); } }
-        @keyframes slideOutBackward { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
-        .slide-enter-forward { animation: slideInForward 0.32s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .slide-enter-backward { animation: slideInBackward 0.32s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .slide-exit-forward { animation: slideOutForward 0.28s ease forwards; }
-        .slide-exit-backward { animation: slideOutBackward 0.28s ease forwards; }
-        /* Batch Ingest Cards */
-        .batch-cards-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-        .ingest-card { border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; background: #fff; transition: box-shadow 0.2s; }
-        .ingest-card:hover { box-shadow: 0 4px 20px rgba(0,68,221,0.1); }
-        .ingest-card-header { padding: 14px 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-        .ingest-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; }
-        .ingest-label { font-size: 0.78rem; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
-        .ingest-sub { font-size: 0.68rem; color: rgba(255,255,255,0.7); font-weight: 500; }
-        .ingest-card-body { padding: 12px; }
-        .ingest-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 16px 8px; cursor: pointer; transition: all 0.18s; min-height: 80px; text-align: center; }
-        .ingest-drop:hover { border-color: #0044DD; background: #eff4ff; }
-        .ingest-placeholder { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .ingest-placeholder span { font-size: 0.72rem; color: #94a3b8; font-weight: 500; }
-        .ingest-formats { font-size: 0.65rem; color: #b0bac6; }
-        .ingest-file-ready { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-        .ingest-filename { font-size: 0.7rem; color: #0044DD; font-weight: 600; word-break: break-all; text-align: center; }
-        .ingest-remove { width: 100%; margin-top: 6px; padding: 5px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f7f8fc; font-size: 0.72rem; color: #94a3b8; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
-        .ingest-remove:hover { border-color: #ef4444; color: #ef4444; background: #fff5f5; }
-        .batch-note { font-size: 0.78rem; color: #94a3b8; text-align: center; margin-top: 4px; }
-        /* Parse feedback styles */
-        .parse-error { margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: #fff5f5; border: 1px solid #fecaca; font-size: 0.7rem; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 5px; font-family: 'Inter', sans-serif; }
-        .parse-success { margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: #f0fdf4; border: 1px solid #bbf7d0; font-size: 0.7rem; color: #16a34a; font-weight: 600; display: flex; align-items: center; gap: 5px; font-family: 'Inter', sans-serif; }
-        @media (max-width: 860px) { .page-left { display: none; } .page-right { padding: 32px 16px; } }
-        @media (max-width: 600px) { .dot-connector { width: 20px; } .dot-label { display: none; } .batch-cards-grid { grid-template-columns: 1fr; } }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+        .ingestion-root {
+          min-height: 100vh;
+          background: #f8fafc;
+          font-family: 'Plus Jakarta Sans','Inter',-apple-system,sans-serif;
+          padding-bottom: 80px;
+        }
+        /* ── NAV BAR ── */
+        .ing-nav {
+          position: sticky; top: 0; z-index: 100;
+          background: rgba(255,255,255,0.85);
+          backdrop-filter: blur(16px);
+          border-bottom: 1px solid rgba(226,232,240,0.8);
+          padding: 14px 32px;
+          display: flex; align-items: center; justify-content: space-between;
+        }
+        .ing-back {
+          display: flex; align-items: center; gap: 8px;
+          font-size: 0.84rem; font-weight: 600; color: #64748b;
+          cursor: pointer; border: none; background: none; padding: 6px 12px;
+          border-radius: 8px; transition: all 0.2s;
+        }
+        .ing-back:hover { color: #3b82f6; background: #eff6ff; }
+        .ing-brand { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; color: #94a3b8; letter-spacing: 0.08em; text-transform: uppercase; }
+
+        /* ── HERO ── */
+        .ing-hero {
+          max-width: 960px; margin: 0 auto; padding: 32px 24px 0;
+        }
+        .hero-streak {
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 6px 14px; border-radius: 999px;
+          background: linear-gradient(135deg, #eff6ff, #eef2ff);
+          border: 1px solid #dbeafe;
+          font-size: 0.78rem; font-weight: 700; color: #3b82f6;
+          margin-bottom: 16px;
+        }
+        .hero-title {
+          font-size: 1.75rem; font-weight: 800; color: #0f172a;
+          letter-spacing: -0.03em; margin-bottom: 6px;
+        }
+        .hero-sub {
+          font-size: 0.88rem; color: #64748b; line-height: 1.6;
+          margin-bottom: 24px;
+        }
+
+        /* ── YESTERDAY SNAPSHOT ── */
+        .snapshot-row {
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+          margin-bottom: 32px;
+        }
+        .snap-card {
+          background: #fff;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          padding: 14px 16px;
+          display: flex; flex-direction: column; gap: 6px;
+          transition: all 0.2s;
+        }
+        .snap-card:hover { border-color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .snap-header { display: flex; align-items: center; justify-content: space-between; }
+        .snap-domain { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+        .snap-time { font-size: 0.68rem; color: #94a3b8; font-weight: 500; }
+        .snap-metrics { display: flex; flex-wrap: wrap; gap: 8px; }
+        .snap-metric { font-size: 0.76rem; color: #475569; font-weight: 500; }
+        .snap-metric strong { color: #0f172a; font-weight: 700; }
+        .snap-empty { font-size: 0.76rem; color: #94a3b8; font-style: italic; }
+
+        /* ── DOMAIN CARDS ── */
+        .cards-container {
+          max-width: 960px; margin: 0 auto; padding: 0 24px;
+          display: flex; flex-direction: column; gap: 20px;
+        }
+        .domain-card {
+          background: #fff;
+          border: 1px solid #e2e8f0;
+          border-radius: 18px;
+          overflow: hidden;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+          transition: all 0.3s;
+        }
+        .domain-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.06); }
+        .domain-header {
+          padding: 18px 22px;
+          display: flex; align-items: center; gap: 14px;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .domain-icon {
+          width: 42px; height: 42px; border-radius: 12px;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .domain-title { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
+        .domain-sub { font-size: 0.76rem; color: #94a3b8; font-weight: 500; }
+        .domain-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+        .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .field-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+        /* ── TEXT INPUTS ── */
+        .text-field { display: flex; flex-direction: column; gap: 5px; }
+        .text-label { font-size: 0.76rem; font-weight: 600; color: #475569; }
+        .text-label .req { color: #3b82f6; margin-left: 2px; }
+        .text-label .opt { color: #94a3b8; font-weight: 400; font-size: 0.72rem; margin-left: 4px; }
+        .text-input {
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 0.86rem; padding: 10px 13px;
+          border-radius: 10px; border: 1px solid #e2e8f0;
+          background: #f8fafc; color: #0f172a;
+          transition: all 0.18s; width: 100%; box-sizing: border-box;
+          -moz-appearance: textfield;
+        }
+        .text-input::-webkit-outer-spin-button, .text-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .text-input:focus { outline: none; border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .text-input::placeholder { color: #b0bac6; }
+
+        /* ── SLIDER ── */
+        .sync-slider { display: flex; flex-direction: column; gap: 6px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; }
+        .slider-label-group { display: flex; align-items: center; gap: 6px; }
+        .slider-icon { display: flex; align-items: center; }
+        .slider-label { font-size: 0.76rem; font-weight: 600; color: #475569; }
+        .slider-value { font-size: 0.88rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+        .slider-track-wrap { position: relative; }
+        .slider-input {
+          -webkit-appearance: none; appearance: none;
+          width: 100%; height: 6px; border-radius: 999px;
+          outline: none; transition: background 0.15s;
+          cursor: pointer;
+        }
+        .slider-input::-webkit-slider-thumb {
+          -webkit-appearance: none; appearance: none;
+          width: 20px; height: 20px; border-radius: 50%;
+          background: #fff; border: 3px solid currentColor;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+          cursor: grab; transition: transform 0.15s;
+        }
+        .slider-input::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        .slider-input::-moz-range-thumb {
+          width: 20px; height: 20px; border-radius: 50%;
+          background: #fff; border: 3px solid currentColor;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+          cursor: grab;
+        }
+
+        /* ── PILLS ── */
+        .pill-group { display: flex; flex-direction: column; gap: 6px; }
+        .pill-label { font-size: 0.76rem; font-weight: 600; color: #475569; }
+        .pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        .pill {
+          padding: 6px 14px; border-radius: 999px;
+          border: 1.5px solid #e2e8f0;
+          background: #f8fafc; color: #64748b;
+          font-size: 0.76rem; font-weight: 600;
+          cursor: pointer; transition: all 0.18s;
+          font-family: 'Plus Jakarta Sans',sans-serif;
+        }
+        .pill:hover { border-color: #cbd5e1; }
+        .pill-active { color: #fff !important; border-color: transparent !important; }
+
+        /* ── TOGGLE ── */
+        .toggle-row {
+          display: flex; align-items: center; gap: 12px;
+          padding: 10px 14px; border-radius: 10px;
+          background: #f8fafc; border: 1px solid #e2e8f0;
+          cursor: pointer; transition: all 0.2s;
+        }
+        .toggle-row:hover { border-color: #cbd5e1; }
+        .toggle-row.active { background: #fef2f2; border-color: #fca5a5; }
+        .toggle-switch {
+          width: 36px; height: 20px; border-radius: 999px;
+          background: #e2e8f0; position: relative;
+          flex-shrink: 0; transition: background 0.2s;
+        }
+        .toggle-switch.on { background: #ef4444; }
+        .toggle-knob {
+          position: absolute; top: 2px; left: 2px;
+          width: 16px; height: 16px; border-radius: 50%;
+          background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+          transition: left 0.2s;
+        }
+        .toggle-switch.on .toggle-knob { left: 18px; }
+        .toggle-text { font-size: 0.8rem; font-weight: 600; color: #475569; }
+        .toggle-text.active-text { color: #dc2626; }
+
+        /* ── DAILY NOTE ── */
+        .note-card {
+          background: #fff; border: 1px solid #e2e8f0;
+          border-radius: 18px; overflow: hidden;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        }
+        .note-header {
+          padding: 18px 22px;
+          display: flex; align-items: center; gap: 14px;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .note-icon {
+          width: 42px; height: 42px; border-radius: 12px;
+          background: linear-gradient(135deg, #fef3c7, #fde68a);
+          display: flex; align-items: center; justify-content: center;
+          color: #f59e0b; flex-shrink: 0;
+        }
+        .note-body { padding: 18px 22px; }
+        .note-prompt {
+          font-size: 0.82rem; color: #94a3b8; font-style: italic;
+          margin-bottom: 10px;
+        }
+        .note-textarea {
+          width: 100%; min-height: 80px; border: 1px solid #e2e8f0;
+          border-radius: 12px; padding: 12px 14px;
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 0.86rem; color: #0f172a; background: #f8fafc;
+          resize: vertical; transition: all 0.18s; box-sizing: border-box;
+        }
+        .note-textarea:focus { outline: none; border-color: #f59e0b; background: #fff; box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+        .note-counter { text-align: right; font-size: 0.7rem; color: #94a3b8; margin-top: 4px; }
+
+        /* ── IMPACT PREVIEW ── */
+        .impact-section {
+          max-width: 960px; margin: 24px auto 0; padding: 0 24px;
+        }
+        .impact-title {
+          font-size: 0.78rem; font-weight: 700; color: #94a3b8;
+          text-transform: uppercase; letter-spacing: 0.06em;
+          margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+        }
+        .impact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .impact-card {
+          background: #fff; border: 1px solid #e2e8f0;
+          border-radius: 14px; padding: 14px 16px;
+          display: flex; align-items: center; gap: 12px;
+          transition: all 0.3s;
+        }
+        .impact-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .impact-icon { display: flex; align-items: center; }
+        .impact-info { display: flex; flex-direction: column; gap: 2px; }
+        .impact-label { font-size: 0.72rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
+        .impact-scores { display: flex; align-items: center; gap: 6px; }
+        .impact-old { font-size: 0.88rem; font-weight: 600; color: #94a3b8; }
+        .impact-arrow { font-size: 0.78rem; color: #cbd5e1; }
+        .impact-new { font-size: 1rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+        .impact-diff {
+          font-size: 0.72rem; font-weight: 700; padding: 2px 6px;
+          border-radius: 6px; font-family: 'JetBrains Mono', monospace;
+        }
+        .diff-pos { background: #ecfdf5; color: #10b981; }
+        .diff-neg { background: #fef2f2; color: #ef4444; }
+
+        /* ── SUBMIT SECTION ── */
+        .submit-section {
+          max-width: 960px; margin: 28px auto 0; padding: 0 24px;
+        }
+        .submit-btn {
+          width: 100%; padding: 16px; border-radius: 14px;
+          border: none; cursor: pointer;
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 0.95rem; font-weight: 700; color: #fff;
+          background: linear-gradient(135deg, #3b82f6, #6366f1);
+          box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+          display: flex; align-items: center; justify-content: center; gap: 10px;
+          transition: all 0.2s;
+        }
+        .submit-btn:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 8px 28px rgba(59,130,246,0.35); }
+        .submit-btn:disabled { background: #94a3b8 !important; box-shadow: none !important; cursor: not-allowed; }
+
+        .msg-banner {
+          max-width: 960px; margin: 12px auto 0; padding: 0 24px;
+        }
+        .msg-inner {
+          display: flex; align-items: center; gap: 10px;
+          padding: 12px 16px; border-radius: 12px;
+          font-size: 0.84rem; font-weight: 600;
+          background: #fef2f2; border: 1px solid #fecaca; color: #dc2626;
+        }
+
+        /* ── PREMIUM FILE UPLOAD CARD ── */
+        .file-upload-card {
+          background: #fff; border: 1px solid #e2e8f0;
+          border-radius: 18px; overflow: hidden;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+          transition: all 0.3s;
+        }
+        .file-upload-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.06); }
+        .upload-header {
+          padding: 18px 22px;
+          display: flex; align-items: center; gap: 14px;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .upload-icon {
+          width: 42px; height: 42px; border-radius: 12px;
+          background: linear-gradient(135deg, #dbeafe, #c7d2fe);
+          display: flex; align-items: center; justify-content: center;
+          color: #3b82f6; flex-shrink: 0;
+        }
+        .upload-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+        .file-dropzone {
+          border: 2px dashed #cbd5e1; border-radius: 12px;
+          padding: 24px 16px; text-align: center; cursor: pointer;
+          background: #f8fafc; transition: all 0.2s;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .file-dropzone:hover { border-color: #3b82f6; background: #eff6ff; }
+        .dropzone-text { font-size: 0.84rem; color: #64748b; margin-top: 4px; }
+        .dropzone-subtext { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; }
+        .upload-submit-btn {
+          width: 100%; padding: 12px; border-radius: 10px;
+          border: none; cursor: pointer;
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 0.88rem; font-weight: 700; color: #fff;
+          background: linear-gradient(135deg, #3b82f6, #6366f1);
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          transition: all 0.2s;
+        }
+        .upload-submit-btn:hover:not(:disabled) { filter: brightness(1.06); }
+        .upload-submit-btn:disabled { background: #94a3b8 !important; cursor: not-allowed; }
+        .upload-status {
+          display: flex; align-items: center; gap: 8px;
+          padding: 10px 14px; border-radius: 8px;
+          font-size: 0.78rem; font-weight: 600;
+        }
+        .upload-status.success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #059669; }
+        .upload-status.error { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
+
+        /* ── DIVIDER ── */
+        .section-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 640px) {
+          .snapshot-row, .impact-grid { grid-template-columns: 1fr; }
+          .field-grid { grid-template-columns: 1fr; }
+          .field-grid-3 { grid-template-columns: 1fr; }
+          .ing-hero { padding: 24px 16px 0; }
+          .cards-container, .impact-section, .submit-section { padding: 0 16px; }
+        }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.4s ease both; }
+        .fade-in-1 { animation-delay: 0.05s; }
+        .fade-in-2 { animation-delay: 0.1s; }
+        .fade-in-3 { animation-delay: 0.15s; }
+        .fade-in-4 { animation-delay: 0.2s; }
+        .fade-in-5 { animation-delay: 0.25s; }
       `}</style>
 
-      <div className="page-left">
-        <div className="brand-badge"><Sparkles size={11} /> Syntra AI</div>
-        <h2 className="left-title">Your <span>digital twin</span> needs your data.</h2>
-        <p className="left-sub">Log your vitals, capital, and career progress. Syntra updates your AI model in real time.</p>
-        <div className="left-steps">
-          {[{ label: "Health Matrix" }, { label: "Finance Ledger" }, { label: "Career Tracker" }, { label: "Batch Upload" }].map((s, i) => (
-            <div className="left-step" key={i}>
-              <div className="left-step-dot" style={{ background: i === step ? "#ffffff" : "rgba(255,255,255,0.35)", boxShadow: i === step ? "0 0 8px rgba(255,255,255,0.6)" : "none" }} />
-              <span className={`left-step-text ${i === step ? "active" : ""}`}>{s.label}</span>
+      {/* ── NAV ── */}
+      <div className="ing-nav">
+        <button className="ing-back" onClick={() => router.push("/dashboard")}>
+          <ArrowLeft size={15} /> Dashboard
+        </button>
+        <div className="ing-brand"><Sparkles size={11} /> Syntra AI</div>
+      </div>
+
+      {/* ── HERO ── */}
+      <div className="ing-hero fade-in">
+        <div className="hero-streak">
+          <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <Flame size={14} />
+            Streak: {streak} {streak === 1 ? "day" : "days"}
+          </span>
+          <span style={{ width: "1px", height: "12px", background: "#cbd5e1" }} />
+          <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "#64748b" }}>
+            <Clock size={12} />
+            Last Sync: {lastSyncText}
+          </span>
+        </div>
+        <h1 className="hero-title">Daily Calibration</h1>
+        <p className="hero-sub">
+          Log your health, finances, and career progress. Your twin updates in real time.
+        </p>
+      </div>
+
+      {/* ── YESTERDAY SNAPSHOT ── */}
+      {latest && (latest.health || latest.finance || latest.career) && (
+        <div className="ing-hero fade-in fade-in-1" style={{ paddingTop: 0 }}>
+          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <Clock size={12} /> Last Logged
+          </div>
+          <div className="snapshot-row">
+            <div className="snap-card" style={{ borderLeft: "3px solid #3b82f6" }}>
+              <div className="snap-header">
+                <span className="snap-domain" style={{ color: "#3b82f6" }}>Health</span>
+                <span className="snap-time">{latest.health ? formatDate(latest.health.date) : ""}</span>
+              </div>
+              {latest.health ? (
+                <div className="snap-metrics">
+                  <span className="snap-metric">Sleep <strong>{latest.health.data.sleepHours}h</strong></span>
+                  <span className="snap-metric">Workout <strong>{latest.health.data.workoutMinutes}m</strong></span>
+                  <span className="snap-metric">Stress <strong>{latest.health.data.stressLevel}/10</strong></span>
+                </div>
+              ) : <span className="snap-empty">No data yet</span>}
             </div>
-          ))}
+            <div className="snap-card" style={{ borderLeft: "3px solid #8b5cf6" }}>
+              <div className="snap-header">
+                <span className="snap-domain" style={{ color: "#8b5cf6" }}>Finance</span>
+                <span className="snap-time">{latest.finance ? formatDate(latest.finance.date) : ""}</span>
+              </div>
+              {latest.finance ? (
+                <div className="snap-metrics">
+                  <span className="snap-metric">Saved <strong>₹{latest.finance.data.amountSaved}</strong></span>
+                  <span className="snap-metric">Spent <strong>₹{latest.finance.data.discretionarySpent}</strong></span>
+                </div>
+              ) : <span className="snap-empty">No data yet</span>}
+            </div>
+            <div className="snap-card" style={{ borderLeft: "3px solid #6366f1" }}>
+              <div className="snap-header">
+                <span className="snap-domain" style={{ color: "#6366f1" }}>Career</span>
+                <span className="snap-time">{latest.career ? formatDate(latest.career.date) : ""}</span>
+              </div>
+              {latest.career ? (
+                <div className="snap-metrics">
+                  <span className="snap-metric">Study <strong>{latest.career.data.hoursStudied}h</strong></span>
+                  <span className="snap-metric">Productivity <strong>{latest.career.data.productivityRating}/10</strong></span>
+                </div>
+              ) : <span className="snap-empty">No data yet</span>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DOMAIN CARDS ── */}
+      <div className="cards-container">
+
+        {/* ─── HEALTH CARD ─── */}
+        <div className="domain-card fade-in fade-in-2">
+          <div className="domain-header">
+            <div className="domain-icon" style={{ background: "linear-gradient(135deg, #dbeafe, #bfdbfe)", color: "#3b82f6" }}>
+              <HeartPulse size={20} />
+            </div>
+            <div>
+              <div className="domain-title">Health</div>
+              <div className="domain-sub">Sleep, exercise, stress & hydration</div>
+            </div>
+          </div>
+          <div className="domain-body">
+            <div className="field-grid">
+              <SyncSlider label="Sleep Hours" value={health.sleepHours} onChange={v => setHealth(p => ({ ...p, sleepHours: v }))} min={0} max={12} step={0.5} icon={<Moon size={14} />} unit="h" color="#3b82f6" />
+              <SyncSlider label="Workout Minutes" value={health.workoutMinutes} onChange={v => setHealth(p => ({ ...p, workoutMinutes: v }))} min={0} max={120} step={5} icon={<Dumbbell size={14} />} unit="m" color="#10b981" />
+            </div>
+            <div className="field-grid">
+              <SyncSlider label="Stress Level" value={health.stressLevel} onChange={v => setHealth(p => ({ ...p, stressLevel: v }))} min={1} max={10} step={1} icon={<Activity size={14} />} unit="/10" color="#ef4444" />
+              <SyncSlider label="Water Intake" value={health.waterGlasses} onChange={v => setHealth(p => ({ ...p, waterGlasses: v }))} min={0} max={15} step={1} icon={<Droplets size={14} />} unit=" glasses" color="#06b6d4" />
+            </div>
+            <div className="section-divider" />
+            <div className="field-grid">
+              <SyncSlider label="Mood" value={health.moodScore} onChange={v => setHealth(p => ({ ...p, moodScore: v }))} min={1} max={10} step={1} icon={<Sparkles size={14} />} unit="/10" color="#f59e0b" />
+              <SyncSlider label="Energy" value={health.energyLevel} onChange={v => setHealth(p => ({ ...p, energyLevel: v }))} min={1} max={10} step={1} icon={<Zap size={14} />} unit="/10" color="#8b5cf6" />
+            </div>
+            <PillSelect
+              label="Skipped any meals today?"
+              options={[
+                { value: "breakfast", label: "☕ Breakfast" },
+                { value: "lunch", label: "🍛 Lunch" },
+                { value: "dinner", label: "🍽️ Dinner" },
+              ]}
+              selected={health.skippedMeals}
+              onToggle={toggleMeal}
+              color="#ef4444"
+            />
+            <div className="field-grid">
+              <div className="text-field">
+                <label className="text-label">Calories Consumed <span className="opt">(optional)</span></label>
+                <input type="number" className="text-input" placeholder="e.g. 2100" value={health.caloriesConsumed} onChange={e => setHealth(p => ({ ...p, caloriesConsumed: e.target.value }))} />
+              </div>
+              <div className="text-field">
+                <label className="text-label">Calorie Goal <span className="opt">(optional)</span></label>
+                <input type="number" className="text-input" placeholder="e.g. 2400" value={health.calorieGoal} onChange={e => setHealth(p => ({ ...p, calorieGoal: e.target.value }))} />
+              </div>
+            </div>
+            <div className="text-field" style={{ marginTop: "6px" }}>
+              <label className="text-label">Meals & Foods Eaten Today <span className="opt">(optional — helps your Twin suggest precise nutrients)</span></label>
+              <textarea 
+                className="text-input" 
+                style={{ minHeight: "64px", resize: "vertical" }}
+                placeholder="e.g. Oats with flaxseeds and honey, brown rice with paneer curry and broccoli" 
+                value={health.mealsEatenToday} 
+                onChange={e => setHealth(p => ({ ...p, mealsEatenToday: e.target.value }))} 
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ─── FINANCE CARD ─── */}
+        <div className="domain-card fade-in fade-in-3">
+          <div className="domain-header">
+            <div className="domain-icon" style={{ background: "linear-gradient(135deg, #ede9fe, #ddd6fe)", color: "#8b5cf6" }}>
+              <Wallet size={20} />
+            </div>
+            <div>
+              <div className="domain-title">Finance</div>
+              <div className="domain-sub">Savings, spending & awareness</div>
+            </div>
+          </div>
+          <div className="domain-body">
+            <div className="field-grid">
+              <div className="text-field">
+                <label className="text-label">Amount Saved Today <span className="req">*</span></label>
+                <input type="number" className="text-input" placeholder="₹ e.g. 350" value={finance.amountSaved} onChange={e => setFinance(p => ({ ...p, amountSaved: e.target.value }))} />
+              </div>
+              <div className="text-field">
+                <label className="text-label">Discretionary Spending <span className="req">*</span></label>
+                <input type="number" className="text-input" placeholder="₹ e.g. 60" value={finance.discretionarySpent} onChange={e => setFinance(p => ({ ...p, discretionarySpent: e.target.value }))} />
+              </div>
+            </div>
+            <div className="field-grid">
+              <div className="text-field">
+                <label className="text-label">Biggest Expense Today <span className="opt">(optional)</span></label>
+                <input type="text" className="text-input" placeholder="e.g. Swiggy, Amazon" value={finance.biggestExpenseToday} onChange={e => setFinance(p => ({ ...p, biggestExpenseToday: e.target.value }))} />
+              </div>
+              <div className="text-field">
+                <label className="text-label">Spending Category</label>
+                <select className="text-input" style={{ height: 42 }} value={finance.spendingCategory} onChange={e => setFinance(p => ({ ...p, spendingCategory: e.target.value }))}>
+                  <option value="food">Food & Staples</option>
+                  <option value="entertainment">Entertainment</option>
+                  <option value="shopping">Shopping</option>
+                  <option value="transport">Transport</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div
+              className={`toggle-row ${finance.impulseSpend ? "active" : ""}`}
+              onClick={() => setFinance(p => ({ ...p, impulseSpend: !p.impulseSpend }))}
+            >
+              <div className={`toggle-switch ${finance.impulseSpend ? "on" : ""}`}>
+                <div className="toggle-knob" />
+              </div>
+              <span className={`toggle-text ${finance.impulseSpend ? "active-text" : ""}`}>
+                {finance.impulseSpend ? "⚠️ I made an impulse purchase today" : "Any impulse spending today?"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── CAREER CARD ─── */}
+        <div className="domain-card fade-in fade-in-4">
+          <div className="domain-header">
+            <div className="domain-icon" style={{ background: "linear-gradient(135deg, #e0e7ff, #c7d2fe)", color: "#6366f1" }}>
+              <Briefcase size={20} />
+            </div>
+            <div>
+              <div className="domain-title">Career & Learning</div>
+              <div className="domain-sub">Study, productivity & goal progress</div>
+            </div>
+          </div>
+          <div className="domain-body">
+            <div className="field-grid">
+              <div className="text-field">
+                <label className="text-label">Hours Studied <span className="req">*</span></label>
+                <input type="number" className="text-input" placeholder="e.g. 3" value={career.hoursStudied} onChange={e => setCareer(p => ({ ...p, hoursStudied: e.target.value }))} />
+              </div>
+              <SyncSlider label="Productivity" value={career.productivityRating} onChange={v => setCareer(p => ({ ...p, productivityRating: v }))} min={1} max={10} step={1} icon={<TrendingUp size={14} />} unit="/10" color="#6366f1" />
+            </div>
+            <div className="field-grid">
+              <div className="text-field">
+                <label className="text-label">Course / Skill <span className="opt">(optional)</span></label>
+                <input type="text" className="text-input" placeholder="e.g. ML Fundamentals" value={career.courseName} onChange={e => setCareer(p => ({ ...p, courseName: e.target.value }))} />
+              </div>
+              <div className="text-field">
+                <label className="text-label">Sessions Done <span className="opt">(optional)</span></label>
+                <input type="number" className="text-input" placeholder="e.g. 3" value={career.sessionsCompleted} onChange={e => setCareer(p => ({ ...p, sessionsCompleted: e.target.value }))} />
+              </div>
+            </div>
+            <div className="text-field">
+              <label className="text-label">What goal did you work toward today? <span className="opt">(optional)</span></label>
+              <input type="text" className="text-input" placeholder="e.g. Practiced 5 LeetCode problems for Google prep" value={career.goalWorkedOn} onChange={e => setCareer(p => ({ ...p, goalWorkedOn: e.target.value }))} />
+            </div>
+            <div className="text-field">
+              <label className="text-label">What blocked you today? <span className="opt">(optional)</span></label>
+              <input type="text" className="text-input" placeholder="e.g. Too tired after work, couldn't focus" value={career.blockerToday} onChange={e => setCareer(p => ({ ...p, blockerToday: e.target.value }))} />
+            </div>
+          </div>
+        </div>
+
+        {/* ─── DAILY NOTE ─── */}
+        <div className="note-card fade-in fade-in-5">
+          <div className="note-header">
+            <div className="note-icon"><MessageSquare size={20} /></div>
+            <div>
+              <div className="domain-title">Daily Reflection</div>
+              <div className="domain-sub">Your twin learns from how you feel</div>
+            </div>
+          </div>
+          <div className="note-body">
+            <p className="note-prompt">{todayPrompt}</p>
+            <textarea
+              className="note-textarea"
+              placeholder="Write anything on your mind..."
+              value={dailyNote}
+              onChange={e => setDailyNote(e.target.value)}
+              maxLength={500}
+            />
+            <div className="note-counter">{dailyNote.length}/500</div>
+          </div>
+        </div>
+
+        {/* ─── FILE UPLOAD CARD (Mandatory) ─── */}
+        <div className="file-upload-card fade-in fade-in-5">
+          <div className="upload-header">
+            <div className="upload-icon">
+              <Upload size={20} />
+            </div>
+            <div>
+              <div className="domain-title">File Upload</div>
+              <div className="domain-sub">Ingest spreadsheets for automatic domain calibration</div>
+            </div>
+          </div>
+          <div className="upload-body">
+            <PillSelect
+              label="Spreadsheet Domain Target"
+              options={[
+                { value: "health", label: "🟢 Health Domain" },
+                { value: "finance", label: "🟣 Finance Domain" },
+                { value: "career", label: "🔵 Career Domain" },
+              ]}
+              selected={[uploadDomain]}
+              onToggle={(val) => setUploadDomain(val as any)}
+              color="#3b82f6"
+            />
+            <div className="file-dropzone" onClick={() => document.getElementById("csv-file-input")?.click()}>
+              <input
+                id="csv-file-input"
+                type="file"
+                accept=".csv, .xlsx, .xls"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setUploadFile(file);
+                }}
+              />
+              <Upload size={24} style={{ color: "#3b82f6", marginBottom: "8px" }} />
+              <div className="dropzone-text">
+                {uploadFile ? (
+                  <strong style={{ color: "#0f172a" }}>{uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)</strong>
+                ) : (
+                  <>
+                    <span style={{ color: "#3b82f6", fontWeight: 700 }}>Choose a file</span> or drag it here
+                  </>
+                )}
+              </div>
+              <div className="dropzone-subtext">Supports CSV, Excel (.xlsx, .xls)</div>
+            </div>
+
+            {uploadMessage && (
+              <div className={`upload-status ${uploadMessage.type}`}>
+                {uploadMessage.type === "success" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                <span>{uploadMessage.text}</span>
+              </div>
+            )}
+
+            <button
+              className="upload-submit-btn"
+              onClick={handleFileUpload}
+              disabled={!uploadFile || uploadLoading}
+            >
+              {uploadLoading ? (
+                <><Activity size={16} className="spin" /> Ingesting spreadsheet...</>
+              ) : (
+                <><Send size={15} /> Ingest Spreadsheet</>
+              )}
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── IMPACT PREVIEW ── */}
+      <div className="impact-section fade-in fade-in-5">
+        <div className="impact-title"><Zap size={13} /> Score Impact Preview</div>
+        <div className="impact-grid">
+          <ImpactPreview label="Health" oldScore={currentScores.health} newScore={previewH} color="#3b82f6" icon={<HeartPulse size={18} />} />
+          <ImpactPreview label="Finance" oldScore={currentScores.finance} newScore={previewF} color="#8b5cf6" icon={<Wallet size={18} />} />
+          <ImpactPreview label="Career" oldScore={currentScores.career} newScore={previewC} color="#6366f1" icon={<Briefcase size={18} />} />
         </div>
       </div>
 
-      <div className="page-right">
-        <div className="main-wrapper">
-          <div className="exit-bar" onClick={() => router.push("/dashboard")}>
-            <ArrowLeft size={14} /> <span>Return to Dashboard</span>
-          </div>
-
-          <div className="title-container">
-            <h1 className="dynamic-title">
-              <span className="title-accent">{typedTitle}</span>
-              <span className="cursor" />
-            </h1>
-            <p className="dynamic-sub">Log your health indexes, capital status, and professional milestones.</p>
-          </div>
-
-          <StepDots current={step} completed={completed} />
-
-          {message && (
-            <div className="live-status-banner" style={{ borderColor: "#c7d7fb", background: "#eff4ff", color: "#0044DD" }}>
-              {isError(message) ? <ShieldAlert size={16} /> : <CheckCircle2 size={16} />}
-              <span style={{ fontWeight: 600 }}>{message}</span>
-            </div>
-          )}
-
-          <div className={`step-card ${animating ? (animDir === "forward" ? "slide-exit-forward" : "slide-exit-backward") : (animDir === "forward" ? "slide-enter-forward" : "slide-enter-backward")}`}>
-            <ProgressBar pct={progress[step]} gradient={gradients[step]} />
-            <div className="progress-label">{progress[step]}% complete</div>
-
-            {/* ── STEP 0: Health ── */}
-            {step === 0 && (
-              <>
-                <div className="card-header">
-                  <div className="icon-ring" style={{ background: iconRings[0].bg, color: iconRings[0].color }}><HeartPulse size={20} /></div>
-                  <div className="card-label">
-                    <span className="card-title">Health Matrix</span>
-                    <span className="card-sub">Biometric vital node sync</span>
-                  </div>
-                </div>
-                <div className="card-body">
-                  <div className="field-row">
-                    <FormField label="Sleep Hours" req type="number" value={health.sleepHours} onChange={v => setHealth(p => ({ ...p, sleepHours: v }))} placeholder="7.5" />
-                    <FormField label="Workout Mins" req type="number" value={health.workoutMinutes} onChange={v => setHealth(p => ({ ...p, workoutMinutes: v }))} placeholder="45" />
-                  </div>
-                  <RangedField label="Stress Level (1–10)" req min={1} max={10} value={health.stressLevel} onChange={v => setHealth(p => ({ ...p, stressLevel: v }))} placeholder="e.g. 3" />
-                  <div className="section-divider" />
-                  <div className="field-row">
-                    <RangedField label="Mood Score" opt min={1} max={10} value={health.moodScore} onChange={v => setHealth(p => ({ ...p, moodScore: v }))} placeholder="1–10" />
-                    <RangedField label="Energy Level" opt min={1} max={10} value={health.energyLevel} onChange={v => setHealth(p => ({ ...p, energyLevel: v }))} placeholder="1–10" />
-                  </div>
-                  <div className="field-row">
-                    <FormField label="Calories" opt type="number" value={health.caloriesConsumed} onChange={v => setHealth(p => ({ ...p, caloriesConsumed: v }))} placeholder="e.g. 2100" />
-                    <FormField label="Cal. Goal" opt type="number" value={health.calorieGoal} onChange={v => setHealth(p => ({ ...p, calorieGoal: v }))} placeholder="e.g. 2400" />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* ── STEP 1: Finance ── */}
-            {step === 1 && (
-              <>
-                <div className="card-header">
-                  <div className="icon-ring" style={{ background: iconRings[1].bg, color: iconRings[1].color }}><Wallet size={20} /></div>
-                  <div className="card-label">
-                    <span className="card-title">Finance Ledger</span>
-                    <span className="card-sub">Capital trajectory logs</span>
-                  </div>
-                </div>
-                <div className="card-body">
-                  <FormField label="Amount Saved" req type="number" value={finance.amountSaved} onChange={v => setFinance(p => ({ ...p, amountSaved: v }))} placeholder="e.g. 350" />
-                  <FormField label="Discretionary Spending" req type="number" value={finance.discretionarySpent} onChange={v => setFinance(p => ({ ...p, discretionarySpent: v }))} placeholder="e.g. 60" />
-                  <div className="field">
-                    <label className="form-label">Spending Category</label>
-                    <select value={finance.spendingCategory} onChange={e => setFinance(p => ({ ...p, spendingCategory: e.target.value }))} className="form-input" style={{ height: 42 }}>
-                      <option value="food">Food & Staples</option>
-                      <option value="entertainment">Entertainment</option>
-                      <option value="shopping">Shopping</option>
-                      <option value="transport">Transport</option>
-                      <option value="other">Other Outlays</option>
-                    </select>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* ── STEP 2: Career ── */}
-            {step === 2 && (
-              <>
-                <div className="card-header">
-                  <div className="icon-ring" style={{ background: iconRings[2].bg, color: iconRings[2].color }}><Briefcase size={20} /></div>
-                  <div className="card-label">
-                    <span className="card-title">Career Progression</span>
-                    <span className="card-sub">Productivity index tracking</span>
-                  </div>
-                </div>
-                <div className="card-body">
-                  <div className="field-row">
-                    <FormField label="Hours Studied" req type="number" value={career.hoursStudied} onChange={v => setCareer(p => ({ ...p, hoursStudied: v }))} placeholder="e.g. 5" />
-                    <RangedField label="Productivity (1–10)" req min={1} max={10} value={career.productivityRating} onChange={v => setCareer(p => ({ ...p, productivityRating: v }))} placeholder="e.g. 8" />
-                  </div>
-                  <FormField label="Sessions Completed" opt type="number" value={career.sessionsCompleted} onChange={v => setCareer(p => ({ ...p, sessionsCompleted: v }))} placeholder="e.g. 3" />
-                  <FormField label="Course Name" opt type="text" value={career.courseName} onChange={v => setCareer(p => ({ ...p, courseName: v }))} placeholder="e.g. ML Fundamentals" />
-                </div>
-              </>
-            )}
-
-            {/* ── STEP 3: Batch ── */}
-            {step === 3 && (
-              <>
-                <div className="card-header">
-                  <div className="icon-ring" style={{ background: iconRings[3].bg, color: iconRings[3].color }}><Upload size={20} /></div>
-                  <div className="card-label">
-                    <span className="card-title">Batch Integration Console</span>
-                    <span className="card-sub">Optional — inject dataset updates via domain-specific file ingestion</span>
-                  </div>
-                </div>
-                <div className="card-body">
-                  {/* ── FRONTEND PARSING: each card now routes through handleDomainFile ── */}
-                  <div className="batch-cards-grid">
-                    {(["health", "finance", "career"] as const).map((domain, i) => {
-                      const labels = ["Health Ingest", "Finance Ingest", "Career Ingest"];
-                      const icons = [
-                        <HeartPulse key="h" size={16} color="#fff" />,
-                        <Wallet key="f" size={16} color="#fff" />,
-                        <Briefcase key="c" size={16} color="#fff" />,
-                      ];
-                      const grads = [
-                        "linear-gradient(135deg,#0044DD,#0066FF)",
-                        "linear-gradient(135deg,#0055EE,#3322EE)",
-                        "linear-gradient(135deg,#0066FF,#0044DD)",
-                      ];
-                      return (
-                        <div key={domain}>
-                          <IngestCard
-                            domain={domain}
-                            label={labels[i]}
-                            icon={icons[i]}
-                            gradient={grads[i]}
-                            file={batchFiles[domain].file}
-                            // Route file selection through handleDomainFile for Excel parsing
-                            onFile={(f) => handleDomainFile(domain, f)}
-                          />
-                          {/* ── PARSE FEEDBACK: error or success shown below each card ── */}
-                          {parseErrors[domain] && (
-                            <div className="parse-error">
-                              <AlertTriangle size={11} /> {parseErrors[domain]}
-                            </div>
-                          )}
-                          {parsedRows[domain].length > 0 && !parseErrors[domain] && (
-                            <div className="parse-success">
-                              <CheckCircle2 size={11} /> {parsedRows[domain].length} rows parsed
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {/* ── END FRONTEND PARSING ── */}
-                  <p className="batch-note">All three channels accept .csv, .xlsx, and .xls files</p>
-                </div>
-              </>
-            )}
-
-            <div className="card-footer">
-              {step > 0 && (
-                <button className="nav-btn" onClick={handleBack} disabled={loading}>
-                  <ChevronLeft size={15} /> Back
-                </button>
-              )}
-              {/* ── SKIP + NEXT buttons for steps 0–2 ── */}
-              {step < 3 ? (
-                <>
-                  {/* Skip: advances without requiring validation */}
-                  <button
-                    className="nav-btn"
-                    onClick={() => {
-                      setCompleted(prev => new Set([...prev, step]));
-                      goTo(step + 1);
-                    }}
-                    disabled={loading}
-                  >
-                    Skip <ArrowRight size={15} />
-                  </button>
-                  {/* Next: requires all required fields to be valid */}
-                  <button
-                    className="submit-btn"
-                    onClick={handleNext}
-                    disabled={loading || !canNext}
-                    style={{
-                      background: canNext ? btnGradients[step] : undefined,
-                      boxShadow: canNext ? btnShadows[step] : undefined,
-                      opacity: canNext ? 1 : 0.5,
-                      flex: "0 0 auto",
-                      padding: "10px 22px",
-                    }}
-                  >
-                    Next Step <ArrowRight size={15} />
-                  </button>
-                </>
-              ) : (
-                <button className="submit-btn" onClick={submitAll} disabled={loading} style={{ background: btnGradients[3], boxShadow: btnShadows[3] }}>
-                  <Sparkles size={14} /> {loading ? "Syncing all data..." : "Submit & Sync Twin"}
-                </button>
-              )}
-            </div>
+      {/* ── MESSAGE ── */}
+      {message && (
+        <div className="msg-banner">
+          <div className="msg-inner">
+            <AlertTriangle size={15} /> {message}
           </div>
         </div>
+      )}
+
+      {/* ── SUBMIT ── */}
+      <div className="submit-section">
+        <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit || loading}>
+          {loading ? (
+            <><Activity size={16} className="spin" /> Syncing all domains...</>
+          ) : (
+            <><Send size={16} /> Sync Twin</>
+          )}
+        </button>
       </div>
     </div>
   );

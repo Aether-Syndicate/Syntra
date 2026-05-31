@@ -15,6 +15,8 @@ export interface TwinContext {
     stressLevel: number;    // 1–10
     calorieAdherence: number; // % of days goal met
     spendingVsBudget: number; // % over/under budget
+    waterIntake: number;    // avg glasses/day
+    mealConsistency: number; // % of days with no skipped meals
   };
   trends: {
     sleep: "improving" | "declining" | "stable";
@@ -28,6 +30,17 @@ export interface TwinContext {
     workoutMoodCorrelation: boolean;     // no workout → low mood
     lateNightSpending: boolean;          // spending spikes after 10pm
     weekendDropoff: boolean;             // habits drop on weekends
+  };
+  // Qualitative context — AI-only fields
+  qualitative: {
+    recentDailyNotes: string[];     // last 3 daily notes (raw text)
+    recentCourseNames: string[];    // last 3 unique course names
+    recentGoalFocus: string[];      // last 3 goal descriptions worked on
+    recentBlockers: string[];       // last 3 blockers reported
+    topExpenseNames: string[];      // most frequent biggestExpenseToday values
+    impulseSpendRate: number;       // % of finance logs flagged as impulse
+    skippedMealPattern: string;     // e.g. "skipped breakfast 4/7 days"
+    recentMealsEaten: string[];     // last 5 daily food logs (raw text)
   };
   logCount: number; // total data points — drives confidence ceiling
   daysActive: number;

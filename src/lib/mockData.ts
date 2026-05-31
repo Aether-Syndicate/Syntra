@@ -38,6 +38,9 @@ export function getMockLogs(today: Date = new Date()): any[] {
         energyLevel: i > 7 ? 8 : Math.max(2, 8 - (8 - i)),
         caloriesConsumed: i > 7 ? 2000 : 2600, // stress eating during burnout
         calorieGoal: 2100,
+        mealsEatenToday: i > 7 
+          ? "Oatmeal with almonds & banana, brown rice with dal & chicken breast, protein shake, green tea, light paneer salad" 
+          : "Double cheese burger, french fries with mayo, chocolate waffle with vanilla ice cream, late night pepperoni pizza",
       },
     });
 

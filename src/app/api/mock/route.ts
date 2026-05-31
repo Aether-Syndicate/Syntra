@@ -70,34 +70,15 @@ export async function POST(req: Request) {
     const session = await getSession();
     let userEmail = session?.user?.email;
 
+    if (!session || !userEmail) {
+      return NextResponse.json({ success: false, error: "Unauthorized neural link. Session invalid." }, { status: 401 });
+    }
+
     await connectDB();
-    let user = null;
+    const user = await User.findOne({ email: userEmail });
 
-    if (userEmail) {
-      user = await User.findOne({ email: userEmail });
-    }
-
-    // Fallback to demo@syntra.com if unauthenticated or not found
     if (!user) {
-      user = await User.findOne({ email: "demo@syntra.com" });
-    }
-
-    // Create the demo user if they don't exist yet (ensures robust zero-config startup)
-    if (!user) {
-      user = await User.create({
-        name: "Aana",
-        email: "demo@syntra.com",
-        scores: { health: 75, finance: 80, career: 85 },
-        gamification: {
-          totalPoints: 1000,
-          currentStreak: 12,
-          lastLogDate: new Date(),
-        },
-        goals: [
-          { title: "Hit LeetCode Knight", domain: "career", priority: "high" },
-          { title: "Cap Zomato spending", domain: "finance", priority: "med" }
-        ]
-      });
+      return NextResponse.json({ success: false, error: "User profile not found in database." }, { status: 404 });
     }
 
     let logEntry: any = null;
@@ -183,8 +164,9 @@ export async function POST(req: Request) {
     await user.save();
 
     // 5. Trigger Digital Twin background recalculation to integrate sync data
+    // Passing the fully updated user object to the snapshot service to completely prevent serverless read-after-write race conditions.
     waitUntil(
-      generateAndStoreSnapshot(user._id.toString()).catch(err => {
+      generateAndStoreSnapshot(user._id.toString(), user).catch(err => {
         console.error("[Mock API POST Background] Recalibration failed:", err);
       })
     );

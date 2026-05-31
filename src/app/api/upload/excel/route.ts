@@ -99,7 +99,8 @@ export const POST = apiHandler(async (req: Request) => {
         const num = Number(val);
         record[standardHeader] = !isNaN(num) && val !== "" ? num : undefined;
       } else {
-        record[standardHeader] = val;
+        // Enforce Formula Injection sanitization for Excel spreadsheets
+        record[standardHeader] = typeof val === "string" && /^[=\+\-\@]/.test(val) ? `'${val}` : val;
       }
     }
     

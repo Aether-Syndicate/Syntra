@@ -14,7 +14,7 @@
 import { ChallengeContext, ChallengeResponse } from "../../types/ai";
 import { callGemini } from "../../lib/gemini";
 
-// ── Badge Catalog (shared with frontend/Member 4) ────────────────
+// ── Badge Catalog ────────────────
 export const BADGE_CATALOG = [
   { id: "week_warrior",      name: "Week Warrior",      domain: "health",       requirement: 7,   unit: "workout streak days",   points: 100 },
   { id: "sleep_champion",    name: "Sleep Champion",    domain: "health",       requirement: 7,   unit: "7h+ sleep nights",      points: 75  },
@@ -26,7 +26,7 @@ export const BADGE_CATALOG = [
   { id: "syntra_elite",      name: "Syntra Elite",      domain: "cross-domain", requirement: 3,   unit: "active domain streaks", points: 500 },
 ] as const;
 
-// ── Point Value System (used by Member 4's state management) ────
+// ── Point Value System ────
 export const POINT_VALUES = {
   LOG_MEAL:               10,
   LOG_WORKOUT:            15,
@@ -115,9 +115,9 @@ function getNextBadge(streaks: Record<string, number>, earnedBadges: string[]) {
   };
 }
 
-// ── Specificity Rules (Gopalan Standard) ─────────────────────────
+// ── Specificity Rules ─────────────────────────
 const CHALLENGE_SPECIFICITY_RULES = `
-CRITICAL SPECIFICITY RULES (Gopalan Standard):
+CRITICAL SPECIFICITY RULES:
 1. NEVER give generic challenges like "eat healthy" or "save money".
 2. If a health/nutrient gap exists, the challenge MUST be to eat a specific food today (e.g., "Eat one carrot today").
 3. If a wealth goal exists, the challenge MUST name a specific expense to cut (e.g., "Skip your Rs. 200 Swiggy order today and transfer it to your Thar downpayment").
@@ -132,8 +132,13 @@ export function buildChallengePrompt(ctx: ChallengeContext): string {
     .map(([h, log]) => `${h}: [${log.map((v) => (v ? "✓" : "✗")).join(" ")}]`)
     .join("\n");
 
-  // Safely extract active goals/gaps to feed Gemini the exact context
-  const specificWealthGoals = (ctx as any).finance?.wealthGoals?.map((g: any) => g.goalLabel).join(", ") || "Dream Car / Home Downpayment";
+  // Safely extract active goals/gaps to feed Gemini the exact context with precomputed math
+  const specificWealthGoals = (ctx as any).finance?.wealthGoals?.map((g: any) => {
+    if (typeof g.requiredMonthlySavings === "number") {
+      return `${g.goalLabel} (Requires Rs. ${g.requiredMonthlySavings.toLocaleString("en-IN")}/month, actual savings: Rs. ${g.actualMonthlySavings?.toLocaleString("en-IN")}/month, Deficit: ${g.deficitText})`;
+    }
+    return g.goalLabel;
+  }).join(", ") || "Dream Car / Home Downpayment";
   const specificHealthGaps = (ctx as any).health?.historicalNutrientGaps ? JSON.stringify((ctx as any).health.historicalNutrientGaps) : "Vitamin A deficit, Low protein";
 
   return `

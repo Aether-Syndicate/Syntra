@@ -24,6 +24,9 @@ export interface IUser extends Document {
   password?: string;
   age?: number;
   avatarId: number;
+  optimizationVector?: "health" | "finance" | "career";
+  personalMission?: string;
+  healthConstraints?: string;
   profile: {
     monthlyIncome: number;
     monthlyBudget: number;
@@ -77,6 +80,9 @@ const UserSchema = new Schema<IUser>(
     // Onboarding Fields
     age: { type: Number },
     avatarId: { type: Number, default: 1 },
+    optimizationVector: { type: String, enum: ["health", "finance", "career"], default: "career" },
+    personalMission: { type: String, default: "" },
+    healthConstraints: { type: String, default: "none" },
 
     // Grouped Scores
     scores: {

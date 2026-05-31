@@ -58,12 +58,12 @@ export const POST = apiHandler(async (req: Request) => {
 
   switch (domain) {
     case "health": {
-      const newScore = calculateHealthScore(data.sleepHours, data.workoutMinutes, data.stressLevel);
+      const newScore = calculateHealthScore(data.sleepHours, data.workoutMinutes, data.stressLevel, data.waterGlasses);
       user.scores.health = Math.round((user.scores.health * (1 - smoothingFactor)) + (newScore * smoothingFactor));
       break;
     }
     case "finance": {
-      const newScore = calculateFinanceScore(data.amountSaved, data.discretionarySpent);
+      const newScore = calculateFinanceScore(data.amountSaved, data.discretionarySpent, data.impulseSpend);
       user.scores.finance = Math.round((user.scores.finance * (1 - smoothingFactor)) + (newScore * smoothingFactor));
       break;
     }

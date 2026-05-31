@@ -8,22 +8,27 @@ import { calculateConfidence } from "@/lib/confidenceScore";
 import { analyzeBehavioralDrift } from "@/lib/driftEngine";
 import { callGemini } from "@/lib/gemini";
 import { Logger } from "@/lib/logger";
+import { generateaitwinReflection } from "@/lib/prompts/aitwinReflection";
 
 /**
  * Asynchronously generates a fresh AI twin reflection and stores it as a cached snapshot.
  * Destined to run as a background promise to ensure standard log/CSV submissions return immediately.
  */
-export async function generateAndStoreSnapshot(userId: string | mongoose.Types.ObjectId): Promise<void> {
+export async function generateAndStoreSnapshot(
+  userId: string | mongoose.Types.ObjectId,
+  preFetchedUser?: any,
+  preFetchedLogs?: any[]
+): Promise<void> {
   const startTime = performance.now(); // ⏱️ Start stopwatch
   try {
     await connectDB();
-    const user = await User.findById(userId);
+    const user = preFetchedUser || await User.findById(userId);
     if (!user) {
       console.warn(`[Snapshot Service] User not found for ID: ${userId}`);
       return;
     }
 
-    const recentLogs = await Log.find({ userId: user._id })
+    const recentLogs = preFetchedLogs || await Log.find({ userId: user._id })
       .sort({ date: -1 })
       .limit(42)
       .lean();
@@ -76,63 +81,23 @@ export async function generateAndStoreSnapshot(userId: string | mongoose.Types.O
       return; 
     }
 
-    // 2. The Super-Prompt: Feed this deterministic math straight to the AI
-    const aiPrompt = `
-Operator is experiencing a Global Drift Index of ${driftReport.globalDriftIndex}/100.
-Primary Divergence: ${driftReport.primaryDivergenceCause}
-
-System generated these mandatory recommendations:
-${driftReport.recommendations.join("\n")}
-
-Write a 2-sentence cyberpunk OS notification delivering this exact diagnosis to the Operator. 
-Do not invent new metrics.
-`;
-
-    const aiResponse = await callGemini<string>(aiPrompt, { temperature: 0.5 });
-
-    // 3. Construct a premium structured reflection matching Zod schemas
-    const structuredReflection = {
-      twinPrediction: `Your Twin forecasts a trajectory divergence risk due to: ${driftReport.primaryDivergenceCause}.`,
-      dailyReflection: aiResponse,
-      explainability: [
-        `Global Drift Index is currently at ${driftReport.globalDriftIndex}/100, signaling trajectory divergence.`,
-        `Divergence is primarily triggered by ${driftReport.primaryDivergenceCause}.`
-      ],
-      dailyChallenge: driftReport.recommendations[0] 
-        ? `Execute the priority target today: ${driftReport.recommendations[0]}`
-        : "Log all biometric domains today to recalibrate the twin trajectory model.",
-      recommendations: {
-        health: [
-          driftReport.domains.health.sleep.driftPercentage < 0 
-            ? `Standardize a screen-free sleep transition routine (Actual Sleep: ${driftReport.domains.health.sleep.actualAverage}h vs ${driftReport.domains.health.sleep.targetValue}h).`
-            : "Maintain your nominal sleep schedule and somatic rest window.",
-          driftReport.domains.health.workouts.driftPercentage < 0
-            ? `Increase weekly activity towards minimum WHO guidelines (Actual Workouts: ${driftReport.domains.health.workouts.actualAverage} min vs ${driftReport.domains.health.workouts.targetValue} min).`
-            : "Continue with your active somatic training split."
-        ],
-        finance: [
-          driftReport.domains.finance.spendingVsBudget.driftPercentage < 0
-            ? `Cap discretionary spend to daily budget limit of Rs.${driftReport.domains.finance.spendingVsBudget.targetValue} (Actual Spend: Rs.${driftReport.domains.finance.spendingVsBudget.actualAverage}).`
-            : "Discretionary spending continues to trace inside the target baseline budget.",
-          driftReport.domains.finance.savingsRate.driftPercentage < 0
-            ? `Increase SIP allocations to align with target savings rate of ${driftReport.domains.finance.savingsRate.targetValue}% (Actual Rate: ${driftReport.domains.finance.savingsRate.actualAverage}%).`
-            : "Savings velocity is in optimal tracking bounds."
-        ],
-        career: [
-          driftReport.domains.career.studyHours.driftPercentage < 0
-            ? `Prioritize weekly skill-acquisition sessions to hit upskilling targets of ${driftReport.domains.career.studyHours.targetValue}h/week (Actual: ${driftReport.domains.career.studyHours.actualAverage}h/week).`
-            : "Upskilling study patterns are nominal and active.",
-          driftReport.domains.career.productivity.driftPercentage < 0
-            ? `Optimize productivity rating to hit target index baseline (Actual: ${driftReport.domains.career.productivity.actualAverage}/10 vs ${driftReport.domains.career.productivity.targetValue}/10).`
-            : "Daily productivity rating is stable."
-        ]
+    // 2. Invoke the Unified AI Twin Reflection Core
+    const aiResponse = await generateaitwinReflection(
+      twinContext,
+      {
+        health: user.scores.health,
+        finance: user.scores.finance,
+        career: user.scores.career,
       },
-      riskAlerts: driftReport.recommendations.slice(0, 2),
-      confidence: confidence
-    };
+      user.gamification?.currentStreak || 0,
+      confidence,
+      user.personalMission || "Achieve Personal Optimization",
+      user.healthConstraints || "none"
+    );
 
+    // 3. Cache the validated Gemini reflection in the User Document
     user.aiSnapshot = {
-      dailyReflection: structuredReflection,
+      dailyReflection: aiResponse,
       lastGeneratedAt: new Date(),
     };
     await user.save();

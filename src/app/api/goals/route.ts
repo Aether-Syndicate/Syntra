@@ -61,7 +61,11 @@ export async function GET() {
 
     await connectDB();
     const user = await User.findOne({ email: session.user.email });
-    return NextResponse.json({ success: true, goals: user?.goals || [] });
+    return NextResponse.json({ 
+      success: true, 
+      goals: user?.goals || [], 
+      badges: user?.badges || [] 
+    });
 
   } catch (error) {
     console.error("[GOALS GET ERROR]", error);

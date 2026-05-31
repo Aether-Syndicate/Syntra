@@ -1,9 +1,8 @@
-//src/lib/scoring.ts
 /**
- * Calculates a health score based on sleep, workout, and stress.
+ * Calculates a health score based on sleep, workout, stress, and hydration.
  * Max baseline score per entry ~100.
  */
-export const calculateHealthScore = (sleepHours: number, workoutMinutes: number, stressLevel: number): number => {
+export const calculateHealthScore = (sleepHours: number, workoutMinutes: number, stressLevel: number, waterGlasses?: number): number => {
   let score = 0;
   
   // Sleep (Target: 7-9 hours)
@@ -19,13 +18,19 @@ export const calculateHealthScore = (sleepHours: number, workoutMinutes: number,
   // Stress (1-10, lower is better)
   score += Math.max(0, 20 - (stressLevel * 2));
 
+  // Hydration bonus (optional — only applies if user logs water intake)
+  if (typeof waterGlasses === "number") {
+    if (waterGlasses >= 8) score += 5;
+    else if (waterGlasses <= 2) score -= 3;
+  }
+
   return Math.max(0, Math.min(100, score));
 };
 
 /**
- * Calculates a finance score based on savings and discretionary spending.
+ * Calculates a finance score based on savings, discretionary spending, and impulse flags.
  */
-export const calculateFinanceScore = (amountSaved: number, discretionarySpent: number): number => {
+export const calculateFinanceScore = (amountSaved: number, discretionarySpent: number, impulseSpend?: boolean): number => {
   let score = 50; // Base score
   
   // Positive impact from savings
@@ -36,6 +41,9 @@ export const calculateFinanceScore = (amountSaved: number, discretionarySpent: n
   if (discretionarySpent === 0) score += 20;
   else if (discretionarySpent < 50) score += 10;
   else if (discretionarySpent > 100) score -= 20;
+
+  // Impulse spend penalty — user self-reported accountability
+  if (impulseSpend === true) score -= 5;
   
   return Math.max(0, Math.min(100, score));
 };

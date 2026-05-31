@@ -111,6 +111,34 @@ export default function SimulatorPage() {
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<SimulationResponse | null>(null);
 
+  // Dynamic Real-time "System Impact" HUD computation
+  const systemImpactHUD = useMemo(() => {
+    const multiplier = percentageChange >= 0 ? -1 : 1;
+    const absChange = Math.abs(percentageChange);
+    
+    // 1% shift results in 0.05 months change (e.g. 30% shift is 1.5 months)
+    const monthShift = parseFloat((absChange * 0.05).toFixed(1));
+    const isBenefit = multiplier < 0; 
+    
+    let goalLabel = "Mahindra Thar Downpayment";
+    if (domain === "finance") {
+      goalLabel = "Mahindra Thar Downpayment";
+    } else if (domain === "career") {
+      goalLabel = "LeetCode Knight / Career Promotion";
+    } else if (domain === "health") {
+      goalLabel = "Sleep Consistency & Vitals Baseline";
+    }
+
+    return {
+      goalLabel,
+      monthShift: monthShift === 0 ? "0.0" : `${isBenefit ? "−" : "+"}${monthShift}`,
+      text: isBenefit 
+        ? `Accelerating target milestone by ${monthShift} month${monthShift !== 1 ? "s" : ""}`
+        : `Delaying target milestone by ${monthShift} month${monthShift !== 1 ? "s" : ""}`,
+      isBenefit
+    };
+  }, [domain, percentageChange]);
+
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
@@ -505,6 +533,38 @@ export default function SimulatorPage() {
                 <div className="slider-labels" style={{ paddingLeft: 52, paddingRight: 52 }}>
                   <span>Reduce</span><span>Neutral</span><span>Increase</span>
                 </div>
+
+                {/* Real-time System Impact HUD Widget */}
+                <div className="system-impact-hud" style={{
+                  marginTop: 18,
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  background: "#090d16",
+                  border: `1px solid ${systemImpactHUD.isBenefit && percentageChange !== 0 ? "rgba(16,185,129,0.3)" : percentageChange === 0 ? "rgba(96,165,250,0.3)" : "rgba(239,68,68,0.3)"}`,
+                  boxShadow: `0 4px 12px ${systemImpactHUD.isBenefit && percentageChange !== 0 ? "rgba(16,185,129,0.15)" : percentageChange === 0 ? "rgba(96,165,250,0.15)" : "rgba(239,68,68,0.15)"}`,
+                  transition: "all 0.3s ease",
+                  textAlign: "left"
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em" }}>🎯 System Impact HUD Projection</span>
+                    <span style={{
+                      fontFamily: "'Courier New', Courier, monospace",
+                      fontSize: "1.1rem",
+                      fontWeight: 800,
+                      color: systemImpactHUD.isBenefit && percentageChange !== 0 ? "#10b981" : percentageChange === 0 ? "#60a5fa" : "#ef4444",
+                      textShadow: `0 0 4px ${systemImpactHUD.isBenefit && percentageChange !== 0 ? "rgba(16,185,129,0.4)" : percentageChange === 0 ? "rgba(96,165,250,0.4)" : "rgba(239,68,68,0.4)"}`
+                    }}>
+                      {systemImpactHUD.monthShift} Months
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#fff", display: "flex", alignItems: "center", gap: 6 }}>
+                    <Sparkles size={12} style={{ color: systemImpactHUD.isBenefit && percentageChange !== 0 ? "#10b981" : percentageChange === 0 ? "#60a5fa" : "#ef4444" }} />
+                    <span>{systemImpactHUD.goalLabel}</span>
+                  </div>
+                  <p style={{ margin: "4px 0 0 18px", fontSize: "0.74rem", color: "#9ca3af", fontWeight: 500 }}>
+                    {percentageChange === 0 ? "No change in trajectory." : systemImpactHUD.text}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -521,15 +581,19 @@ export default function SimulatorPage() {
                     <div className="ch-sub">Six-month projection</div>
                   </div>
                 </div>
-                {result && (
-                  <span className="risk-badge" style={{
-                    background: riskConfig[result.aiAnalysis.riskLevel].bg,
-                    color: riskConfig[result.aiAnalysis.riskLevel].color,
-                    borderColor: riskConfig[result.aiAnalysis.riskLevel].border,
-                  }}>
-                    {riskConfig[result.aiAnalysis.riskLevel].label}
-                  </span>
-                )}
+                {result && (() => {
+                  const rLevel = (result?.aiAnalysis?.riskLevel || "medium").toLowerCase() as keyof typeof riskConfig;
+                  const rConf = riskConfig[rLevel] || riskConfig.medium;
+                  return (
+                    <span className="risk-badge" style={{
+                      background: rConf.bg,
+                      color: rConf.color,
+                      borderColor: rConf.border,
+                    }}>
+                      {rConf.label}
+                    </span>
+                  );
+                })()}
               </div>
 
               {/* Legend */}
@@ -569,8 +633,8 @@ export default function SimulatorPage() {
               <div style={{ background: "#f8fafc", border: "1px solid #e8ebf4", borderRadius: 14, padding: "14px 16px", fontSize: "0.88rem", color: "#475569", lineHeight: 1.7 }}>
                 {result ? (
                   <>
-                    <div style={{ fontWeight: 700, color: "#111", marginBottom: 5 }}>{result.aiAnalysis.scenarioTitle}</div>
-                    {result.aiAnalysis.primaryOutcome}
+                    <div style={{ fontWeight: 700, color: "#111", marginBottom: 5 }}>{result?.aiAnalysis?.scenarioTitle || "Simulation Output"}</div>
+                    {result?.aiAnalysis?.primaryOutcome || "Simulation processed successfully."}
                   </>
                 ) : loading ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -604,7 +668,7 @@ export default function SimulatorPage() {
                   </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
-                  {result.aiAnalysis.tradeOffs.map((item, i) => {
+                  {(result?.aiAnalysis?.tradeOffs || []).map((item, i) => {
                     const pos = item.impact === "positive", neg = item.impact === "negative";
                     return (
                       <div key={i} className="to-card" style={{
@@ -616,7 +680,7 @@ export default function SimulatorPage() {
                           {pos ? <ArrowUpRight size={15} style={{ color: "#16a34a" }} /> : neg ? <AlertTriangle size={15} style={{ color: "#ef4444" }} /> : <Sparkles size={15} style={{ color: "#0044DD" }} />}
                         </div>
                         <div className="to-num" style={{ color: pos ? "#15803d" : neg ? "#dc2626" : "#64748b" }}>
-                          <AnimatedNumber value={item.magnitude} />
+                          <AnimatedNumber value={item.magnitude || 0} />
                         </div>
                         <p style={{ color: "#64748b", fontSize: "0.82rem", lineHeight: 1.65, margin: 0 }}>{item.explanation}</p>
                       </div>
@@ -641,7 +705,7 @@ export default function SimulatorPage() {
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {result.aiAnalysis.timelineProjection.map((step, i) => (
+                  {(result?.aiAnalysis?.timelineProjection || []).map((step, i) => (
                     <div key={i} className="tl-item">
                       <div className="tl-num">{i + 1}</div>
                       <div>
@@ -656,13 +720,13 @@ export default function SimulatorPage() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b" }}>Confidence Score</span>
                     <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1.15rem", fontWeight: 800, color: "#0044DD" }}>
-                      <AnimatedNumber value={result.aiAnalysis.confidence} suffix="%" />
+                      <AnimatedNumber value={result?.aiAnalysis?.confidence || 0} suffix="%" />
                     </span>
                   </div>
                   <div className="conf-track">
-                    <div className="conf-fill" style={{ width: `${result.aiAnalysis.confidence}%` }} />
+                    <div className="conf-fill" style={{ width: `${result?.aiAnalysis?.confidence || 0}%` }} />
                   </div>
-                  <p style={{ marginTop: 12, color: "#475569", fontSize: "0.86rem", lineHeight: 1.7 }}>{result.aiAnalysis.recommendedPath}</p>
+                  <p style={{ marginTop: 12, color: "#475569", fontSize: "0.86rem", lineHeight: 1.7 }}>{result?.aiAnalysis?.recommendedPath || ""}</p>
                   <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", padding: "12px 14px", borderRadius: 12, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
                     <CheckCircle2 size={14} style={{ color: "#15803d", flexShrink: 0 }} />
                     <span style={{ fontSize: "0.8rem", color: "#14532d", lineHeight: 1.55 }}>Analysis complete. Twin Intelligence updated with latest behavioral telemetry.</span>

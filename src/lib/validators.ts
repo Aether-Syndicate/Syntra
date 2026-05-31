@@ -13,6 +13,9 @@ const HealthDataSchema = z.object({
   energyLevel: z.number().min(1).max(10).optional(),
   caloriesConsumed: z.number().min(0).max(10000).optional(),
   calorieGoal: z.number().min(0).max(10000).optional(),
+  waterGlasses: z.number().min(0).max(20).optional(),
+  skippedMeals: z.array(z.enum(["breakfast", "lunch", "dinner"])).optional(),
+  mealsEatenToday: z.string().max(400).optional(),
 });
 
 const FinanceDataSchema = z.object({
@@ -25,6 +28,8 @@ const FinanceDataSchema = z.object({
   ]).optional(),
   // Auto-injected server-side — never from form
   spendingTime: z.number().min(0).max(23).optional(),
+  biggestExpenseToday: z.string().max(100).optional(),
+  impulseSpend: z.boolean().optional(),
 });
 
 const CareerDataSchema = z.object({
@@ -34,6 +39,8 @@ const CareerDataSchema = z.object({
   // Optional
   sessionsCompleted: z.number().min(0).optional(),
   courseName: z.string().max(100).optional(),
+  goalWorkedOn: z.string().max(200).optional(),
+  blockerToday: z.string().max(200).optional(),
 });
 
 export const IngestionSchema = z.discriminatedUnion("domain", [
@@ -41,6 +48,15 @@ export const IngestionSchema = z.discriminatedUnion("domain", [
   z.object({ domain: z.literal("finance"), data: FinanceDataSchema }),
   z.object({ domain: z.literal("career"), data: CareerDataSchema }),
 ]);
+
+// ─── UNIFIED DAILY LOG SCHEMA ─────────────────────────────────────
+// Single-submit endpoint: all 3 domains + optional daily reflection note
+export const DailyLogSchema = z.object({
+  health: HealthDataSchema,
+  finance: FinanceDataSchema,
+  career: CareerDataSchema,
+  dailyNote: z.string().max(500).optional(),
+});
 
 // ─── SIGNUP SCHEMA ────────────────────────────────────────────────
 

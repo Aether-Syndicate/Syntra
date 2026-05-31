@@ -48,6 +48,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           avatarId: user.avatarId,
           streak: user.gamification?.currentStreak ?? 0, 
+          optimizationVector: user.optimizationVector ?? "career",
         };
       }
     })
@@ -59,6 +60,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.avatarId = user.avatarId;
         token.streak = user.streak; // Now correctly grabs the value!
+        token.optimizationVector = user.optimizationVector;
       }
       return token;
     },
@@ -68,6 +70,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id;
         session.user.avatarId = token.avatarId;
         session.user.streak = token.streak;
+        session.user.optimizationVector = token.optimizationVector;
       }
       return session;
     }

@@ -8,10 +8,11 @@ import bcrypt from "bcryptjs";
 export async function GET(request: Request) {
   try {
     // 1. Security Check: Don't let random people wipe your DB!
-    const { searchParams } = new URL(request.url);
-    const secret = searchParams.get('secret');
+    // Migrated key verification from plain-text URL query strings to standard secure HTTP headers.
+    const secret = request.headers.get("X-Syntra-Setup-Key");
     
-    if (secret !== "hackathon_win") {
+    const demoSecret = process.env.DEMO_SECRET;
+    if (!demoSecret || secret !== demoSecret) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

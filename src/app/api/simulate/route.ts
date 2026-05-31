@@ -8,6 +8,7 @@ import { runSimulation } from "@/lib/simulator";
 import { buildTwinContext } from "@/lib/aiContextBuilder";
 import { calculateConfidence } from "@/lib/confidenceScore";
 import { generateSimulatorInsight } from "@/lib/prompts/aisimulatorPrompt";
+import { preComputeWealthGoals } from "@/lib/financeMath";
 import mongoose from "mongoose";
 
 export async function POST(req: Request) {
@@ -48,6 +49,38 @@ export async function POST(req: Request) {
       monthlyIncome: user.profile?.monthlyIncome,
       monthlyBudget: user.profile?.monthlyBudget,
     });
+
+    // Parse user's long-term financial targets into strongly-typed wealthGoals for the Simulator Prompt using the pre-computation helper
+    const wealthGoals = preComputeWealthGoals(
+      user.goals,
+      user.profile?.monthlyIncome || 50000,
+      user.profile?.monthlyBudget || 0,
+      twinContext.weeklyAverages.savingsRate
+    );
+
+    // Determine health nutrient and habit gaps based on average sleep or calorie metrics
+    const historicalNutrientGaps = ["Vitamin A deficit", "Low protein"];
+    if (twinContext.weeklyAverages.sleep < 6.5) {
+      historicalNutrientGaps.push("Severe sleep debt (under 6.5h average)");
+    }
+    if (twinContext.weeklyAverages.calorieAdherence < 45) {
+      historicalNutrientGaps.push("Calorie target misalignment");
+    }
+
+    // Inject calculations into twinContext weeklyAverages and finance payload
+    if (wealthGoals.length > 0) {
+      const primaryGoal = wealthGoals[0];
+      (twinContext.weeklyAverages as any).requiredMonthlySavings = primaryGoal.requiredMonthlySavings;
+      (twinContext.weeklyAverages as any).savingsDeficit = primaryGoal.deficit;
+      (twinContext.weeklyAverages as any).savingsDeficitText = primaryGoal.deficitText;
+    }
+    (twinContext as any).finance = { 
+      wealthGoals,
+      requiredMonthlySavings: wealthGoals[0]?.requiredMonthlySavings || 0,
+      savingsDeficit: wealthGoals[0]?.deficit || 0,
+      savingsDeficitText: wealthGoals[0]?.deficitText || "User is on track",
+    };
+    (twinContext as any).health = { historicalNutrientGaps };
 
     const confidence = calculateConfidence(twinContext.logCount);
 

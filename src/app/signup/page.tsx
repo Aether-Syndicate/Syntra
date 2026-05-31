@@ -327,11 +327,99 @@ const AVATAR_OPTIONS = [
   },
 ];
 
+// ─── FieldError ──────────────────────────────────────────────────────────────
+function FieldError({ message }: { message: string }) {
+  return (
+    <p className="field-error">
+      <span aria-hidden="true">·</span>
+      {message}
+    </p>
+  );
+}
+
+// ─── Password validation rules ────────────────────────────────────────────────
+const PASSWORD_RULES = [
+  { label: "8+ characters", test: (v: string) => v.length >= 8 },
+  { label: "One uppercase letter", test: (v: string) => /[A-Z]/.test(v) },
+  { label: "One number", test: (v: string) => /\d/.test(v) },
+  { label: "One special character", test: (v: string) => /[^a-zA-Z0-9]/.test(v) },
+];
+
+// ─── PasswordField ────────────────────────────────────────────────────────────
+function PasswordField({
+  value,
+  onChange,
+  focused,
+  onFocus,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  focused: boolean;
+  onFocus: () => void;
+}) {
+  const [touched, setTouched] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const failedRules = PASSWORD_RULES.filter((r) => !r.test(value));
+  const showErrors = touched && failedRules.length > 0;
+
+  return (
+    <div className="input-group">
+      <label className="input-label">Password</label>
+      <div className="input-wrap">
+        <span className={`input-icon ${focused ? "active" : ""}`}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </span>
+        <input
+          type={showPassword ? "text" : "password"}
+          name="password"
+          required
+          placeholder="Create a password"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={onFocus}
+          onBlur={() => setTouched(true)}
+          className="form-input"
+        />
+        <button
+          type="button"
+          className="password-toggle"
+          onClick={() => setShowPassword((s) => !s)}
+          aria-label={showPassword ? "Hide password" : "Show password"}
+        >
+          {showPassword ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+              <line x1="1" y1="1" x2="23" y2="23" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          )}
+        </button>
+      </div>
+      {showErrors && (
+        <div role="group" aria-label="Password requirements not met">
+          {failedRules.map((r) => (
+            <FieldError key={r.label} message={r.label} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [nameError, setNameError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [nameFocused, setNameFocused] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
@@ -340,7 +428,6 @@ export default function SignupPage() {
     name: "",
     email: "",
     password: "",
-    age: "",
     avatarId: 1,
   });
 
@@ -351,27 +438,24 @@ export default function SignupPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNameError("");
+    setEmailError("");
 
     // ── Frontend Validation ──────────────────────────────────────────────
     if (!formData.name.trim()) {
-      setError("Name is required");
+      setNameError("Name is required.");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email");
+      setEmailError("Please enter a valid email address.");
       return;
     }
 
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-
-    const age = Number(formData.age);
-    if (isNaN(age) || age < 13 || age > 120) {
-      setError("Age must be between 13 and 120");
+    const failedRules = PASSWORD_RULES.filter((r) => !r.test(formData.password));
+    if (failedRules.length > 0) {
+      setError(`Password needs: ${failedRules.map((r) => r.label).join(", ")}.`);
       return;
     }
 
@@ -387,10 +471,15 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Something went wrong");
+        if (res.status === 409 || data.message?.toLowerCase().includes("exist")) {
+          setEmailError("An account with this email already exists.");
+        } else {
+          throw new Error(data.message || "Something went wrong");
+        }
+        return;
       }
 
-      // ── CHANGED: Redirect to /onboarding instead of /dashboard ──────
+      // ── Redirect to /onboarding after registration ──────
       await signIn("credentials", {
         email: formData.email,
         password: formData.password,
@@ -417,9 +506,9 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <h1 className="signup-title">Create Your Account</h1>
+        <h1 className="signup-title">Create your twin</h1>
         <p className="signup-subtitle">
-          Choose your AI twin identity and sync your digital self
+          Choose your avatar and sync your digital self
         </p>
 
         {/* ── Premium Avatar Picker ────────────────────────────────────── */}
@@ -490,7 +579,7 @@ export default function SignupPage() {
                     )}
                   </div>
                   <span className="avatar-label premium-label">{avatar.name}</span>
-                  <span className="avatar-tagline">{avatar.tagline}</span>
+                  <span className="avatar-descriptor">Cosmetic — your twin&apos;s focus is set during setup</span>
                 </div>
               );
             })}
@@ -508,7 +597,7 @@ export default function SignupPage() {
               <span className="banner-name" style={{ color: selectedAvatar.accent }}>
                 {selectedAvatar.name}
               </span>
-              <span className="banner-tagline">{selectedAvatar.tagline}</span>
+              <span className="banner-tagline">Cosmetic — your twin&apos;s focus is set during setup</span>
             </div>
             <div
               className="banner-dot"
@@ -525,16 +614,7 @@ export default function SignupPage() {
             <label className="input-label">Full Name</label>
             <div className="input-wrap">
               <span className={`input-icon ${nameFocused ? "active" : ""}`}>
-                <svg
-                  width="17"
-                  height="17"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
@@ -551,6 +631,7 @@ export default function SignupPage() {
                 className="form-input"
               />
             </div>
+            {nameError && <FieldError message={nameError} />}
           </div>
 
           {/* Email */}
@@ -558,16 +639,7 @@ export default function SignupPage() {
             <label className="input-label">Email</label>
             <div className="input-wrap">
               <span className={`input-icon ${emailFocused ? "active" : ""}`}>
-                <svg
-                  width="17"
-                  height="17"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                   <polyline points="22,6 12,13 2,6" />
                 </svg>
@@ -584,122 +656,20 @@ export default function SignupPage() {
                 className="form-input"
               />
             </div>
+            {emailError && <FieldError message={emailError} />}
           </div>
 
-          {/* Password + Age row */}
-          <div className="row-inputs">
-            <div className="input-group">
-              <label className="input-label">Password</label>
-              <div className="input-wrap">
-                <span className={`input-icon ${passwordFocused ? "active" : ""}`}>
-                  <svg
-                    width="17"
-                    height="17"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="11" width="18" height="11" rx="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                </span>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  required
-                  placeholder="Create a password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
-                  className="form-input"
-                />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-              <p
-                style={{
-                  fontSize: "0.72rem",
-                  color: "#6b7280",
-                  marginTop: "6px",
-                  lineHeight: "1.5",
-                  paddingLeft: "2px",
-                }}
-              >
-                Password must contain:
-                <br />• 8+ characters
-                <br />• 1 uppercase letter
-                <br />• 1 number
-                <br />• 1 special character
-              </p>
-            </div>
-
-            <div className="input-group" style={{ maxWidth: "100px" }}>
-              <label className="input-label">Age</label>
-              <div className="input-wrap">
-                <input
-                  type="number"
-                  name="age"
-                  min="13"
-                  placeholder="Age"
-                  value={formData.age}
-                  onChange={handleChange}
-                  className="form-input no-icon"
-                  style={{ paddingLeft: "16px", paddingRight: "12px" }}
-                />
-              </div>
-            </div>
-          </div>
+          {/* Password — validates on blur only */}
+          <PasswordField
+            value={formData.password}
+            onChange={(v) => setFormData({ ...formData, password: v })}
+            focused={passwordFocused}
+            onFocus={() => setPasswordFocused(true)}
+          />
 
           {error && (
             <div className="error-box" style={{ marginTop: "1rem" }}>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />

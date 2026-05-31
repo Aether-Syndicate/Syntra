@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import {
   Cpu,
   Shield,
@@ -323,6 +325,12 @@ function useTypewriter(fullText: string) {
 export default function ProfilePage() {
   const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
+
+  const { data: dashData } = useSWR<any>("/api/dashboard", fetcher, {
+    dedupingInterval: 60000,
+    revalidateOnFocus: true,
+  });
+  const userBadges = dashData?.dashboard?.gamification?.badges || [];
 
   const [profile, setProfile] = useState({
     name: "",
@@ -967,25 +975,33 @@ export default function ProfilePage() {
               <div className="pf-badge-grid">
                 {BADGES.map(badge => {
                   const BIcon = badge.icon;
+                  const isUnlocked = userBadges.some((ub: string) => 
+                    ub.toLowerCase() === badge.title.toLowerCase() || 
+                    ub.toLowerCase() === badge.id.toLowerCase() ||
+                    ub.toLowerCase() === badge.id.replace("_", " ").toLowerCase()
+                  ) || (badge.id === "neural_init" && userBadges.length > 0)
+                    || (badge.id === "apex_optimizer" && userBadges.includes("Rising Twin"))
+                    || (badge.id === "grand_architect" && userBadges.includes("Month Master"));
+
                   return (
                     <div
                       key={badge.id}
-                      className={`pf-badge-card ${badge.unlocked ? "unlocked" : "locked"}`}
+                      className={`pf-badge-card ${isUnlocked ? "unlocked" : "locked"}`}
                       style={{
-                        background: badge.unlocked ? badge.bg : "#f8fafc",
+                        background: isUnlocked ? badge.bg : "#f8fafc",
                         ["--b-color" as any]: badge.color,
                       }}
                     >
-                      <div className="pf-badge-icon" style={{ background: badge.unlocked ? `${badge.color}22` : "#f1f5f9" }}>
-                        {badge.unlocked
+                      <div className="pf-badge-icon" style={{ background: isUnlocked ? `${badge.color}22` : "#f1f5f9" }}>
+                        {isUnlocked
                           ? <BIcon size={22} color={badge.color} />
                           : <Lock size={18} color="#cbd5e1" />
                         }
                       </div>
-                      <div className="pf-badge-title" style={{ color: badge.unlocked ? badge.color : "#94a3b8" }}>
+                      <div className="pf-badge-title" style={{ color: isUnlocked ? badge.color : "#94a3b8" }}>
                         {badge.title}
                       </div>
-                      {badge.unlocked ? (
+                      {isUnlocked ? (
                         <div className="pf-badge-desc">{badge.description}</div>
                       ) : (
                         <div className="pf-badge-lock"><Lock size={9}/> Locked</div>

@@ -319,13 +319,14 @@ function interpretScore(score: number): string {
 }
 
 // ================================================================
-// SPECIFICITY RULES (Gopalan Standard)
+// SPECIFICITY RULES 
 // ================================================================
-const REFLECTION_SPECIFICITY_RULES = `
-CRITICAL SPECIFICITY RULES (Gopalan Standard):
-1. Explicitly cite specific foods eaten/missed, specific rupee amounts saved/wasted, and exact hours studied.
-2. If trajectory dropped, name the EXACT root cause (e.g., "Rs. 2500 spent on impulse Zomato buys" or "0g of Vitamin A yesterday").
-3. Always connect current actions to their active long-term specific goals (Dream Car, Tech Tier 1 job, etc.).
+const REFLECTION_SPECIFICITY_RULES = (personalMission: string, healthConstraints: string) => `
+CRITICAL SPECIFICITY RULES:
+1. Explicitly cite specific foods eaten/missed (from the provided Recent Logs of Meals & Foods Eaten), specific rupee amounts saved/wasted, and exact hours studied.
+2. If trajectory dropped, name the EXACT root cause (e.g., "Rs. 2500 spent on impulse Zomato buys" or specific ingredients/food items logged).
+3. Always connect current actions to their active long-term specific goals (Dream Car, Tech Tier 1 job, etc.) and their primary Personal Mission ("${personalMission}").
+4. Acknowledge and respect the user's specific health constraints ("${healthConstraints}"). If they have a constraint (like Thyroid, Diabetes, Migraine, or any specific illness), you MUST analyze their logged meals to check if they conform to the constraint, and ensure all meal suggestions (e.g., in todaysMealPlan or recommendations) and risk alerts are highly tailored to accommodate and manage this constraint safely (avoiding trigger foods, recommending metabolic-safe schedules, etc.).
 `.trim();
 
 // ================================================================
@@ -337,32 +338,40 @@ export function buildaitwinReflectionPrompt(
   context: TwinContext,
   scores: DomainScores,
   streak: number,
-  confidence: number
+  confidence: number,
+  personalMission: string = "Achieve Personal Optimization",
+  healthConstraints: string = "none"
 ): string {
 
   const trajectory = calculateTrajectory(context, scores);
   const risks = detectRisks(context, trajectory);
   const selectedExample = selectFewShotExample(context, scores);
   const criticalSection = buildCriticalDomainSection(trajectory.criticalDomain, context, scores);
-
-  // Safely extract active goals/gaps to feed Gemini the exact context
-  const specificWealthGoals = (context as any).finance?.wealthGoals?.map((g: any) => g.goalLabel).join(", ") || "Dream Car / Home Downpayment";
+  const specificityRules = REFLECTION_SPECIFICITY_RULES(personalMission, healthConstraints);
+ 
+  // Safely extract active goals/gaps to feed Gemini the exact context with precomputed math
+  const specificWealthGoals = (context as any).finance?.wealthGoals?.map((g: any) => {
+    if (typeof g.requiredMonthlySavings === "number") {
+      return `${g.goalLabel} (Requires Rs. ${g.requiredMonthlySavings.toLocaleString("en-IN")}/month, actual savings: Rs. ${g.actualMonthlySavings?.toLocaleString("en-IN")}/month, Deficit: ${g.deficitText})`;
+    }
+    return g.goalLabel;
+  }).join(", ") || "Dream Car / Home Downpayment";
   const specificHealthGaps = (context as any).health?.historicalNutrientGaps ? JSON.stringify((context as any).health.historicalNutrientGaps) : "General nutrient gaps";
-
+ 
   const riskBlock = risks.length > 0
     ? `PRE-DETECTED RISK SIGNALS — address ALL of these in riskAlerts:\n${risks.map((r) => `  - ${r}`).join("\n")}`
     : "No critical risk signals pre-detected. riskAlerts may be an empty array if nothing else is found.";
-
+ 
   const dataQualityNote = context.logCount < 10
     ? `LOW DATA MODE: Only ${context.logCount} data points. Acknowledge this in dailyReflection. Lower confidence accordingly. Do not make strong predictions.`
     : context.logCount < 21
     ? `MODERATE DATA: ${context.logCount} data points. Pattern detection is possible but flag any low-certainty claims.`
     : `HIGH DATA MODE: ${context.logCount} data points across ${context.daysActive} days. Full pattern analysis is valid.`;
-
+ 
   return `
 You are Syntra — an advanced, empathetic Digital Twin AI.
 Prompt Version: ${TWIN_REFLECTION_PROMPT_VERSION}
-
+ 
 YOUR VOICE AND CHARACTER:
 - You speak in second person: "You", "Your Twin" — never third person
 - You are specific, never vague — every claim cites an actual number from the data
@@ -370,22 +379,25 @@ YOUR VOICE AND CHARACTER:
 - You acknowledge both a strength and a concern in every reflection
 - You are NOT a cheerleader ("Great job!") and NOT a doctor ("You may be experiencing")
 - You are NOT repetitive — each domain recommendation must be a distinct, non-overlapping action
-
+ 
 ━━━ USER STATE BRIEFING ━━━
-
+ 
+PERSONAL MISSION: ${personalMission}
+HEALTH CONSTRAINTS: ${healthConstraints}
+ 
 DOMAIN SCORES:
   Health:  ${scores.health}/100 (${interpretScore(scores.health)}) | Trend: ${context.trends.health}
   Finance: ${scores.finance}/100 (${interpretScore(scores.finance)}) | Trend: ${context.trends.finance}
   Career:  ${scores.career}/100 (${interpretScore(scores.career)}) | Trend: ${context.trends.productivity}
-
+ 
 Dominant strength: ${trajectory.dominantDomain.toUpperCase()}
 Most critical gap: ${trajectory.criticalDomain.toUpperCase()}
 Active streak: ${streak} consecutive days logged
-
+ 
 ACTIVE SPECIFIC GOALS (Reference these explicitly):
   Wealth Goals: ${specificWealthGoals}
   Health Gaps: ${specificHealthGaps}
-
+ 
 WEEKLY AVERAGES:
   Sleep:              ${context.weeklyAverages.sleep}h/night
   Sleep velocity:     ${trajectory.sleepVelocity}
@@ -396,26 +408,45 @@ WEEKLY AVERAGES:
   Mood score:         ${context.weeklyAverages.moodScore}/10
   Stress level:       ${context.weeklyAverages.stressLevel}/10
   Calorie adherence:  ${context.weeklyAverages.calorieAdherence}%
-
+ 
 BEHAVIOUR FLAGS (cross-domain correlations):
   Stress drives overspending:  ${context.behaviorFlags.stressSpendingCorrelation ? "ACTIVE" : "Not detected"}
   Poor sleep hurts career:     ${context.behaviorFlags.sleepCareerCorrelation ? "ACTIVE" : "Not detected"}
   No workout drops mood:       ${context.behaviorFlags.workoutMoodCorrelation ? "ACTIVE" : "Not detected"}
   Late-night spending:         ${context.behaviorFlags.lateNightSpending ? "ACTIVE" : "Not detected"}
   Weekend habit dropoff:       ${context.behaviorFlags.weekendDropoff ? "ACTIVE" : "Not detected"}
+ 
+HYDRATION & NUTRITION:
+  Avg water intake:    ${context.weeklyAverages.waterIntake} glasses/day ${context.weeklyAverages.waterIntake < 5 ? "(BELOW MINIMUM — flag this)" : "(adequate)"}
+  Meal consistency:    ${context.weeklyAverages.mealConsistency}% of days with all 3 meals
+  Meal skip pattern:   ${context.qualitative.skippedMealPattern}
+  Meals & Foods Eaten (Recent Logs):
+${context.qualitative.recentMealsEaten && context.qualitative.recentMealsEaten.length > 0 ? context.qualitative.recentMealsEaten.map((m, i) => `    Day ${i + 1}: "${m}"`).join("\n") : "    No specific food logs submitted yet. Nudge the user to start logging meals."}
+
+SPENDING INTELLIGENCE:
+  Top expenses:        ${context.qualitative.topExpenseNames.length > 0 ? context.qualitative.topExpenseNames.join(", ") : "No spending pattern data yet"}
+  Impulse spend rate:  ${context.qualitative.impulseSpendRate}% of logged days flagged as impulse ${context.qualitative.impulseSpendRate > 30 ? "(HIGH — address this)" : ""}
+
+CAREER CONTEXT:
+  Recent courses:      ${context.qualitative.recentCourseNames.length > 0 ? context.qualitative.recentCourseNames.join(", ") : "None logged"}
+  Goal focus (recent): ${context.qualitative.recentGoalFocus.length > 0 ? context.qualitative.recentGoalFocus.join(", ") : "None logged"}
+  Recent blockers:     ${context.qualitative.recentBlockers.length > 0 ? context.qualitative.recentBlockers.join(", ") : "None reported"}
+
+USER VOICE (recent daily notes — use these for empathetic context):
+${context.qualitative.recentDailyNotes.length > 0 ? context.qualitative.recentDailyNotes.map((n, i) => `  Day ${i + 1}: "${n}"`).join("\n") : "  No daily notes submitted yet."}
 
 COMPOSITE BURNOUT RISK: ${trajectory.burnoutRiskScore}/10
-
+ 
 ${dataQualityNote}
-
+ 
 ━━━ PRE-COMPUTED RISK ANALYSIS ━━━
 ${riskBlock}
-
+ 
 ━━━ CRITICAL DOMAIN DIRECTIVE ━━━
 ${criticalSection}
-
-${REFLECTION_SPECIFICITY_RULES}
-
+ 
+${specificityRules}
+ 
 ━━━ CALIBRATION EXAMPLE (match this specificity) ━━━
 ${selectedExample}
 
@@ -502,8 +533,10 @@ export async function generateaitwinReflection(
   context: TwinContext,
   scores: DomainScores,
   streak: number,
-  confidence: number
+  confidence: number,
+  personalMission: string = "Achieve Personal Optimization",
+  healthConstraints: string = "none"
 ): Promise<aitwinReflectionResponse> {
-  const prompt = buildaitwinReflectionPrompt(context, scores, streak, confidence);
+  const prompt = buildaitwinReflectionPrompt(context, scores, streak, confidence, personalMission, healthConstraints);
   return callWithValidation(prompt, confidence);
 }

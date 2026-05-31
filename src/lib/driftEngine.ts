@@ -14,6 +14,8 @@ export interface BehavioralDriftReport {
       sleep: DomainDrift;
       workouts: DomainDrift;
       stress: DomainDrift;
+      hydration: DomainDrift;
+      mealConsistency: DomainDrift;
     };
     finance: {
       spendingVsBudget: DomainDrift;
@@ -111,6 +113,28 @@ export function analyzeBehavioralDrift(
   const stressSD = calculateStandardDeviation(stressList);
   const stressVolatility = Math.min(10, Math.round((stressSD / 2.5) * 10));
 
+  // ── HYDRATION METRICS ──
+  const waterList = healthLogs.map(l => l.domainData?.waterGlasses).filter(v => typeof v === "number") as number[];
+  const avgWater = waterList.length > 0 ? waterList.reduce((a, b) => a + b, 0) / waterList.length : 8;
+  const targetWater = 8; // 8 glasses/day WHO recommendation
+  const waterDriftPct = calculateTargetDrift(avgWater, targetWater);
+  const waterSD = calculateStandardDeviation(waterList);
+  const waterVolatility = Math.min(10, Math.round((waterSD / 2) * 10));
+
+  // ── MEAL CONSISTENCY METRICS ──
+  const mealLogDays = healthLogs.filter(l => Array.isArray(l.domainData?.skippedMeals));
+  const avgMealConsistency = mealLogDays.length > 0
+    ? Math.round(
+        mealLogDays.filter(l => l.domainData.skippedMeals.length === 0).length
+        / mealLogDays.length * 100
+      )
+    : 100; // assume full consistency if never logged
+  const targetMealConsistency = 100; // Target 100% consistency (no skipped meals)
+  const mealConsistencyDriftPct = calculateTargetDrift(avgMealConsistency, targetMealConsistency);
+  const skippedCountList = mealLogDays.map(l => l.domainData?.skippedMeals?.length || 0);
+  const mealSD = calculateStandardDeviation(skippedCountList);
+  const mealVolatility = Math.min(10, Math.round(mealSD * 5)); // SD of 2 skipped meals = index 10
+
   // ── FINANCE METRICS ──
   const discretionarySpentList = financeLogs.map(l => l.domainData?.discretionarySpent).filter(v => typeof v === "number") as number[];
   const amountSavedList = financeLogs.map(l => l.domainData?.amountSaved).filter(v => typeof v === "number") as number[];
@@ -160,6 +184,8 @@ export function analyzeBehavioralDrift(
     healthSleepDrift < 0 ? Math.abs(healthSleepDrift) : 0,
     workoutDriftPct < 0 ? Math.abs(workoutDriftPct) : 0,
     stressDriftPct < 0 ? Math.abs(stressDriftPct) : 0,
+    waterDriftPct < 0 ? Math.abs(waterDriftPct) : 0,
+    mealConsistencyDriftPct < 0 ? Math.abs(mealConsistencyDriftPct) : 0,
     spendingDriftPct < 0 ? Math.abs(spendingDriftPct) : 0,
     savingsRateDriftPct < 0 ? Math.abs(savingsRateDriftPct) : 0,
     studyDriftPct < 0 ? Math.abs(studyDriftPct) : 0,
@@ -176,6 +202,8 @@ export function analyzeBehavioralDrift(
     { label: "sleep deficit causing circadian disruption", val: sleepDriftPct },
     { label: "exercise gaps slowing somatic performance", val: workoutDriftPct },
     { label: "heightened stress elevating cortisol indicators", val: stressDriftPct },
+    { label: "dehydration impairing cognitive and metabolic function", val: waterDriftPct },
+    { label: "irregular meal patterns or skipped meals affecting energy stability", val: mealConsistencyDriftPct },
     { label: "budget overruns degrading discretionary savings", val: spendingDriftPct },
     { label: "savings rate lagging behind configured baseline targets", val: savingsRateDriftPct },
     { label: "upskilling studies dropping below carrier acceleration limits", val: studyDriftPct },
@@ -199,6 +227,12 @@ export function analyzeBehavioralDrift(
   }
   if (studyDriftPct < -15) {
     recommendations.push(`Weekly study hours are lagging ${Math.abs(studyDriftPct)}% behind targets. Stack a 30-minute block immediately after your morning coffee.`);
+  }
+  if (waterDriftPct < -20) {
+    recommendations.push(`Hydration is ${Math.abs(waterDriftPct)}% below the 8-glass daily target (Avg: ${avgWater.toFixed(1)} glasses). Set hourly water reminders.`);
+  }
+  if (mealConsistencyDriftPct < -10) {
+    recommendations.push(`Meal consistency is ${Math.abs(mealConsistencyDriftPct)}% below target (Avg: ${avgMealConsistency}% consistent). Avoid skipping meals to maintain steady somatic energy.`);
   }
   if (recommendations.length === 0) {
     recommendations.push("Biometrics nominal. Continue standard logging schedules to optimize the Twin predictive vectors.");
@@ -226,7 +260,21 @@ export function analyzeBehavioralDrift(
           targetValue: targetStress,
           driftPercentage: stressDriftPct,
           volatilityIndex: stressVolatility,
-          status: classifyDriftStatus(stressDriftPct), // No more 'false' needed!
+          status: classifyDriftStatus(stressDriftPct),
+        },
+        hydration: {
+          actualAverage: +avgWater.toFixed(1),
+          targetValue: targetWater,
+          driftPercentage: waterDriftPct,
+          volatilityIndex: waterVolatility,
+          status: classifyDriftStatus(waterDriftPct),
+        },
+        mealConsistency: {
+          actualAverage: avgMealConsistency,
+          targetValue: targetMealConsistency,
+          driftPercentage: mealConsistencyDriftPct,
+          volatilityIndex: mealVolatility,
+          status: classifyDriftStatus(mealConsistencyDriftPct),
         }
       },
       finance: {
@@ -241,7 +289,7 @@ export function analyzeBehavioralDrift(
           actualAverage: currentSavingsRate,
           targetValue: targetSavingsRate,
           driftPercentage: savingsRateDriftPct,
-          volatilityIndex: 0, // Not applicable for static rates
+          volatilityIndex: 0,
           status: classifyDriftStatus(savingsRateDriftPct),
         }
       },

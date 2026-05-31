@@ -109,13 +109,7 @@ export default function HomePage() {
     }
   };
 
-  if (status === "loading") {
-    return (
-      <div style={{ background: "#0066EE", height: "100vh", display: "grid", placeItems: "center", color: "#fff", fontFamily: "sans-serif" }}>
-        Loading Syntra Twin Environment...
-      </div>
-    );
-  }
+
 
   return (
     <div style={{ background: "#ffffff", color: "#111111", fontFamily: '"Inter", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', overflowX: "hidden" }}>

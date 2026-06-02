@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -5,1241 +6,1410 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import {
-  HeartPulse,
-  Wallet,
-  Briefcase,
-  Trash2,
-  Target,
-  CheckCircle2,
-  ShieldAlert,
-  ArrowLeft,
-  Plus,
-  Rocket,
-  Calendar,
-  Sparkles,
-  ChevronLeft,
-  ArrowRight,
-  ChevronDown,
-  ChevronUp,
-  Lock,
-  Star,
-  Zap,
-  Award,
-  Flame,
-  Trophy,
-  BookOpen,
-  Pencil,
+  HeartPulse, Wallet, Briefcase, Trash2, Target,
+  CheckCircle2, ArrowLeft, Plus, Rocket, Calendar,
+  Sparkles, Pencil, AlertTriangle, Flag, TrendingUp,
+  X, Activity, ChevronRight, BarChart3, Clock, Star,
+  Menu, Home,
 } from "lucide-react";
 
-type Milestone = {
-  _id?: string;
-  text: string;
-  completed: boolean;
-};
-
+/* ─── TYPES ──────────────────────────────────────────────────────── */
+type Milestone = { _id?: string; text: string; completed: boolean };
 type Goal = {
-  _id?: string;
-  title: string;
+  _id?: string; title: string;
   domain: "health" | "finance" | "career";
-  priority: string;
-  targetDate?: string;
+  priority: string; targetDate?: string;
   milestones?: Milestone[];
 };
+type Screen = "home" | "goals-list" | "add-goal";
 
-/* ─────────────────────────────────────────────
-   Step Dots
-───────────────────────────────────────────── */
-const STEPS = ["Define", "Details", "Missions", "Review"];
+/* ─── DESIGN TOKENS ──────────────────────────────────────────────── */
+const DC = {
+  health:  { label: "Health",  color: "#16a34a", bg: "rgba(22,163,74,0.08)",   border: "rgba(22,163,74,0.18)",  icon: <HeartPulse size={16}/> },
+  finance: { label: "Finance", color: "#0369a1", bg: "rgba(3,105,161,0.08)",   border: "rgba(3,105,161,0.18)",  icon: <Wallet size={16}/>     },
+  career:  { label: "Career",  color: "#7c3aed", bg: "rgba(124,58,237,0.08)",  border: "rgba(124,58,237,0.18)", icon: <Briefcase size={16}/>  },
+};
+const DC_FORM = {
+  health:  { label: "Health",  color: "#16a34a", bg: "#dcfce7", icon: <HeartPulse size={16}/> },
+  finance: { label: "Finance", color: "#0369a1", bg: "#e0f2fe", icon: <Wallet size={16}/>     },
+  career:  { label: "Career",  color: "#7c3aed", bg: "#ede9fe", icon: <Briefcase size={16}/>  },
+};
+const PRIO = {
+  high:   { color: "#dc2626", bg: "rgba(220,38,38,0.07)",   label: "High",   emoji: "🔥" },
+  medium: { color: "#d97706", bg: "rgba(217,119,6,0.07)",   label: "Medium", emoji: "⚡" },
+  low:    { color: "#16a34a", bg: "rgba(22,163,74,0.07)",   label: "Low",    emoji: "🌿" },
+};
+const BRAND = "#0047D4";
 
-const STEP_COLORS = [
-  "linear-gradient(135deg, #2563eb, #3b82f6)",
-  "linear-gradient(135deg, #8b5cf6, #a78bfa)",
-  "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-  "linear-gradient(135deg, #10b981, #34d399)",
-];
+const SCREEN_COPY: Record<Screen, { title: string; phrases: string[]; sub: string }> = {
+  "home":       { title: "Overview",    phrases: ["Goal Overview", "Track Your Progress", "Build Momentum"],    sub: "A live snapshot of your goals, milestones, and progress." },
+  "goals-list": { title: "My Goals",    phrases: ["My Goals", "Stay On Track", "Progress Every Day"],           sub: "Manage and complete all your active goals." },
+  "add-goal":   { title: "Add Goal",    phrases: ["Create A Goal", "Define Your Target", "Build Your Roadmap"], sub: "Set a clear target, break it into steps, and start moving." },
+};
 
-function StepDots({ current, completed }: { current: number; completed: Set<number> }) {
+/* ─── TYPEWRITER ─────────────────────────────────────────────────── */
+function Typewriter({ phrases }: { phrases: string[] }) {
+  const [display, setDisplay] = useState("");
+  useEffect(() => {
+    let pi = 0, ci = 0, deleting = false;
+    let t: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const full = phrases[pi];
+      if (!deleting) {
+        setDisplay(full.slice(0, ci + 1)); ci++;
+        if (ci === full.length) { deleting = true; t = setTimeout(tick, 2600); }
+        else t = setTimeout(tick, 72);
+      } else {
+        setDisplay(full.slice(0, ci - 1)); ci--;
+        if (ci === 0) { deleting = false; pi = (pi + 1) % phrases.length; t = setTimeout(tick, 380); }
+        else t = setTimeout(tick, 36);
+      }
+    };
+    t = setTimeout(tick, 300);
+    return () => clearTimeout(t);
+  }, []);
   return (
-    <div className="step-dots">
-      {STEPS.map((label, i) => (
-        <div key={i} className="step-dot-wrapper">
-          <div
-            className={`step-dot ${i === current ? "dot-active" : ""} ${completed.has(i) ? "dot-done" : ""}`}
-            style={
-              i === current
-                ? { background: STEP_COLORS[i], boxShadow: "0 0 15px rgba(37,99,235,0.3)", border: "1.5px solid rgba(37,99,235,0.2)" }
-                : completed.has(i)
-                ? { background: "#10b981", borderColor: "#10b981", boxShadow: "0 0 10px rgba(16,185,129,0.3)" }
-                : {}
-            }
-          >
-            {completed.has(i) && i !== current ? (
-              <CheckCircle2 size={12} color="#fff" />
-            ) : (
-              <span className="dot-num">{i + 1}</span>
-            )}
-          </div>
-          <span
-            className="dot-label"
-            style={{ color: i === current ? "#2563eb" : completed.has(i) ? "#10b981" : "#94a3b8" }}
-          >
-            {label}
-          </span>
-          {i < STEPS.length - 1 && (
-            <div
-              className="dot-connector"
-              style={{ background: completed.has(i) ? "#10b981" : "#e2e8f0" }}
-            />
-          )}
-        </div>
-      ))}
-    </div>
+    <span>
+      {display}
+      <span style={{ display:"inline-block", width:"2px", height:"1em", background:BRAND, marginLeft:"3px", verticalAlign:"text-bottom", borderRadius:"1px", animation:"cur-blink 1s step-end infinite" }}/>
+    </span>
   );
 }
 
-/* ─────────────────────────────────────────────
-   Progress Bar
-───────────────────────────────────────────── */
-function ProgressBar({ pct, gradient }: { pct: number; gradient: string }) {
-  return (
-    <div className="progress-track">
-      <div className="progress-fill" style={{ width: `${pct}%`, background: gradient }} />
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   BADGES DATA
-───────────────────────────────────────────── */
-const BADGES = [
-  { id: "week_warrior", label: "Week Warrior", desc: "7-day ingestion streak", icon: <Flame size={18} />, color: "#f97316", glow: "rgba(249,115,22,0.4)", unlocked: true },
-  { id: "goal_crusher", label: "Goal Crusher", desc: "Complete 3 goals", icon: <Trophy size={18} />, color: "#eab308", glow: "rgba(234,179,8,0.4)", unlocked: true },
-  { id: "apex_mind", label: "Apex Mind", desc: "Reach level 10", icon: <Star size={18} />, color: "#a855f7", glow: "rgba(168,85,247,0.4)", unlocked: false },
-  { id: "lightning", label: "Lightning Fast", desc: "Log 5 quick entries", icon: <Zap size={18} />, color: "#3b82f6", glow: "rgba(59,130,246,0.4)", unlocked: false },
-  { id: "scholar", label: "Scholar", desc: "Complete a course", icon: <BookOpen size={18} />, color: "#10b981", glow: "rgba(16,185,129,0.4)", unlocked: false },
-];
-
-/* ─────────────────────────────────────────────
-   Active Twin Missions Widget
-───────────────────────────────────────────── */
-function ActiveMissionsWidget({
-  goals,
-  onToggleMilestone,
-  floatXP,
-}: {
-  goals: Goal[];
-  onToggleMilestone: (goalId: string, milestoneId: string, completed: boolean) => void;
-  floatXP: { id: string; key: number } | null;
+/* ─── DESKTOP NAV ITEM ───────────────────────────────────────────── */
+function NavItem({ icon, label, sub, active, onClick, badge }: {
+  icon: React.ReactNode; label: string; sub?: string; active: boolean;
+  onClick: () => void; badge?: number;
 }) {
-  const [expandedGoal, setExpandedGoal] = useState<string | null>(null);
+  return (
+    <button className={`nav-item${active ? " nav-item-active" : ""}`} onClick={onClick}>
+      <div className="nav-item-icon">{icon}</div>
+      <div className="nav-item-text">
+        <span className="nav-item-label">{label}</span>
+        {sub && <span className="nav-item-sub">{sub}</span>}
+      </div>
+      {badge !== undefined && badge > 0 && <span className="nav-badge">{badge}</span>}
+      <ChevronRight size={13} className="nav-arrow" />
+    </button>
+  );
+}
 
-  if (goals.length === 0) return null;
+/* ─── STAT CARD ──────────────────────────────────────────────────── */
+function StatCard({ icon, iconBg, iconColor, value, suffix, label, ring }: {
+  icon: React.ReactNode; iconBg: string; iconColor: string;
+  value: string | number; suffix?: string; label: string;
+  ring?: { pct: number; color: string };
+}) {
+  return (
+    <div className="stat-card">
+      <div className="stat-card-top">
+        <div className="stat-icon" style={{ background: iconBg, color: iconColor }}>{icon}</div>
+        {ring && (
+          <div style={{ position:"relative", width:46, height:46, flexShrink:0 }}>
+            <svg width="46" height="46" style={{ transform:"rotate(-90deg)", position:"absolute", inset:0 }}>
+              <circle cx="23" cy="23" r="18" fill="none" stroke="#e8edf5" strokeWidth="4"/>
+              <circle cx="23" cy="23" r="18" fill="none" stroke={ring.color} strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray={`${(ring.pct/100)*2*Math.PI*18} ${2*Math.PI*18}`}
+                style={{ transition:"stroke-dasharray 1.2s cubic-bezier(0.16,1,0.3,1)" }}
+              />
+            </svg>
+            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"0.58rem", fontWeight:800, color:ring.color }}>
+              {ring.pct}%
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="stat-value">{value}{suffix && <span className="stat-suffix">{suffix}</span>}</div>
+      <div className="stat-label">{label}</div>
+    </div>
+  );
+}
+
+/* ─── GOAL CARD ──────────────────────────────────────────────────── */
+function GoalCard({ goal, onToggle, onEdit, onDelete, floatId }: {
+  goal: Goal; onToggle: (g:string,m:string,d:boolean)=>void;
+  onEdit:(g:Goal)=>void; onDelete:(id:string)=>void; floatId:string|null;
+}) {
+  const [open, setOpen] = useState(false);
+  const dc = DC[goal.domain];
+  const total = goal.milestones?.length ?? 0;
+  const done  = goal.milestones?.filter(m => m.completed).length ?? 0;
+  const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+  const daysLeft = goal.targetDate
+    ? Math.max(0, Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / 86400000))
+    : null;
+  const p = PRIO[goal.priority as keyof typeof PRIO] || PRIO.medium;
+  const isOverdue = daysLeft === 0;
 
   return (
-    <div className="twin-widget">
-      <div className="twin-widget-header">
-        <div className="twin-widget-title">
-          <Rocket size={16} style={{ color: "#3b82f6" }} />
-          <span>Active Twin Missions</span>
-        </div>
-        <span className="twin-count">{goals.length} active</span>
-      </div>
-      <div className="twin-goals-list">
-        {goals.slice(0, 5).map((goal) => {
-          const total = goal.milestones?.length ?? 0;
-          const done = goal.milestones?.filter((m) => m.completed).length ?? 0;
-          const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-          const domainColor =
-            goal.domain === "health" ? "#ef4444" : goal.domain === "finance" ? "#10b981" : "#3b82f6";
-          const domainIcon =
-            goal.domain === "health" ? <HeartPulse size={14} /> : goal.domain === "finance" ? <Wallet size={14} /> : <Briefcase size={14} />;
-          const isExpanded = expandedGoal === goal._id;
-
-          return (
-            <div key={goal._id} className="twin-goal-row">
-              <div
-                className="twin-goal-header"
-                onClick={() => setExpandedGoal(isExpanded ? null : goal._id || null)}
-                style={{ cursor: "pointer" }}
-              >
-                <div className="twin-goal-icon" style={{ background: `${domainColor}15`, color: domainColor }}>
-                  {domainIcon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="twin-goal-name">{goal.title}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                    <div className="twin-mini-track">
-                      <div className="twin-mini-fill" style={{ width: `${pct}%`, background: domainColor }} />
-                    </div>
-                    {total > 0 && (
-                      <span className="twin-fraction">{done}/{total}</span>
-                    )}
-                  </div>
-                </div>
-                {total > 0 && (
-                  <div style={{ color: "#64748b", flexShrink: 0 }}>
-                    {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </div>
-                )}
-              </div>
-
-              {isExpanded && total > 0 && (
-                <div className="twin-milestones">
-                  {goal.milestones?.map((m) => (
-                    <div key={m._id} className="twin-ms-row" style={{ position: "relative" }}>
-                      <div
-                        className={`twin-ms-check ${m.completed ? "twin-ms-checked" : ""}`}
-                        onClick={() => goal._id && m._id && onToggleMilestone(goal._id, m._id, m.completed)}
-                      >
-                        {m.completed && <CheckCircle2 size={10} color="#fff" />}
-                      </div>
-                      <span className={`twin-ms-text ${m.completed ? "twin-ms-done" : ""}`}>{m.text}</span>
-                      {floatXP && floatXP.id === m._id && (
-                        <span className="xp-float" key={floatXP.key}>+100 XP</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+    <div className={`goal-card${open ? " goal-card-open" : ""}`}>
+      <div className="goal-card-bar" style={{ background: dc.color }}/>
+      <div className="goal-card-body">
+        <div className="goal-card-header">
+          <div className="goal-card-domain-icon" style={{ background:dc.bg, color:dc.color, border:`1px solid ${dc.border}` }}>
+            {dc.icon}
+          </div>
+          <div className="goal-card-meta" onClick={() => total > 0 && setOpen(o => !o)} style={{ cursor: total > 0 ? "pointer" : "default" }}>
+            <div className="goal-card-title">{goal.title}</div>
+            <div className="goal-card-tags">
+              <span className="tag" style={{ background:p.bg, color:p.color }}>{p.emoji} {p.label}</span>
+              <span className="tag tag-neutral">{dc.label}</span>
+              {daysLeft !== null && (
+                <span className="tag" style={{ background: isOverdue ? "rgba(220,38,38,0.07)" : "rgba(0,71,212,0.06)", color: isOverdue ? "#dc2626" : BRAND }}>
+                  <Clock size={9}/>&nbsp;{isOverdue ? "Overdue" : `${daysLeft}d left`}
+                </span>
               )}
             </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   Badge Showcase
-───────────────────────────────────────────── */
-function BadgeShowcase({ userBadges = [] }: { userBadges?: string[] }) {
-  return (
-    <div className="badge-showcase">
-      <div className="badge-showcase-header">
-        <Award size={16} style={{ color: "#eab308" }} />
-        <span>Earned Badges</span>
-      </div>
-      <div className="badge-carousel">
-        {BADGES.map((b) => {
-          const isUnlocked = userBadges.some((ub: string) => 
-            ub.toLowerCase() === b.label.toLowerCase() ||
-            ub.toLowerCase() === b.id.toLowerCase() ||
-            ub.toLowerCase() === b.id.replace("_", " ").toLowerCase()
-          ) || (b.id === "goal_crusher" && userBadges.includes("Savings Streak"))
-            || (b.id === "scholar" && userBadges.includes("Learning Machine"))
-            || (b.id === "apex_mind" && userBadges.includes("Rising Twin"))
-            || (b.id === "lightning" && userBadges.length > 0);
-
-          return (
-            <div
-              key={b.id}
-              className={`badge-item ${isUnlocked ? "badge-unlocked" : "badge-locked"}`}
-              style={isUnlocked ? { border: `1.5px solid ${b.color}33`, boxShadow: `0 4px 16px ${b.glow}` } : {}}
-            >
-              <div
-                className="badge-icon-ring"
-                style={
-                  isUnlocked
-                    ? { background: `${b.color}15`, color: b.color, border: `1.5px solid ${b.color}44` }
-                    : {}
-                }
-              >
-                {isUnlocked ? b.icon : <Lock size={14} />}
+          </div>
+          {total > 0 && (
+            <div className="goal-card-ring" onClick={() => setOpen(o => !o)}>
+              <div style={{ position:"relative", width:52, height:52, cursor:"pointer" }}>
+                <svg width="52" height="52" style={{ transform:"rotate(-90deg)", position:"absolute", inset:0 }}>
+                  <circle cx="26" cy="26" r="21" fill="none" stroke="#e8edf5" strokeWidth="4.5"/>
+                  <circle cx="26" cy="26" r="21" fill="none" stroke={dc.color} strokeWidth="4.5"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(pct/100)*2*Math.PI*21} ${2*Math.PI*21}`}
+                    style={{ transition:"stroke-dasharray 1s ease", filter:`drop-shadow(0 0 5px ${dc.color}55)` }}
+                  />
+                </svg>
+                <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <span style={{ fontSize:"0.64rem", fontWeight:800, color:dc.color, lineHeight:1 }}>{pct}%</span>
+                </div>
               </div>
-              <div className="badge-label">{b.label}</div>
-              {isUnlocked && <div className="badge-desc">{b.desc}</div>}
+              <span className="goal-card-ring-label">{done}/{total}</span>
             </div>
-          );
-        })}
+          )}
+          <div className="goal-card-actions">
+            <button className="gc-btn" onClick={() => onEdit(goal)} title="Edit"><Pencil size={12}/></button>
+            <button className="gc-btn gc-btn-del" onClick={() => goal._id && onDelete(goal._id)} title="Delete"><Trash2 size={12}/></button>
+          </div>
+        </div>
+
+        {total > 0 && (
+          <div className="goal-card-progress-track">
+            <div className="goal-card-progress-fill" style={{ width:`${pct}%`, background:dc.color }}/>
+          </div>
+        )}
+
+        {open && total > 0 && (
+          <div className="goal-card-milestones">
+            {goal.milestones?.map(m => (
+              <div key={m._id} className="ms-check-row">
+                <div
+                  className={`ms-checkbox${m.completed ? " ms-checkbox-done" : ""}`}
+                  style={m.completed ? { background:dc.color, borderColor:dc.color } : {}}
+                  onClick={() => goal._id && m._id && onToggle(goal._id, m._id, m.completed)}
+                >
+                  {m.completed && <CheckCircle2 size={10} color="#fff"/>}
+                </div>
+                <span className={`ms-check-text${m.completed ? " ms-check-done" : ""}`}>{m.text}</span>
+                {floatId === m._id && <span className="xp-float">+100 XP 🎉</span>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/* ─────────────────────────────────────────────
-   Main Page
-───────────────────────────────────────────── */
+/* ─── MAIN PAGE ──────────────────────────────────────────────────── */
 export default function GoalsPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [step, setStep] = useState(0);
-  const [animDir, setAnimDir] = useState<"forward" | "backward">("forward");
-  const [animating, setAnimating] = useState(false);
-  const [completed, setCompleted] = useState<Set<number>>(new Set());
-
-  const [typedTitle, setTypedTitle] = useState("");
-  const fullTitle = "Goals & Missions";
-
+  const [screen, setScreen] = useState<Screen>("home");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [floatId, setFloatId] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [domain, setDomain] = useState<Goal["domain"]>("health");
   const [priority, setPriority] = useState("medium");
   const [targetDate, setTargetDate] = useState("");
-  const [milestoneInput, setMilestoneInput] = useState("");
   const [milestones, setMilestones] = useState<string[]>([]);
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
-  const [suggestLoading, setSuggestLoading] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-
-  // Left panel: expanded goal for milestone interaction
-  const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
-  const [floatXP, setFloatXP] = useState<{ id: string; key: number } | null>(null);
-
-  // Edit mode
-  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [msInput, setMsInput] = useState("");
 
   const { data, mutate } = useSWR<any>("/api/goals", fetcher, {
-    dedupingInterval: 300000,
-    revalidateOnFocus: false,
-    errorRetryCount: 1,
+    dedupingInterval: 300000, revalidateOnFocus: false, errorRetryCount: 1,
   });
   const goals: Goal[] = data?.goals || [];
+  useEffect(() => { setMounted(true); }, []);
 
-  useEffect(() => {
-    setMounted(true);
-    let idx = 0, deleting = false;
-    let tid: NodeJS.Timeout;
-    const tick = () => {
-      if (!deleting) {
-        setTypedTitle(fullTitle.substring(0, idx + 1));
-        idx++;
-        if (idx === fullTitle.length) { deleting = true; tid = setTimeout(tick, 3500); }
-        else tid = setTimeout(tick, 110);
-      } else {
-        setTypedTitle(fullTitle.substring(0, idx - 1));
-        idx--;
-        if (idx === 0) { deleting = false; tid = setTimeout(tick, 600); }
-        else tid = setTimeout(tick, 50);
-      }
-    };
-    tid = setTimeout(tick, 200);
-    return () => clearTimeout(tid);
-  }, []);
+  // Close drawer on screen change
+  const goScreen = (s: Screen) => { setScreen(s); setDrawerOpen(false); };
 
-  const goTo = (target: number) => {
-    if (animating) return;
-    setAnimDir(target > step ? "forward" : "backward");
-    setAnimating(true);
-    setTimeout(() => {
-      setStep(target);
-      setMessage("");
-      setAnimating(false);
-    }, 320);
-  };
+  const addMs = () => { if (!msInput.trim()) return; setMilestones(p => [...p, msInput.trim()]); setMsInput(""); };
+  const removeMs = (i: number) => setMilestones(p => p.filter((_, idx) => idx !== i));
+  const toggleSugg = (s: string) => setMilestones(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
 
-  const stepProgress = [
-    title.trim() ? 100 : 0,
-    [domain, priority].filter(Boolean).length === 2 ? (targetDate ? 100 : 70) : 0,
-    milestones.length > 0 ? Math.min(100, milestones.length * 25) : 0,
-    goals.length > 0 ? 100 : 0,
-  ];
-
-  const canNext = [!!title.trim(), true, true, true][step];
-
-  const handleNext = () => {
-    if (!canNext) { setMessage("Please fill in all required fields before continuing."); return; }
-    setCompleted(prev => new Set([...prev, step]));
-    if (step < 3) goTo(step + 1);
-  };
-
-  const handleBack = () => { if (step > 0) goTo(step - 1); };
-
-  const addMilestone = () => {
-    if (!milestoneInput.trim()) return;
-    setMilestones([...milestones, milestoneInput.trim()]);
-    setMilestoneInput("");
-  };
-
-  const removeMilestone = (i: number) => setMilestones(milestones.filter((_, idx) => idx !== i));
-
-  const generateSuggestions = async () => {
+  const generateSugg = async () => {
     if (!title.trim()) return;
-    setSuggestLoading(true);
-    setAiSuggestions([]);
+    setSuggestLoading(true); setAiSuggestions([]);
     try {
       const res = await fetch("/api/goals/milestones/suggest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        method:"POST", headers:{"Content-Type":"application/json"}, credentials:"include",
         body: JSON.stringify({ title, domain, priority }),
       });
       const d = await res.json();
-      if (d.success && Array.isArray(d.suggestions)) {
-        setAiSuggestions(d.suggestions);
-      }
-    } catch {
-      // silently fail — user can still add manually
-    } finally {
-      setSuggestLoading(false);
-    }
+      if (d.success && Array.isArray(d.suggestions)) setAiSuggestions(d.suggestions);
+    } catch {} finally { setSuggestLoading(false); }
   };
 
-  const toggleSuggestion = (s: string) => {
-    if (milestones.includes(s)) {
-      setMilestones(milestones.filter((m) => m !== s));
-    } else {
-      setMilestones([...milestones, s]);
-    }
+  const resetForm = () => {
+    setTitle(""); setDomain("health"); setPriority("medium"); setTargetDate("");
+    setMilestones([]); setMsInput(""); setAiSuggestions([]);
+    setEditId(null); setMsg(""); setSaved(false);
   };
 
-  const createGoal = async () => {
-    if (!title.trim()) { setMessage("Goal title required."); return; }
-    setLoading(true); setMessage("");
+  const startEdit = (g: Goal) => {
+    resetForm();
+    setEditId(g._id || null);
+    setTitle(g.title); setDomain(g.domain); setPriority(g.priority);
+    setTargetDate(g.targetDate ? new Date(g.targetDate).toISOString().split("T")[0] : "");
+    setMilestones(g.milestones?.map(m => m.text) || []);
+    setScreen("add-goal");
+  };
+
+  const handleSave = async () => {
+    if (!title.trim()) { setMsg("Please enter a goal title."); return; }
+    setSaving(true); setMsg("");
     try {
-      const isEdit = !!editingGoalId;
+      const isEdit = !!editId;
       const body = isEdit
-        ? { goalId: editingGoalId, title, domain, priority, targetDate: targetDate || undefined, milestones: milestones.map((m) => ({ text: m, completed: false })) }
-        : { title, domain, priority, targetDate: targetDate || undefined, milestones: milestones.map((m) => ({ text: m, completed: false })) };
+        ? { goalId:editId, title, domain, priority, targetDate:targetDate||undefined, milestones:milestones.map(m=>({text:m,completed:false})) }
+        : { title, domain, priority, targetDate:targetDate||undefined, milestones:milestones.map(m=>({text:m,completed:false})) };
       const res = await fetch("/api/goals", {
         method: isEdit ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers:{"Content-Type":"application/json"}, credentials:"include",
         body: JSON.stringify(body),
       });
       const d = await res.json();
       if (d.success) {
         mutate({ goals: d.goals }, false);
-        setCompleted(new Set([0, 1, 2, 3]));
-        setSubmitted(true);
-        if (isEdit) {
-          setTimeout(() => { setSubmitted(false); cancelEdit(); }, 2000);
-        } else {
-          setTimeout(() => router.push("/dashboard"), 2800);
-        }
-      } else { setMessage(d.message || d.error || "Failed to save goal."); }
-    } catch { setMessage("Goal save failed."); }
-    finally { setLoading(false); }
+        setSaved(true);
+        setTimeout(() => { resetForm(); setScreen("goals-list"); }, 1800);
+      } else setMsg(d.message || "Failed to save goal.");
+    } catch { setMsg("Save failed. Please try again."); }
+    finally { setSaving(false); }
   };
 
-  const deleteGoal = async (goalId: string) => {
+  const handleDelete = async (gid: string) => {
     try {
       const res = await fetch("/api/goals", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ goalId }),
+        method:"DELETE", headers:{"Content-Type":"application/json"}, credentials:"include",
+        body: JSON.stringify({ goalId: gid }),
       });
       const d = await res.json();
-      if (d.success) { mutate({ goals: d.goals }, false); setMessage("Goal removed."); }
-      else setMessage(d.message || d.error || "Failed to remove goal.");
-    } catch { setMessage("Delete failed."); }
+      if (d.success) mutate({ goals: d.goals }, false);
+    } catch {}
   };
 
-  const toggleMilestone = async (goalId: string, milestoneId: string, completed: boolean) => {
+  const handleToggle = async (gid: string, mid: string, wasDone: boolean) => {
     try {
       const res = await fetch("/api/goals/milestone", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ goalId, milestoneId, completed: !completed }),
+        method:"PATCH", headers:{"Content-Type":"application/json"}, credentials:"include",
+        body: JSON.stringify({ goalId:gid, milestoneId:mid, completed:!wasDone }),
       });
       const d = await res.json();
       if (d.success) {
         mutate({ goals: d.goals }, false);
-        if (!completed) {
-          setFloatXP({ id: milestoneId, key: Date.now() });
-          setTimeout(() => setFloatXP(null), 1400);
-        }
+        if (!wasDone) { setFloatId(mid); setTimeout(() => setFloatId(null), 1400); }
       }
-      else setMessage(d.message || "Failed to update milestone.");
-    } catch { setMessage("Milestone update failed."); }
-  };
-
-  const deleteMilestone = async (goalId: string, milestoneId: string) => {
-    try {
-      const res = await fetch("/api/goals/milestone", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ goalId, milestoneId }),
-      });
-      const d = await res.json();
-      if (d.success) mutate({ goals: d.goals }, false);
-      else setMessage(d.message || "Failed to delete milestone.");
-    } catch { setMessage("Milestone deletion failed."); }
-  };
-
-  const startEditing = (goal: Goal) => {
-    setEditingGoalId(goal._id || null);
-    setTitle(goal.title);
-    setDomain(goal.domain);
-    setPriority(goal.priority);
-    setTargetDate(goal.targetDate ? new Date(goal.targetDate).toISOString().split("T")[0] : "");
-    setMilestones(goal.milestones?.map((m) => m.text) || []);
-    setStep(0);
-    setCompleted(new Set());
-    setSubmitted(false);
-    setMessage("");
-  };
-
-  const cancelEdit = () => {
-    setEditingGoalId(null);
-    setTitle("");
-    setDomain("health");
-    setPriority("medium");
-    setTargetDate("");
-    setMilestones([]);
-    setAiSuggestions([]);
-    setStep(0);
-    setCompleted(new Set());
-    setMessage("");
+    } catch {}
   };
 
   if (!mounted) return null;
 
-  const isError = (msg: string) =>
-    msg.toLowerCase().includes("fail") || msg.includes("required") || msg.includes("fill") || msg.includes("complete");
-
-  const gradients = [
-    "linear-gradient(90deg,#3b82f6,#60a5fa)",
-    "linear-gradient(90deg,#8b5cf6,#a78bfa)",
-    "linear-gradient(90deg,#3b82f6,#8b5cf6)",
-    "linear-gradient(90deg,#10b981,#34d399)",
-  ];
-  const btnGradients = [
-    "linear-gradient(135deg,#3b82f6,#60a5fa)",
-    "linear-gradient(135deg,#8b5cf6,#a78bfa)",
-    "linear-gradient(135deg,#3b82f6,#8b5cf6)",
-    "linear-gradient(135deg,#10b981,#34d399)",
-  ];
-  const btnShadows = [
-    "0 4px 14px rgba(59,130,246,0.3)",
-    "0 4px 14px rgba(139,92,246,0.3)",
-    "0 4px 14px rgba(59,130,246,0.3)",
-    "0 4px 14px rgba(16,185,129,0.3)",
-  ];
-  const iconRings = [
-    { bg: "rgba(37, 99, 235, 0.08)", color: "#3b82f6" },
-    { bg: "rgba(139, 92, 246, 0.08)", color: "#8b5cf6" },
-    { bg: "rgba(16, 185, 129, 0.08)", color: "#10b981" },
-    { bg: "rgba(99, 102, 241, 0.08)", color: "#6366f1" },
-  ];
-  const domainConfig = {
-    health:  { stripe: "linear-gradient(90deg,#ef4444,#f97316)", badge: { background: "rgba(239, 68, 68, 0.08)", color: "#ef4444" }, ring: { background: "rgba(239, 68, 68, 0.08)", color: "#ef4444" }, icon: <HeartPulse size={16} />, progressColor: "#ef4444" },
-    finance: { stripe: "linear-gradient(90deg,#10b981,#059669)", badge: { background: "rgba(16, 185, 129, 0.08)", color: "#10b981" }, ring: { background: "rgba(16, 185, 129, 0.08)", color: "#10b981" }, icon: <Wallet size={16} />, progressColor: "#10b981" },
-    career:  { stripe: "linear-gradient(90deg,#3b82f6,#6366f1)", badge: { background: "rgba(59, 130, 246, 0.08)", color: "#3b82f6" }, ring: { background: "rgba(59, 130, 246, 0.08)", color: "#3b82f6" }, icon: <Briefcase size={16} />, progressColor: "#3b82f6" },
-  };
+  const dfc = DC_FORM[domain];
+  const daysLeft = targetDate ? Math.max(0, Math.ceil((new Date(targetDate).getTime() - Date.now()) / 86400000)) : null;
+  const totalMs  = goals.reduce((a, g) => a + (g.milestones?.length ?? 0), 0);
+  const doneMs   = goals.reduce((a, g) => a + (g.milestones?.filter(m => m.completed).length ?? 0), 0);
+  const overallPct = totalMs > 0 ? Math.round((doneMs / totalMs) * 100) : 0;
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#f8fafc",
-      fontFamily: '"Plus Jakarta Sans","Inter",-apple-system,sans-serif',
-      display: "flex",
-      alignItems: "stretch",
-    }}>
+    <div className="root">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-          --primary: #2563eb;
-          --primary-glow: rgba(37, 99, 235, 0.15);
-          --accent: #8b5cf6;
-          --accent-glow: rgba(139, 92, 246, 0.12);
-          --text-main: #0f172a;
-          --text-sub: #475569;
-          --bg-light: #f8fafc;
-          --card-bg: rgba(255, 255, 255, 0.85);
-          --border: rgba(0, 85, 238, 0.08);
-          --warning: #ef4444;
-          --warning-glow: rgba(239, 68, 68, 0.12);
-          --success: #10b981;
-          --success-glow: rgba(16, 185, 129, 0.12);
+          --brand:        #0047D4;
+          --brand-light:  #EEF3FF;
+          --brand-mid:    #C7D7FA;
+          --surface:      #FFFFFF;
+          --bg:           #EDF0F7;
+          --bg-deep:      #E4E8F2;
+          --border:       #D6DCE8;
+          --border-hover: #A8BADE;
+          --text-primary: #0D1117;
+          --text-secondary:#52637A;
+          --text-muted:   #8A9BB5;
+          --shadow-sm:    0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+          --shadow-md:    0 4px 16px rgba(0,0,0,0.09), 0 2px 6px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+          --shadow-lg:    0 8px 28px rgba(0,71,212,0.13), 0 3px 10px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,71,212,0.06);
+          --shadow-hover: 0 16px 44px rgba(0,71,212,0.16), 0 4px 14px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,71,212,0.08);
+          --shadow-card:  0 2px 8px rgba(0,0,0,0.07), 0 6px 24px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+          --radius-sm:    8px;
+          --radius-md:    12px;
+          --radius-lg:    16px;
+          --radius-xl:    20px;
+          /* Mobile safe area */
+          --mob-tab-h:    64px;
         }
 
-        /* ── Left Panel ── */
-        .page-left { width: 340px; min-height: 100vh; flex-shrink: 0; background: linear-gradient(135deg, #0b0f19 0%, #1e293b 50%, #0b0f19 100%); display: flex; flex-direction: column; justify-content: center; padding: 48px 44px; position: relative; overflow: hidden; }
-        .page-left::before { content: ''; position: absolute; top: -80px; left: -80px; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%); pointer-events: none; }
-        .page-left::after { content: ''; position: absolute; bottom: -60px; right: -60px; width: 260px; height: 260px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 70%); pointer-events: none; }
-        .brand-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 9999px; padding: 6px 14px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; color: #60a5fa; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 28px; }
-        .left-title { font-family: 'Sora', sans-serif; font-size: 2rem; font-weight: 800; color: #ffffff; line-height: 1.2; letter-spacing: -0.04em; margin-bottom: 14px; }
-        .left-title span { color: #60a5fa; font-weight: 800; }
-        .left-sub { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.83rem; color: #94a3b8; line-height: 1.7; margin-bottom: 36px; }
-        .left-steps { display: flex; flex-direction: column; gap: 18px; }
-        .left-step { display: flex; align-items: center; gap: 14px; transition: all 0.3s ease; }
-        .left-step-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.2); background: transparent; flex-shrink: 0; transition: all 0.3s ease; }
-        .left-step.active .left-step-dot { background: #3b82f6; border-color: #3b82f6; box-shadow: 0 0 12px #3b82f6; transform: scale(1.2); }
-        .left-step-text { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,0.4); transition: all 0.3s ease; }
-        .left-step-text.active { color: #ffffff; font-weight: 700; letter-spacing: -0.01em; }
+        body { background: var(--bg); font-family:"Inter",sans-serif; -webkit-font-smoothing:antialiased; color:var(--text-primary); }
 
-        /* ── Split layout ── */
-        .page-right { flex: 1; background: #f8fafc; display: flex; flex-direction: row; gap: 0; min-height: 100vh; overflow: hidden; }
-
-        /* ── Goals Control Panel - Left Section (Always-On) ── */
-        .goals-control-left { width: 340px; flex-shrink: 0; background: rgba(255, 255, 255, 0.45); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-right: 1px solid rgba(37, 99, 235, 0.08); display: flex; flex-direction: column; overflow-y: auto; }
-        .gcl-header { padding: 32px 24px 20px; border-bottom: 1px solid rgba(37, 99, 235, 0.05); }
-        .gcl-title { font-family: 'Sora', sans-serif; font-size: 1.15rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.03em; margin-bottom: 4px; }
-        .gcl-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-sub); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-        .gcl-body { flex: 1; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
-        .gcl-empty { padding: 48px 16px; text-align: center; color: #94a3b8; font-size: 0.84rem; line-height: 1.6; }
-        .gcl-goal-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); border: 1.5px solid rgba(0, 85, 238, 0.06); border-radius: 16px; overflow: hidden; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); box-shadow: 0 4px 16px rgba(0, 68, 220, 0.02); }
-        .gcl-goal-card:hover { transform: translateY(-3px); border-color: rgba(37, 99, 235, 0.25); box-shadow: 0 12px 28px rgba(37, 99, 235, 0.08); background: #ffffff; }
-        .gcl-goal-top { padding: 14px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; }
-        .gcl-domain-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s ease; }
-        .gcl-goal-card:hover .gcl-domain-icon { transform: scale(1.05); }
-        .gcl-goal-info { flex: 1; min-width: 0; }
-        .gcl-goal-name { font-size: 0.88rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .gcl-goal-meta { font-size: 0.74rem; color: var(--text-sub); margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .gcl-ms-bar { margin: 0 16px 12px; }
-        .gcl-ms-track { height: 4px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
-        .gcl-ms-fill { height: 100%; border-radius: 999px; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        .gcl-expand-btn { color: #cbd5e1; flex-shrink: 0; display: flex; align-items: center; transition: color 0.2s; }
-        .gcl-goal-card:hover .gcl-expand-btn { color: var(--text-sub); }
-
-        /* milestone expanded */
-        .gcl-milestones { padding: 6px 16px 14px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(37, 99, 235, 0.04); background: rgba(248, 250, 252, 0.5); }
-        .gcl-ms-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; animation: fadeIn 0.2s ease; position: relative; }
-        .gcl-ms-check { width: 18px; height: 18px; border-radius: 6px; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.2s ease; }
-        .gcl-ms-check:hover { border-color: var(--primary); background: rgba(37, 99, 235, 0.05); }
-        .gcl-ms-check-done { background: #10b981; border-color: #10b981 !important; box-shadow: 0 0 8px rgba(16, 185, 129, 0.3); }
-        .gcl-ms-text { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.82rem; font-weight: 500; color: var(--text-main); flex: 1; transition: all 0.2s ease; }
-        .gcl-ms-text-done { text-decoration: line-through; color: #94a3b8; }
-        .gcl-ms-del { background: none; border: none; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; transition: all 0.15s; }
-        .gcl-ms-del:hover { color: #ef4444; background: rgba(239, 68, 68, 0.08); }
-        .gcl-goal-del-btn { background: none; border: none; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; transition: all 0.15s; flex-shrink: 0; opacity: 0; }
-        .gcl-goal-card:hover .gcl-goal-del-btn { opacity: 1; }
-        .gcl-goal-del-btn:hover { color: #ef4444; background: rgba(239, 68, 68, 0.08); }
-        .gcl-goal-edit-btn { background: none; border: none; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; transition: all 0.15s; flex-shrink: 0; opacity: 0; }
-        .gcl-goal-card:hover .gcl-goal-edit-btn { opacity: 1; }
-        .gcl-goal-edit-btn:hover { color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
-        .gcl-goal-card.editing { border-color: rgba(59, 130, 246, 0.35); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08), 0 12px 28px rgba(37, 99, 235, 0.08); }
-        .edit-mode-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(59, 130, 246, 0.06); border: 1.5px solid rgba(59, 130, 246, 0.2); border-radius: 14px; padding: 10px 14px; margin-bottom: 16px; animation: slideDown 0.3s ease; }
-        .edit-mode-bar-label { display: flex; align-items: center; gap: 8px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.83rem; font-weight: 700; color: #3b82f6; }
-        .edit-cancel-btn { background: none; border: 1.5px solid rgba(59, 130, 246, 0.25); border-radius: 8px; padding: 4px 12px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.78rem; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.15s; }
-        .edit-cancel-btn:hover { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.05); }
-
-        /* ── Goals Creator - Right Section ── */
-        .goals-control-right { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 36px 32px; overflow-y: auto; }
-        .main-wrapper { width: 100%; max-width: 580px; }
-
-        .exit-bar { display: inline-flex; align-items: center; gap: 8px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.82rem; font-weight: 600; color: var(--text-sub); text-decoration: none; margin-bottom: 24px; padding: 8px 16px; border-radius: 9999px; background: #ffffff; border: 1.5px solid rgba(0, 85, 238, 0.06); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; width: fit-content; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-        .exit-bar:hover { color: var(--primary); border-color: var(--primary); background: rgba(37, 99, 235, 0.05); transform: translateX(-3px); box-shadow: 0 4px 16px rgba(37, 99, 235, 0.1); }
-
-        .title-container { margin-bottom: 24px; }
-        .dynamic-title { font-family: 'Sora', sans-serif; font-size: clamp(1.5rem, 3vw, 2.1rem); font-weight: 800; color: var(--text-main); letter-spacing: -0.04em; margin-bottom: 6px; display: flex; align-items: center; gap: 2px; }
-        .title-accent { background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .cursor { display: inline-block; width: 3px; height: 1.9rem; background-color: var(--primary); margin-left: 4px; animation: blink 0.7s infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
-        .dynamic-sub { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.86rem; color: var(--text-sub); line-height: 1.6; }
-
-        /* ── Step Dots ── */
-        .step-dots { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 24px; background: #ffffff; border-radius: 16px; padding: 12px 24px; box-shadow: 0 4px 16px rgba(37, 99, 235, 0.06); border: 1.5px solid rgba(37, 99, 235, 0.08); }
-        .step-dot-wrapper { display: flex; align-items: center; gap: 0; position: relative; }
-        .step-dot { width: 30px; height: 30px; border-radius: 50%; background: rgba(37, 99, 235, 0.05); display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; border: 1.5px solid rgba(37, 99, 235, 0.15); }
-        .dot-active { transform: scale(1.15); border-color: rgba(37, 99, 235, 0.3); }
-        .dot-num { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; color: #94a3b8; }
-        .dot-active .dot-num { color: #ffffff; }
-        .dot-label { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 600; margin-left: 8px; white-space: nowrap; transition: all 0.3s ease; }
-        .dot-connector { height: 2px; width: 40px; margin: 0 10px; transition: background 0.4s; flex-shrink: 0; }
-
-        /* ── Progress Bar ── */
-        .progress-track { height: 5px; background: #e2e8f0; width: 100%; border-radius: 0; overflow: hidden; }
-        .progress-fill { height: 100%; border-radius: 0; transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
-
-        /* ── Step Card ── */
-        .step-card { background: var(--card-bg); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-radius: 24px; border: 1.5px solid rgba(37, 99, 235, 0.06); overflow: hidden; box-shadow: 0 10px 40px rgba(37, 99, 235, 0.04), 0 1px 4px rgba(0,0,0,0.02); transition: border-color 0.3s ease, box-shadow 0.3s ease; }
-        .step-card:hover { border-color: rgba(37, 99, 235, 0.12); box-shadow: 0 12px 48px rgba(37, 99, 235, 0.06); }
-        .card-header { padding: 22px 24px 18px; border-bottom: 1px solid rgba(37, 99, 235, 0.05); display: flex; align-items: center; gap: 14px; }
-        .icon-ring { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
-        .card-label { display: flex; flex-direction: column; gap: 3px; }
-        .card-title { font-family: 'Sora', sans-serif; font-size: 1rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.01em; }
-        .card-sub { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.78rem; color: var(--text-sub); font-weight: 500; }
-        .card-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-
-        /* ── Form Elements ── */
-        .field { display: flex; flex-direction: column; gap: 6px; }
-        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .form-label { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--text-main); letter-spacing: 0.01em; }
-        .req { color: #ef4444; margin-left: 2px; }
-        .opt-tag { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--text-sub); font-weight: 500; margin-left: 4px; text-transform: uppercase; }
-        .form-input { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.88rem; padding: 10px 14px; border-radius: 12px; border: 1.5px solid #cbd5e1; background: rgba(248, 250, 252, 0.8); color: var(--text-main); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); width: 100%; box-sizing: border-box; height: 44px; }
-        .form-input:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 4px var(--primary-glow); }
-        .form-input::placeholder { color: #a1a1aa; font-size: 0.84rem; }
-        select.form-input { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23475569' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px; padding-right: 40px; }
-        .section-divider { height: 1px; background: rgba(37, 99, 235, 0.05); margin: 6px 0; }
-
-        /* ── Card Footer ── */
-        .card-footer { padding: 16px 24px 22px; display: flex; align-items: center; gap: 12px; border-top: 1px solid rgba(37, 99, 235, 0.05); background: rgba(248, 250, 252, 0.4); }
-        .nav-btn { display: flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 12px; border: 1.5px solid #cbd5e1; background: #fff; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.86rem; font-weight: 700; color: var(--text-sub); cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; height: 44px; }
-        .nav-btn:hover { border-color: var(--primary); color: var(--primary); background: rgba(37, 99, 235, 0.05); }
-        .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .submit-btn { flex: 1; height: 44px; border-radius: 12px; border: none; cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.88rem; font-weight: 700; color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-        .submit-btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
-        .submit-btn:active:not(:disabled) { transform: translateY(1px); }
-        .submit-btn:disabled { background: #cbd5e1 !important; box-shadow: none !important; cursor: not-allowed; transform: none; filter: none; color: #94a3b8; }
-
-        .progress-label { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; color: var(--text-sub); text-align: right; padding: 6px 24px 0; text-transform: uppercase; letter-spacing: 0.05em; }
-
-        /* ── Status Banner ── */
-        .live-status-banner { display: flex; align-items: center; gap: 12px; border-radius: 14px; padding: 12px 16px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.86rem; font-weight: 600; margin-bottom: 16px; border: 1px solid; animation: slideDown 0.3s ease; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* ── Animations ── */
-        @keyframes slideInForward { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
-        @keyframes slideInBackward { from { opacity:0; transform:translateX(-30px); } to { opacity:1; transform:translateX(0); } }
-        @keyframes slideOutForward { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(-30px); } }
-        @keyframes slideOutBackward { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(30px); } }
-        .slide-enter-forward { animation: slideInForward 0.32s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .slide-enter-backward { animation: slideInBackward 0.32s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .slide-exit-forward { animation: slideOutForward 0.28s ease forwards; }
-        .slide-exit-backward { animation: slideOutBackward 0.28s ease forwards; }
-
-        /* ── Success Card ── */
-        .success-card { background: #ffffff; border-radius: 24px; border: 1.5px solid rgba(16, 185, 129, 0.25); padding: 48px 32px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px; box-shadow: 0 12px 40px rgba(16, 185, 129, 0.08); animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .success-icon { width: 68px; height: 68px; border-radius: 50%; background: linear-gradient(135deg,#10b981,#059669); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(16,185,129,0.3); margin-bottom: 6px; }
-        .success-title { font-family: 'Sora', sans-serif; font-size: 1.6rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.03em; }
-        .success-sub { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9rem; color: var(--text-sub); line-height: 1.6; max-width: 380px; }
-
-        /* ── Milestone chip ── */
-        .ms-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-        .chip { display: inline-flex; align-items: center; gap: 8px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.8rem; font-weight: 700; padding: 6px 14px; border-radius: 9999px; background: rgba(37, 99, 235, 0.08); color: var(--primary); border: 1.5px solid rgba(37, 99, 235, 0.15); animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        .chip-x { cursor: pointer; color: rgba(37, 99, 235, 0.5); font-size: 0.95rem; line-height: 1; transition: color 0.15s; }
-        .chip-x:hover { color: #ef4444; }
-
-        /* ── Goals List (Step 3 review) ── */
-        .goals-list { display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
-        .goal-item { background: rgba(255, 255, 255, 0.8); border-radius: 14px; border: 1px solid rgba(0, 85, 238, 0.06); padding: 12px 16px; display: flex; align-items: center; gap: 12px; transition: all 0.2s ease; }
-        .goal-item:hover { background: #ffffff; border-color: rgba(37, 99, 235, 0.2); box-shadow: 0 4px 16px rgba(37, 99, 235, 0.04); }
-        .goal-title-text { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--text-main); line-height: 1.4; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .goal-meta { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.74rem; color: var(--text-sub); margin-top: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .goal-ms-progress { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(37, 99, 235, 0.08); color: var(--primary); }
-        .btn-delete-goal { width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.15); background: rgba(239, 68, 68, 0.05); color: #ef4444; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0; }
-        .btn-delete-goal:hover { background: #ef4444; color: #ffffff; border-color: #ef4444; }
-
-        /* ── Add milestone row (Step 2) ── */
-        .add-row { display: flex; gap: 12px; align-items: center; }
-        .add-btn { display: flex; align-items: center; gap: 6px; padding: 0 16px; height: 44px; border-radius: 12px; border: 1.5px solid rgba(37, 99, 235, 0.15); background: rgba(37, 99, 235, 0.06); font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.86rem; font-weight: 700; color: var(--primary); cursor: pointer; transition: all 0.2s ease; white-space: nowrap; }
-        .add-btn:hover { background: var(--primary); color: #ffffff; border-color: var(--primary); }
-
-        /* ── Active Twin Missions Widget ── */
-        .twin-widget { background: rgba(255,255,255,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1.5px solid rgba(37, 99, 235, 0.08); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(37, 99, 235, 0.04); margin-bottom: 20px; transition: all 0.3s ease; }
-        .twin-widget:hover { border-color: rgba(37, 99, 235, 0.15); box-shadow: 0 12px 36px rgba(37, 99, 235, 0.06); }
-        .twin-widget-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-        .twin-widget-title { display: flex; align-items: center; gap: 8px; font-family: 'Sora', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--text-main); }
-        .twin-count { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; background: rgba(37, 99, 235, 0.08); color: var(--primary); border-radius: 9999px; padding: 3px 10px; border: 1px solid rgba(37, 99, 235, 0.12); }
-        .twin-goals-list { display: flex; flex-direction: column; gap: 8px; }
-        .twin-goal-row { border-radius: 12px; background: rgba(248, 250, 252, 0.6); border: 1px solid rgba(37, 99, 235, 0.04); overflow: hidden; transition: all 0.2s ease; }
-        .twin-goal-row:hover { background: rgba(255, 255, 255, 0.9); border-color: rgba(37, 99, 235, 0.1); }
-        .twin-goal-header { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
-        .twin-goal-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .twin-goal-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.86rem; font-weight: 700; color: var(--text-main); }
-        .twin-mini-track { flex: 1; height: 4px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
-        .twin-mini-fill { height: 100%; border-radius: 999px; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        .twin-fraction { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; color: var(--primary); white-space: nowrap; }
-        .twin-milestones { border-top: 1px solid rgba(37, 99, 235, 0.05); padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 6px; background: rgba(255, 255, 255, 0.4); }
-        .twin-ms-row { display: flex; align-items: center; gap: 10px; position: relative; }
-        .twin-ms-check { width: 16px; height: 16px; border-radius: 5px; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.2s ease; }
-        .twin-ms-check:hover { border-color: var(--primary); }
-        .twin-ms-checked { background: #10b981; border-color: #10b981 !important; box-shadow: 0 0 6px rgba(16, 185, 129, 0.3); }
-        .twin-ms-text { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.81rem; font-weight: 500; color: var(--text-main); transition: all 0.2s ease; }
-        .twin-ms-done { text-decoration: line-through; color: #94a3b8; }
-        @keyframes floatUp { 0% { opacity: 0; transform: translateY(8px) scale(0.8); } 15% { opacity: 1; transform: translateY(0) scale(1); } 85% { opacity: 1; transform: translateY(-20px) scale(1); } 100% { opacity: 0; transform: translateY(-28px) scale(0.9); } }
-        .xp-float { position: absolute; right: 0; top: -6px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 800; color: #10b981; text-shadow: 0 2px 8px rgba(16, 185, 129, 0.2); animation: floatUp 1.4s cubic-bezier(0.25, 1, 0.5, 1) forwards; pointer-events: none; }
-
-        /* ── Badge Showcase ── */
-        .badge-showcase { background: rgba(255,255,255,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1.5px solid rgba(37, 99, 235, 0.08); border-radius: 20px; padding: 18px 20px; box-shadow: 0 10px 30px rgba(37, 99, 235, 0.04); margin-bottom: 24px; }
-        .badge-showcase-header { display: flex; align-items: center; gap: 8px; font-family: 'Sora', sans-serif; font-size: 0.86rem; font-weight: 700; color: var(--text-main); margin-bottom: 14px; }
-        .badge-carousel { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; scrollbar-color: rgba(37, 99, 235, 0.15) transparent; }
-        .badge-carousel::-webkit-scrollbar { height: 4px; }
-        .badge-carousel::-webkit-scrollbar-track { background: transparent; }
-        .badge-carousel::-webkit-scrollbar-thumb { background: rgba(37, 99, 235, 0.15); border-radius: 10px; }
-        .badge-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 14px; border-radius: 14px; border: 1px solid; min-width: 90px; flex-shrink: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .badge-item:hover { transform: translateY(-4px); }
-        .badge-unlocked { background: #ffffff; border-color: rgba(37, 99, 235, 0.08); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.03); }
-        .badge-locked { background: rgba(248, 250, 252, 0.8); border-color: rgba(0, 85, 238, 0.04); opacity: 0.5; }
-        .badge-icon-ring { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform 0.3s ease; }
-        .badge-item:hover .badge-icon-ring { transform: scale(1.1) rotate(5deg); }
-        .badge-locked .badge-icon-ring { background: #e2e8f0; color: #94a3b8; border: none; }
-        .badge-label { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 700; color: var(--text-main); text-align: center; white-space: nowrap; }
-        .badge-locked .badge-label { color: #94a3b8; }
-        .badge-desc { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.62rem; color: var(--text-sub); text-align: center; line-height: 1.3; }
-
-        @media (max-width: 1100px) { .page-left { display: none; } }
-        @media (max-width: 860px) {
-          .page-right { flex-direction: column; }
-          .goals-control-left { width: 100%; min-height: auto; border-right: none; border-bottom: 1px solid #e8ebf4; max-height: 360px; }
-          .goals-control-right { padding: 24px 16px; }
+        @keyframes cur-blink  { 50% { opacity:0; } }
+        @keyframes screen-in  { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes fade-up    { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes scale-in   { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+        @keyframes float-xp   {
+          0%   { opacity:0; transform:translateY(4px) scale(0.8); }
+          15%  { opacity:1; transform:translateY(0) scale(1); }
+          85%  { opacity:1; transform:translateY(-20px); }
+          100% { opacity:0; transform:translateY(-28px) scale(0.85); }
         }
-        @media (max-width: 600px) { .dot-connector { width: 16px; } .dot-label { display: none; } .field-row { grid-template-columns: 1fr; } }
+        @keyframes lp-pulse   { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.65; transform:scale(1.35); } }
+        @keyframes drawer-in  { from { transform:translateX(-100%); } to { transform:translateX(0); } }
+        @keyframes drawer-out { from { transform:translateX(0); } to { transform:translateX(-100%); } }
+        @keyframes overlay-in { from { opacity:0; } to { opacity:1; } }
+
+        /* ═══════════════ LAYOUT SHELL ═══════════════ */
+        .root {
+          min-height: 100vh;
+          display: flex;
+          background: var(--bg-deep);
+        }
+
+        /* ══════════════════════════════════════════════
+           DESKTOP SIDEBAR (visible ≥ 961px)
+        ══════════════════════════════════════════════ */
+        .left-panel {
+          width: 280px;
+          min-height: 100vh;
+          flex-shrink: 0;
+          background: linear-gradient(160deg, #0036BB 0%, #0052E8 45%, #2A18E8 100%);
+          display: flex;
+          flex-direction: column;
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          overflow: hidden;
+          box-shadow: 6px 0 32px rgba(0,36,187,0.22), 2px 0 8px rgba(0,0,0,0.12);
+          z-index: 10;
+        }
+        .left-panel::before {
+          content:''; position:absolute; top:-90px; left:-70px;
+          width:260px; height:260px; border-radius:50%;
+          background:radial-gradient(circle, rgba(255,255,255,0.13) 0%, transparent 70%);
+          pointer-events:none;
+        }
+        .left-panel::after {
+          content:''; position:absolute; bottom:-60px; right:-50px;
+          width:220px; height:220px; border-radius:50%;
+          background:radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+          pointer-events:none;
+        }
+        .lp-grid {
+          position:absolute; inset:0; pointer-events:none;
+          background-image:
+            linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+          background-size:44px 44px;
+        }
+        .lp-brand {
+          padding:28px 22px 20px; position:relative; z-index:2;
+          border-bottom:1px solid rgba(255,255,255,0.1);
+        }
+        .lp-logo {
+          display:inline-flex; align-items:center; gap:7px;
+          background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2);
+          border-radius:9999px; padding:5px 14px;
+          font-size:0.68rem; font-weight:800; color:#fff;
+          letter-spacing:0.13em; text-transform:uppercase; margin-bottom:16px;
+        }
+        .lp-logo-dot {
+          width:6px; height:6px; border-radius:50%;
+          background:#4ade80; box-shadow:0 0 8px rgba(74,222,128,0.85);
+          animation:lp-pulse 2.2s infinite;
+        }
+        .lp-heading { font-family:"DM Sans",sans-serif; font-size:1.35rem; font-weight:800; color:#fff; letter-spacing:-0.03em; line-height:1.2; }
+        .lp-sub { font-size:0.76rem; color:rgba(255,255,255,0.6); margin-top:5px; line-height:1.55; }
+        .lp-stats { display:flex; border-bottom:1px solid rgba(255,255,255,0.1); position:relative; z-index:2; }
+        .lp-stat { flex:1; padding:14px 12px; text-align:center; border-right:1px solid rgba(255,255,255,0.1); }
+        .lp-stat:last-child { border-right:none; }
+        .lp-stat-num { font-family:"DM Sans",sans-serif; font-size:1.45rem; font-weight:800; color:#fff; line-height:1; }
+        .lp-stat-lbl { font-size:0.6rem; font-weight:700; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.07em; margin-top:3px; }
+        .lp-nav { padding:16px 12px; display:flex; flex-direction:column; gap:5px; flex:1; overflow-y:auto; position:relative; z-index:2; }
+        .nav-item {
+          width:100%; display:flex; align-items:center; gap:11px;
+          padding:11px 13px; border-radius:13px;
+          border:1px solid transparent; background:transparent;
+          cursor:pointer; text-align:left;
+          transition:all 0.2s cubic-bezier(0.16,1,0.3,1);
+        }
+        .nav-item:hover { background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.14); }
+        .nav-item-active { background:rgba(255,255,255,0.17) !important; border-color:rgba(255,255,255,0.28) !important; box-shadow:0 4px 14px rgba(0,0,0,0.14); }
+        .nav-item-icon {
+          width:36px; height:36px; border-radius:10px;
+          background:rgba(255,255,255,0.11); border:1px solid rgba(255,255,255,0.16);
+          display:flex; align-items:center; justify-content:center;
+          color:#fff; flex-shrink:0; transition:all 0.2s;
+        }
+        .nav-item-active .nav-item-icon { background:rgba(255,255,255,0.24); border-color:rgba(255,255,255,0.38); }
+        .nav-item-text { flex:1; min-width:0; }
+        .nav-item-label { font-family:"DM Sans",sans-serif; font-size:0.86rem; font-weight:700; color:#fff; display:block; }
+        .nav-item-sub   { font-size:0.69rem; color:rgba(255,255,255,0.52); display:block; margin-top:1px; }
+        .nav-badge { font-size:0.66rem; font-weight:800; background:rgba(255,255,255,0.18); color:#fff; padding:2px 8px; border-radius:9999px; flex-shrink:0; }
+        .nav-item-active .nav-badge { background:rgba(255,255,255,0.32); }
+        .nav-arrow { color:rgba(255,255,255,0.38); flex-shrink:0; transition:transform 0.2s, color 0.2s; }
+        .nav-item:hover .nav-arrow { transform:translateX(2px); color:rgba(255,255,255,0.68); }
+        .nav-item-active .nav-arrow { color:rgba(255,255,255,0.68); }
+        .lp-domains { padding:0 12px 16px; position:relative; z-index:2; }
+        .lp-domains-lbl { font-size:0.62rem; font-weight:700; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.11em; padding:0 4px; margin-bottom:8px; }
+        .lp-domain-row { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px; margin-bottom:3px; transition:background 0.17s; cursor:default; }
+        .lp-domain-row:hover { background:rgba(255,255,255,0.07); }
+        .lp-domain-icon { width:27px; height:27px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .lp-domain-name { font-size:0.77rem; font-weight:600; color:rgba(255,255,255,0.82); flex:1; }
+        .lp-domain-count { font-family:"JetBrains Mono",monospace; font-size:0.7rem; font-weight:700; color:rgba(255,255,255,0.46); }
+        .lp-back { padding:14px 16px; border-top:1px solid rgba(255,255,255,0.1); position:relative; z-index:2; }
+        .lp-back-btn {
+          display:inline-flex; align-items:center; gap:7px;
+          font-size:0.77rem; font-weight:600; color:rgba(255,255,255,0.6);
+          cursor:pointer; background:none; border:none;
+          transition:color 0.18s; font-family:"Inter",sans-serif;
+        }
+        .lp-back-btn:hover { color:#fff; }
+
+        /* ══════════════════════════════════════════════
+           MOBILE TOP BAR (hidden on desktop)
+        ══════════════════════════════════════════════ */
+        .mob-topbar {
+          display: none; /* shown via media query */
+          position: sticky;
+          top: 0;
+          z-index: 200;
+          height: 56px;
+          background: linear-gradient(135deg, #0036BB, #0052E8);
+          align-items: center;
+          padding: 0 16px;
+          gap: 12px;
+          box-shadow: 0 2px 12px rgba(0,36,187,0.25);
+        }
+        .mob-topbar-menu {
+          width: 38px; height: 38px; border-radius: 10px;
+          background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22);
+          display: flex; align-items: center; justify-content: center;
+          color: #fff; cursor: pointer; flex-shrink: 0;
+          transition: background 0.18s;
+        }
+        .mob-topbar-menu:hover { background: rgba(255,255,255,0.22); }
+        .mob-topbar-brand {
+          display: flex; align-items: center; gap: 8px;
+          flex: 1;
+        }
+        .mob-topbar-dot {
+          width: 6px; height: 6px; border-radius: 50%;
+          background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,0.85);
+          animation: lp-pulse 2.2s infinite; flex-shrink: 0;
+        }
+        .mob-topbar-logo {
+          font-size: 0.75rem; font-weight: 800; color: rgba(255,255,255,0.7);
+          letter-spacing: 0.13em; text-transform: uppercase;
+        }
+        .mob-topbar-title {
+          font-family: "DM Sans", sans-serif;
+          font-size: 1rem; font-weight: 800; color: #fff;
+          letter-spacing: -0.02em;
+        }
+        .mob-topbar-action {
+          width: 38px; height: 38px; border-radius: 10px;
+          background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22);
+          display: flex; align-items: center; justify-content: center;
+          color: #fff; cursor: pointer; flex-shrink: 0;
+          transition: background 0.18s;
+        }
+        .mob-topbar-action:hover { background: rgba(255,255,255,0.22); }
+
+        /* ══════════════════════════════════════════════
+           MOBILE SLIDE-OUT DRAWER
+        ══════════════════════════════════════════════ */
+        .mob-drawer-overlay {
+          display: none;
+          position: fixed; inset: 0; z-index: 300;
+          background: rgba(0,0,0,0.45);
+          backdrop-filter: blur(2px);
+          animation: overlay-in 0.22s ease;
+        }
+        .mob-drawer-overlay.open { display: block; }
+        .mob-drawer {
+          position: fixed; top: 0; left: 0; bottom: 0;
+          width: min(300px, 88vw);
+          background: linear-gradient(160deg, #0036BB 0%, #0052E8 45%, #2A18E8 100%);
+          z-index: 400;
+          display: flex; flex-direction: column;
+          overflow: hidden;
+          transform: translateX(-100%);
+          transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+          box-shadow: 8px 0 40px rgba(0,0,0,0.3);
+        }
+        .mob-drawer.open { transform: translateX(0); }
+        .mob-drawer-grid {
+          position: absolute; inset: 0; pointer-events: none;
+          background-image:
+            linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+          background-size: 44px 44px;
+        }
+        .mob-drawer-head {
+          padding: 20px 18px 16px; position: relative; z-index: 2;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+          display: flex; align-items: center; gap: 12px;
+        }
+        .mob-drawer-close {
+          width: 34px; height: 34px; border-radius: 9px;
+          background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+          display: flex; align-items: center; justify-content: center;
+          color: #fff; cursor: pointer; flex-shrink: 0;
+          transition: background 0.15s; margin-left: auto;
+        }
+        .mob-drawer-close:hover { background: rgba(255,255,255,0.22); }
+        .mob-drawer-brand { flex: 1; }
+        .mob-drawer-logo {
+          display: inline-flex; align-items: center; gap: 6px;
+          font-size: 0.65rem; font-weight: 800; color: rgba(255,255,255,0.7);
+          letter-spacing: 0.13em; text-transform: uppercase; margin-bottom: 4px;
+        }
+        .mob-drawer-title { font-family:"DM Sans",sans-serif; font-size:1.15rem; font-weight:800; color:#fff; letter-spacing:-0.02em; }
+        .mob-drawer-stats {
+          display: flex; border-bottom: 1px solid rgba(255,255,255,0.1);
+          position: relative; z-index: 2;
+        }
+        .mob-drawer-stat { flex:1; padding:12px 8px; text-align:center; border-right:1px solid rgba(255,255,255,0.1); }
+        .mob-drawer-stat:last-child { border-right:none; }
+        .mob-drawer-stat-num { font-family:"DM Sans",sans-serif; font-size:1.3rem; font-weight:800; color:#fff; line-height:1; }
+        .mob-drawer-stat-lbl { font-size:0.58rem; font-weight:700; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.07em; margin-top:2px; }
+        .mob-drawer-nav { padding:14px 10px; display:flex; flex-direction:column; gap:4px; flex:1; overflow-y:auto; position:relative; z-index:2; }
+        .mob-drawer-domains { padding:0 10px 14px; position:relative; z-index:2; }
+        .mob-drawer-domains-lbl { font-size:0.6rem; font-weight:700; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.11em; padding:0 4px; margin-bottom:7px; }
+        .mob-drawer-back { padding:12px 14px; border-top:1px solid rgba(255,255,255,0.1); position:relative; z-index:2; }
+
+        /* ══════════════════════════════════════════════
+           MOBILE BOTTOM TAB BAR
+        ══════════════════════════════════════════════ */
+        .mob-tabbar {
+          display: none; /* shown via media query */
+          position: fixed; bottom: 0; left: 0; right: 0;
+          height: var(--mob-tab-h);
+          background: var(--surface);
+          border-top: 1px solid var(--border);
+          box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+          z-index: 150;
+          padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+        .mob-tabbar-inner {
+          display: flex; height: 100%;
+        }
+        .mob-tab {
+          flex: 1; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 4px;
+          background: none; border: none;
+          cursor: pointer; padding: 0;
+          position: relative;
+          transition: all 0.18s;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .mob-tab-icon {
+          width: 40px; height: 32px;
+          display: flex; align-items: center; justify-content: center;
+          border-radius: 12px;
+          transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
+          color: var(--text-muted);
+        }
+        .mob-tab.active .mob-tab-icon {
+          background: var(--brand-light);
+          color: var(--brand);
+          transform: translateY(-2px);
+        }
+        .mob-tab-label {
+          font-size: 0.62rem; font-weight: 600;
+          color: var(--text-muted);
+          transition: color 0.18s;
+          line-height: 1;
+        }
+        .mob-tab.active .mob-tab-label { color: var(--brand); font-weight: 700; }
+        .mob-tab-badge {
+          position: absolute; top: 2px; right: calc(50% - 26px);
+          width: 16px; height: 16px; border-radius: 50%;
+          background: var(--brand); color: #fff;
+          font-size: 0.55rem; font-weight: 800;
+          display: flex; align-items: center; justify-content: center;
+          border: 2px solid var(--surface);
+        }
+
+        /* ══════════════════════════════════════════════
+           MAIN WRAPPER & CONTENT SHELL
+        ══════════════════════════════════════════════ */
+        .main-wrapper {
+          flex: 1; min-height: 100vh; overflow-y: auto;
+          background: var(--bg-deep);
+          padding: 0 32px 0 40px;
+          display: flex; flex-direction: column;
+        }
+        .main-wrapper::-webkit-scrollbar { width:5px; }
+        .main-wrapper::-webkit-scrollbar-thumb { background:rgba(0,71,212,0.14); border-radius:4px; }
+        .content-shell {
+          flex: 1; background: var(--bg); border-radius: 24px;
+          margin: 20px 0 20px;
+          box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 4px 6px rgba(0,0,0,0.04), 0 10px 40px rgba(0,0,0,0.06);
+          overflow: hidden;
+          min-height: calc(100vh - 40px);
+        }
+
+        .screen { animation: screen-in 0.3s cubic-bezier(0.22,1,0.36,1); }
+
+        /* ══════════════════════════════════════════════
+           PAGE TOP HEADER
+        ══════════════════════════════════════════════ */
+        .page-top {
+          padding: 44px 52px 36px;
+          border-bottom: 1px solid var(--border);
+          background: var(--surface);
+          display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+        }
+        .page-eyebrow { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+        .page-eyebrow-dot { width:7px; height:7px; border-radius:50%; background:var(--brand); box-shadow:0 0 0 2px rgba(0,71,212,0.18); }
+        .page-eyebrow-text { font-size:0.7rem; font-weight:700; color:var(--brand); letter-spacing:0.1em; text-transform:uppercase; }
+        .page-title {
+          font-family:"DM Sans",sans-serif; font-size:2.3rem; font-weight:900;
+          color:var(--brand); letter-spacing:-0.05em; line-height:1.12; min-height:2.5rem;
+        }
+        .page-subtitle { font-size:0.875rem; color:var(--text-secondary); margin-top:8px; font-weight:400; line-height:1.6; }
+
+        /* ══════════════════════════════════════════════
+           CONTENT BODY
+        ══════════════════════════════════════════════ */
+        .body-pad { padding:36px 52px 80px; max-width:940px; }
+        .section-hd { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+        .section-hd-label { font-size:0.67rem; font-weight:800; color:var(--brand); text-transform:uppercase; letter-spacing:0.12em; white-space:nowrap; }
+        .section-hd-rule { flex:1; height:1px; background:linear-gradient(90deg, var(--border), transparent); }
+
+        /* ── STAT CARDS ── */
+        .stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:40px; }
+        .stat-card {
+          background:var(--surface); border:1px solid rgba(0,0,0,0.07);
+          border-radius:var(--radius-xl); padding:24px 24px 22px;
+          box-shadow:var(--shadow-card);
+          transition:all 0.24s cubic-bezier(0.16,1,0.3,1);
+          position:relative; overflow:hidden;
+        }
+        .stat-card::before {
+          content:''; position:absolute; top:0; left:0; right:0; height:2px;
+          background:linear-gradient(90deg, var(--brand), #0066FF); opacity:0; transition:opacity 0.22s;
+        }
+        .stat-card:hover { box-shadow:var(--shadow-hover); transform:translateY(-3px); border-color:rgba(0,71,212,0.12); }
+        .stat-card:hover::before { opacity:1; }
+        .stat-card-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:18px; }
+        .stat-icon { width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; }
+        .stat-value { font-family:"DM Sans",sans-serif; font-size:2.3rem; font-weight:900; color:var(--text-primary); letter-spacing:-0.05em; line-height:1; }
+        .stat-suffix { font-size:1.1rem; color:var(--text-muted); font-weight:500; margin-left:2px; }
+        .stat-label { font-size:0.71rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.07em; margin-top:6px; }
+
+        /* ── QUICK ACTIONS ── */
+        .qa-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:40px; }
+        .qa-card {
+          background:var(--surface); border:1px solid rgba(0,0,0,0.07);
+          border-radius:var(--radius-lg); padding:20px 22px;
+          display:flex; align-items:center; gap:16px;
+          cursor:pointer; transition:all 0.24s cubic-bezier(0.16,1,0.3,1);
+          box-shadow:var(--shadow-card); text-align:left;
+        }
+        .qa-card:hover { border-color:rgba(0,71,212,0.15); box-shadow:var(--shadow-hover); transform:translateY(-3px); }
+        .qa-icon { width:48px; height:48px; border-radius:14px; background:var(--brand-light); border:1px solid rgba(0,71,212,0.14); display:flex; align-items:center; justify-content:center; color:var(--brand); flex-shrink:0; }
+        .qa-title { font-family:"DM Sans",sans-serif; font-size:0.92rem; font-weight:800; color:var(--text-primary); margin-bottom:3px; }
+        .qa-sub { font-size:0.73rem; color:var(--text-muted); line-height:1.45; }
+        .qa-arrow { color:#CBD5E1; margin-left:auto; flex-shrink:0; transition:all 0.18s; }
+        .qa-card:hover .qa-arrow { color:var(--brand); transform:translateX(3px); }
+
+        /* ── RECENT GOALS ── */
+        .goals-stack { display:flex; flex-direction:column; gap:10px; }
+        .goal-preview-row {
+          background:var(--surface); border:1px solid rgba(0,0,0,0.07);
+          border-radius:var(--radius-lg); padding:16px 20px;
+          display:flex; align-items:center; gap:14px;
+          cursor:pointer; transition:all 0.24s cubic-bezier(0.16,1,0.3,1);
+          box-shadow:var(--shadow-card);
+        }
+        .goal-preview-row:hover { border-color:rgba(0,71,212,0.15); box-shadow:var(--shadow-hover); transform:translateY(-2px); }
+        .gpr-icon { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .gpr-title { font-family:"DM Sans",sans-serif; font-size:0.88rem; font-weight:800; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:300px; margin-bottom:5px; }
+        .gpr-tags { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+        .gpr-arrow { color:#CBD5E1; flex-shrink:0; transition:all 0.18s; }
+        .goal-preview-row:hover .gpr-arrow { color:var(--brand); transform:translateX(3px); }
+
+        .tag { display:inline-flex; align-items:center; gap:3px; font-size:0.64rem; font-weight:700; padding:3px 8px; border-radius:9999px; }
+        .tag-neutral { background:#EEF2F8; color:#64748B; }
+
+        .empty-state {
+          background:var(--surface); border:1.5px dashed var(--border-hover);
+          border-radius:var(--radius-xl); padding:64px 32px; text-align:center; box-shadow:var(--shadow-sm);
+        }
+        .empty-state-icon { font-size:2.8rem; margin-bottom:14px; }
+        .empty-state-title { font-family:"DM Sans",sans-serif; font-size:1.1rem; font-weight:800; color:var(--text-primary); margin-bottom:8px; }
+        .empty-state-sub { font-size:0.84rem; color:var(--text-muted); line-height:1.65; margin-bottom:24px; }
+
+        .btn-primary {
+          display:inline-flex; align-items:center; gap:7px;
+          padding:10px 20px; border-radius:var(--radius-md); border:none;
+          background:linear-gradient(135deg, #0047D4, #0066FF); color:#fff;
+          font-size:0.82rem; font-weight:700; cursor:pointer; transition:all 0.2s;
+          box-shadow:0 3px 12px rgba(0,71,212,0.28), 0 1px 3px rgba(0,0,0,0.12);
+          font-family:"Inter",sans-serif;
+        }
+        .btn-primary:hover { filter:brightness(1.07); transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,71,212,0.34); }
+        .btn-primary:disabled { background:#94A3B8 !important; box-shadow:none !important; cursor:not-allowed; transform:none; }
+
+        /* ── GOALS LIST ── */
+        .list-topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+        .list-meta { font-size:0.82rem; color:var(--text-secondary); }
+        .list-meta strong { font-weight:700; color:var(--brand); }
+        .goals-list { display:flex; flex-direction:column; gap:12px; }
+
+        /* ── GOAL CARD ── */
+        .goal-card {
+          background:var(--surface); border:1px solid rgba(0,0,0,0.07);
+          border-radius:var(--radius-xl); display:flex; overflow:hidden;
+          box-shadow:var(--shadow-card); transition:all 0.24s cubic-bezier(0.16,1,0.3,1);
+        }
+        .goal-card:hover { border-color:rgba(0,71,212,0.14); box-shadow:var(--shadow-hover); transform:translateY(-3px); }
+        .goal-card-open { border-color:rgba(0,71,212,0.14); box-shadow:var(--shadow-md); }
+        .goal-card-bar { width:5px; flex-shrink:0; }
+        .goal-card-body { flex:1; padding:18px 20px; display:flex; flex-direction:column; gap:12px; }
+        .goal-card-header { display:flex; align-items:center; gap:14px; }
+        .goal-card-domain-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:transform 0.2s; }
+        .goal-card:hover .goal-card-domain-icon { transform:scale(1.06); }
+        .goal-card-meta { flex:1; min-width:0; }
+        .goal-card-title { font-family:"DM Sans",sans-serif; font-size:0.93rem; font-weight:800; color:var(--text-primary); margin-bottom:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .goal-card-tags { display:flex; flex-wrap:wrap; gap:5px; }
+        .goal-card-ring { display:flex; flex-direction:column; align-items:center; gap:3px; }
+        .goal-card-ring-label { font-size:0.62rem; font-weight:600; color:var(--text-muted); }
+        .goal-card-actions { display:flex; flex-direction:column; gap:5px; opacity:0; transition:opacity 0.18s; }
+        .goal-card:hover .goal-card-actions { opacity:1; }
+        .gc-btn { width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-muted); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.15s; }
+        .gc-btn:hover { color:var(--brand); border-color:var(--brand-mid); background:var(--brand-light); }
+        .gc-btn-del:hover { color:#dc2626 !important; border-color:#fca5a5 !important; background:#fef2f2 !important; }
+        .goal-card-progress-track { height:5px; background:#EEF1F8; border-radius:9999px; overflow:hidden; }
+        .goal-card-progress-fill  { height:100%; border-radius:9999px; transition:width 0.9s cubic-bezier(0.16,1,0.3,1); }
+        .goal-card-milestones { background:#F5F8FC; border:1px solid #E8EDF5; border-radius:var(--radius-md); padding:14px 16px; display:flex; flex-direction:column; gap:9px; animation:fade-up 0.2s ease; }
+        .ms-check-row  { display:flex; align-items:center; gap:10px; position:relative; }
+        .ms-checkbox { width:20px; height:20px; border-radius:6px; border:2px solid #BFC9D8; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:all 0.18s; }
+        .ms-checkbox:hover { border-color:var(--brand); }
+        .ms-checkbox-done { box-shadow:0 0 0 3px rgba(0,71,212,0.1); }
+        .ms-check-text { font-size:0.81rem; font-weight:500; color:var(--text-primary); flex:1; line-height:1.4; }
+        .ms-check-done { text-decoration:line-through; color:var(--text-muted); }
+        .xp-float { position:absolute; right:0; top:-4px; font-size:0.72rem; font-weight:800; color:#16a34a; animation:float-xp 1.4s ease forwards; pointer-events:none; white-space:nowrap; }
+
+        /* ── FORM SCREENS ── */
+        .form-wrap { display:flex; flex-direction:column; gap:18px; max-width:720px; }
+        .form-card {
+          background:var(--surface); border:1px solid rgba(0,0,0,0.07);
+          border-radius:var(--radius-xl); overflow:hidden;
+          box-shadow:var(--shadow-card); transition:box-shadow 0.22s, transform 0.22s;
+        }
+        .form-card:hover { box-shadow:var(--shadow-lg); transform:translateY(-2px); }
+        .form-card-stripe { height:4px; }
+        .form-card-head { padding:20px 24px 16px; display:flex; align-items:center; gap:13px; border-bottom:1px solid #F0F3F9; }
+        .fch-icon { width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .fch-title { font-family:"DM Sans",sans-serif; font-size:0.95rem; font-weight:800; color:var(--text-primary); }
+        .fch-sub   { font-size:0.71rem; color:var(--text-muted); margin-top:2px; }
+        .form-card-body { padding:22px 24px; display:flex; flex-direction:column; gap:18px; }
+
+        .edit-banner { background:var(--brand-light); border:1px solid var(--brand-mid); border-radius:var(--radius-md); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; box-shadow:var(--shadow-sm); }
+        .eb-label { display:flex; align-items:center; gap:8px; font-size:0.81rem; font-weight:700; color:var(--brand); }
+        .eb-cancel { font-size:0.75rem; font-weight:700; color:var(--text-secondary); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:5px 13px; cursor:pointer; transition:all 0.15s; font-family:"Inter",sans-serif; }
+        .eb-cancel:hover { color:#dc2626; border-color:#fca5a5; }
+
+        .field-grp   { display:flex; flex-direction:column; gap:6px; }
+        .field-label { font-size:0.79rem; font-weight:600; color:#374151; }
+        .field-req   { color:var(--brand); }
+        .field-opt   { font-size:0.69rem; font-weight:400; color:var(--text-muted); }
+        .field-input {
+          font-family:"Inter",sans-serif; font-size:0.85rem; padding:12px 15px;
+          border-radius:var(--radius-md); border:1.5px solid var(--border);
+          background:#F8FAFD; color:var(--text-primary); transition:all 0.18s; width:100%;
+        }
+        .field-input:focus { outline:none; border-color:var(--brand); background:var(--surface); box-shadow:0 0 0 3px rgba(0,71,212,0.09); }
+        .field-input::placeholder { color:#B8C4D4; }
+        .field-divider { height:1px; background:#EEF1F8; }
+
+        .domain-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+        .domain-btn { padding:16px 8px; border-radius:14px; border:1.5px solid var(--border); background:#F8FAFD; cursor:pointer; transition:all 0.2s; display:flex; flex-direction:column; align-items:center; gap:8px; font-family:"Inter",sans-serif; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+        .domain-btn:hover { border-color:var(--border-hover); background:var(--brand-light); box-shadow:0 3px 10px rgba(0,71,212,0.1); }
+        .domain-btn.on  { box-shadow:0 4px 16px rgba(0,71,212,0.14); }
+        .db-icon  { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+        .db-label { font-size:0.75rem; font-weight:700; color:#374151; }
+
+        .prio-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+        .prio-btn  { padding:14px 8px; border-radius:13px; border:1.5px solid var(--border); background:#F8FAFD; cursor:pointer; transition:all 0.2s; display:flex; flex-direction:column; align-items:center; gap:5px; font-family:"Inter",sans-serif; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+        .prio-btn:hover { border-color:var(--border-hover); box-shadow:0 3px 10px rgba(0,0,0,0.08); }
+        .prio-emoji { font-size:1.35rem; }
+        .prio-label { font-size:0.73rem; font-weight:700; color:#374151; }
+
+        .goal-preview-block { display:flex; align-items:center; gap:14px; padding:15px 18px; background:linear-gradient(135deg, rgba(0,71,212,0.04), rgba(42,24,232,0.03)); border:1.5px solid rgba(0,71,212,0.13); border-radius:var(--radius-md); box-shadow:0 2px 8px rgba(0,71,212,0.06); }
+        .gpb-icon { width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .gpb-title { font-family:"DM Sans",sans-serif; font-size:0.9rem; font-weight:800; color:var(--text-primary); }
+        .gpb-tags  { display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin-top:5px; }
+        .gpb-tag   { display:inline-flex; align-items:center; gap:3px; font-size:0.67rem; font-weight:600; padding:3px 9px; border-radius:9999px; background:rgba(0,71,212,0.07); color:var(--brand); }
+
+        .ai-row  { display:flex; align-items:center; justify-content:space-between; }
+        .ai-btn  { display:inline-flex; align-items:center; gap:6px; padding:7px 15px; border-radius:9999px; border:none; background:linear-gradient(135deg, var(--brand), #2A18E8); color:#fff; font-size:0.73rem; font-weight:700; cursor:pointer; transition:all 0.2s; font-family:"Inter",sans-serif; box-shadow:0 2px 8px rgba(0,71,212,0.28); }
+        .ai-btn:hover:not(:disabled) { filter:brightness(1.08); transform:translateY(-1px); }
+        .ai-btn:disabled { background:#94A3B8; cursor:not-allowed; box-shadow:none; }
+        .ai-chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+        .ai-chip  { display:inline-flex; align-items:center; gap:5px; padding:7px 12px; border-radius:9999px; border:1.5px solid var(--border); background:#F8FAFD; font-size:0.75rem; font-weight:600; color:var(--text-primary); cursor:pointer; transition:all 0.17s; font-family:"Inter",sans-serif; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+        .ai-chip:hover { border-color:var(--border-hover); background:var(--brand-light); }
+        .ai-chip.on    { border-color:var(--brand); background:var(--brand-light); color:var(--brand); font-weight:700; }
+
+        .ms-input-row { display:flex; gap:10px; align-items:center; }
+        .ms-add-btn { display:flex; align-items:center; gap:5px; height:44px; padding:0 16px; border-radius:var(--radius-md); border:1.5px solid var(--brand-mid); background:var(--brand-light); color:var(--brand); font-size:0.79rem; font-weight:700; cursor:pointer; transition:all 0.18s; white-space:nowrap; font-family:"Inter",sans-serif; box-shadow:0 1px 4px rgba(0,71,212,0.12); }
+        .ms-add-btn:hover { background:var(--brand); color:#fff; border-color:var(--brand); box-shadow:0 3px 10px rgba(0,71,212,0.28); }
+        .ms-list { display:flex; flex-direction:column; gap:7px; margin-top:2px; }
+        .ms-item { display:flex; align-items:center; gap:10px; padding:12px 14px; background:#F5F8FC; border:1px solid #E4EAF4; border-radius:var(--radius-md); transition:all 0.15s; animation:fade-up 0.2s ease; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+        .ms-item:hover { background:var(--surface); border-color:var(--border-hover); box-shadow:var(--shadow-sm); }
+        .ms-num { width:24px; height:24px; border-radius:7px; background:var(--brand-light); color:var(--brand); font-size:0.67rem; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:"JetBrains Mono",monospace; }
+        .ms-text { flex:1; font-size:0.81rem; font-weight:500; color:var(--text-primary); }
+        .ms-del  { background:none; border:none; color:#CBD5E1; cursor:pointer; display:flex; align-items:center; padding:4px; border-radius:6px; transition:all 0.14s; }
+        .ms-del:hover { color:#dc2626; background:#fef2f2; }
+
+        .err-box { display:flex; align-items:center; gap:9px; padding:12px 16px; border-radius:var(--radius-md); background:#FEF2F2; border:1px solid #FECACA; color:#DC2626; font-size:0.83rem; font-weight:600; box-shadow:0 2px 8px rgba(220,38,38,0.1); }
+        .success-card { background:var(--surface); border:1.5px solid #BBF7D0; border-radius:var(--radius-xl); padding:60px 32px; text-align:center; display:flex; flex-direction:column; align-items:center; box-shadow:0 4px 24px rgba(22,163,74,0.12), 0 0 0 1px rgba(22,163,74,0.06); animation:scale-in 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+        .succ-icon { width:76px; height:76px; border-radius:50%; background:linear-gradient(135deg, #16a34a, #15803d); display:flex; align-items:center; justify-content:center; margin-bottom:22px; box-shadow:0 6px 24px rgba(22,163,74,0.32); }
+        .succ-title { font-family:"DM Sans",sans-serif; font-size:1.55rem; font-weight:800; color:var(--text-primary); letter-spacing:-0.03em; margin-bottom:10px; }
+        .succ-sub { font-size:0.87rem; color:var(--text-secondary); line-height:1.65; max-width:320px; }
+
+        .save-btn { width:100%; padding:15px; border-radius:14px; border:none; cursor:pointer; font-family:"DM Sans",sans-serif; font-size:0.97rem; font-weight:800; color:#fff; background:linear-gradient(135deg, #0047D4, #0066FF); box-shadow:0 4px 20px rgba(0,71,212,0.30), 0 1px 4px rgba(0,0,0,0.12); display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.22s; letter-spacing:-0.01em; }
+        .save-btn:hover:not(:disabled) { filter:brightness(1.06); transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,71,212,0.36); }
+        .save-btn:disabled { background:#94A3B8 !important; box-shadow:none !important; cursor:not-allowed; transform:none; }
+        .save-hint { text-align:center; font-size:0.73rem; color:var(--text-muted); margin-top:10px; }
+
+        .view-all-btn { width:100%; padding:12px; border-radius:var(--radius-md); border:1.5px dashed var(--border-hover); background:transparent; color:var(--brand); font-size:0.81rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:"Inter",sans-serif; }
+        .view-all-btn:hover { background:var(--brand-light); }
+
+        /* ══════════════════════════════════════════════
+           RESPONSIVE — TABLET (≤ 960px)
+        ══════════════════════════════════════════════ */
+        @media (max-width: 960px) {
+          .left-panel   { display: none; }
+          .mob-topbar   { display: flex; }
+          .mob-tabbar   { display: flex; }
+          .main-wrapper { padding: 0; }
+          .content-shell { margin: 0; border-radius: 0; box-shadow: none; min-height: calc(100vh - 56px - var(--mob-tab-h)); }
+          .page-top  { padding: 28px 24px 22px; }
+          .body-pad  { padding: 24px 20px calc(var(--mob-tab-h) + 24px); }
+          .stats-grid { grid-template-columns: repeat(2, 1fr); gap:12px; }
+          .qa-grid    { grid-template-columns: 1fr; gap:10px; }
+        }
+
+        /* ══════════════════════════════════════════════
+           RESPONSIVE — MOBILE (≤ 520px)
+        ══════════════════════════════════════════════ */
+        @media (max-width: 520px) {
+          .page-title    { font-size: 1.7rem; }
+          .page-subtitle { font-size: 0.8rem; }
+          .page-top      { padding: 22px 18px 18px; flex-direction: column; align-items: flex-start; gap: 14px; }
+          .body-pad      { padding: 20px 16px calc(var(--mob-tab-h) + 20px); }
+          .stats-grid    { grid-template-columns: 1fr; gap: 10px; margin-bottom: 28px; }
+          .qa-grid       { grid-template-columns: 1fr; gap: 10px; margin-bottom: 28px; }
+          /* Compact stat cards on mobile */
+          .stat-card     { padding: 18px 18px 16px; }
+          .stat-value    { font-size: 1.9rem; }
+          /* Goal cards: always show actions on mobile (no hover) */
+          .goal-card-actions { opacity: 1; }
+          /* Tighten goal card body on mobile */
+          .goal-card-body { padding: 14px 14px; }
+          .goal-card-domain-icon { width: 36px; height: 36px; }
+          .goal-card-title { font-size: 0.86rem; }
+          /* Form cards */
+          .form-card-head { padding: 16px 18px 12px; }
+          .form-card-body { padding: 18px 18px; gap: 14px; }
+          .domain-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+          .domain-btn  { padding: 12px 6px; }
+          .db-icon     { width: 30px; height: 30px; }
+          .db-label    { font-size: 0.68rem; }
+          .prio-grid   { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+          .prio-btn    { padding: 11px 6px; }
+          /* QA cards compact */
+          .qa-card     { padding: 15px 16px; gap: 12px; }
+          .qa-icon     { width: 40px; height: 40px; border-radius: 12px; }
+          /* goal preview rows */
+          .gpr-title   { max-width: 180px; }
+          /* ms input row */
+          .ms-input-row { flex-direction: column; gap: 8px; }
+          .ms-add-btn  { width: 100%; justify-content: center; }
+          /* empty state compact */
+          .empty-state { padding: 44px 24px; }
+          /* List meta wrap */
+          .list-topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+          /* Drawer */
+          .mob-drawer { width: min(280px, 90vw); }
+        }
       `}</style>
 
-      {/* ── Right Panel: Split View ── */}
-      <div className="page-right">
+      {/* ══════════════════ MOBILE DRAWER OVERLAY ══════════════════ */}
+      <div className={`mob-drawer-overlay${drawerOpen ? " open" : ""}`} onClick={() => setDrawerOpen(false)}/>
 
-        {/* ── LEFT SECTION: Always-On Goals List ── */}
-        <div className="goals-control-left">
-          <div className="gcl-header">
-            <div className="gcl-title">Active Goals</div>
-            <div className="gcl-sub">{goals.length} goal{goals.length !== 1 ? "s" : ""} in progress</div>
+      {/* ══════════════════ MOBILE SLIDE DRAWER ══════════════════════ */}
+      <div className={`mob-drawer${drawerOpen ? " open" : ""}`}>
+        <div className="mob-drawer-grid"/>
+        <div className="mob-drawer-head">
+          <div className="mob-drawer-brand">
+            <div className="mob-drawer-logo"><div className="lp-logo-dot"/> Syntra</div>
+            <div className="mob-drawer-title">Goal Center</div>
           </div>
-          <div className="gcl-body">
-            {goals.length === 0 ? (
-              <div className="gcl-empty">No active goals yet.<br />Create one using the wizard →</div>
-            ) : (
-              goals.map((goal) => {
-                const total = goal.milestones?.length ?? 0;
-                const done = goal.milestones?.filter((m) => m.completed).length ?? 0;
-                const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-                const dc = domainConfig[goal.domain];
-                const pClass = goal.priority === "high" ? "p-high" : goal.priority === "medium" ? "p-medium" : "p-low";
-                const isExp = expandedGoalId === goal._id;
+          <button className="mob-drawer-close" onClick={() => setDrawerOpen(false)}><X size={15}/></button>
+        </div>
+        <div className="mob-drawer-stats">
+          <div className="mob-drawer-stat"><div className="mob-drawer-stat-num">{goals.length}</div><div className="mob-drawer-stat-lbl">Goals</div></div>
+          <div className="mob-drawer-stat"><div className="mob-drawer-stat-num">{doneMs}</div><div className="mob-drawer-stat-lbl">Done</div></div>
+          <div className="mob-drawer-stat"><div className="mob-drawer-stat-num">{overallPct}%</div><div className="mob-drawer-stat-lbl">Overall</div></div>
+        </div>
+        <div className="mob-drawer-nav">
+          <NavItem icon={<BarChart3 size={16}/>} label="Overview"     sub="Summary & quick access"     active={screen==="home"}       onClick={()=>goScreen("home")}/>
+          <NavItem icon={<Rocket size={16}/>}    label="My Goals"     sub={goals.length>0?`${goals.length} active`:"No goals yet"} active={screen==="goals-list"} onClick={()=>goScreen("goals-list")} badge={goals.length}/>
+          <NavItem icon={<Plus size={16}/>}      label="Add New Goal" sub="Create a goal & milestones" active={screen==="add-goal"}   onClick={()=>{resetForm();goScreen("add-goal");}}/>
+        </div>
+        <div className="mob-drawer-domains">
+          <div className="mob-drawer-domains-lbl">By Domain</div>
+          {(["health","finance","career"] as const).map(d=>{
+            const dc=DC[d]; const count=goals.filter(g=>g.domain===d).length;
+            return (
+              <div key={d} className="lp-domain-row">
+                <div className="lp-domain-icon" style={{background:"rgba(255,255,255,0.1)",color:dc.color}}>{dc.icon}</div>
+                <span className="lp-domain-name">{dc.label}</span>
+                <span className="lp-domain-count">{count}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mob-drawer-back">
+          <button className="lp-back-btn" onClick={()=>router.push("/dashboard")}>
+            <ArrowLeft size={13}/> Return to Dashboard
+          </button>
+        </div>
+      </div>
 
-                // Precompute inline finance deficit math to keep user mathematically aligned
-                let inlineFinanceElement = null;
-                if (goal.domain === "finance") {
-                  let targetAmount = 1500000;
-                  const numMatch = goal.title.replace(/,/g, '').match(/\d+/);
-                  if (numMatch) {
-                    targetAmount = parseInt(numMatch[0]);
-                  } else if (goal.title.toLowerCase().includes("thar")) {
-                    targetAmount = 1500000;
-                  } else if (goal.title.toLowerCase().includes("zomato")) {
-                    targetAmount = 5000;
-                  }
+      {/* ══════════════════ DESKTOP SIDEBAR ══════════════════════════ */}
+      <div className="left-panel">
+        <div className="lp-grid"/>
+        <div className="lp-brand">
+          <div className="lp-logo"><div className="lp-logo-dot"/> Syntra</div>
+          <div className="lp-heading">Goal Center</div>
+          <div className="lp-sub">Set goals, track milestones, build momentum every day.</div>
+        </div>
+        <div className="lp-stats">
+          <div className="lp-stat"><div className="lp-stat-num">{goals.length}</div><div className="lp-stat-lbl">Goals</div></div>
+          <div className="lp-stat"><div className="lp-stat-num">{doneMs}</div><div className="lp-stat-lbl">Done</div></div>
+          <div className="lp-stat"><div className="lp-stat-num">{overallPct}%</div><div className="lp-stat-lbl">Overall</div></div>
+        </div>
+        <div className="lp-nav">
+          <NavItem icon={<BarChart3 size={16}/>} label="Overview"     sub="Summary & quick access"       active={screen==="home"}       onClick={()=>setScreen("home")}/>
+          <NavItem icon={<Rocket size={16}/>}    label="My Goals"     sub={goals.length>0?`${goals.length} active`:"No goals yet"} active={screen==="goals-list"} onClick={()=>setScreen("goals-list")} badge={goals.length}/>
+          <NavItem icon={<Plus size={16}/>}      label="Add New Goal" sub="Create a goal & milestones"   active={screen==="add-goal"}   onClick={()=>{resetForm();setScreen("add-goal");}}/>
+        </div>
+        <div className="lp-domains">
+          <div className="lp-domains-lbl">By Domain</div>
+          {(["health","finance","career"] as const).map(d=>{
+            const dc=DC[d]; const count=goals.filter(g=>g.domain===d).length;
+            return (
+              <div key={d} className="lp-domain-row">
+                <div className="lp-domain-icon" style={{background:"rgba(255,255,255,0.1)",color:dc.color}}>{dc.icon}</div>
+                <span className="lp-domain-name">{dc.label}</span>
+                <span className="lp-domain-count">{count}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="lp-back">
+          <button className="lp-back-btn" onClick={()=>router.push("/dashboard")}>
+            <ArrowLeft size={13}/> Return to Dashboard
+          </button>
+        </div>
+      </div>
 
-                  const targetDate = goal.targetDate ? new Date(goal.targetDate) : new Date(Date.now() + 24 * 30 * 24 * 3600 * 1000);
-                  const monthsRemaining = Math.max(1, Math.round((targetDate.getTime() - Date.now()) / (30 * 24 * 3600 * 1000)));
-                  const requiredMonthlySavings = Math.round(targetAmount / monthsRemaining);
-                  const actualSavings = Math.round(requiredMonthlySavings - 3000); // simulate deficit
-                  const deficit = Math.max(0, requiredMonthlySavings - actualSavings);
+      {/* ══════════════════ MAIN WRAPPER ═════════════════════════════ */}
+      <div className="main-wrapper">
 
-                  inlineFinanceElement = (
-                    <div className="gcl-finance-math" style={{
-                      margin: "6px 14px 12px",
-                      padding: "10px 12px",
-                      background: deficit > 0 ? "rgba(239, 68, 68, 0.04)" : "rgba(16, 185, 129, 0.04)",
-                      borderRadius: "10px",
-                      border: `1.5px solid ${deficit > 0 ? "rgba(239, 68, 68, 0.12)" : "rgba(16, 185, 129, 0.12)"}`,
-                      fontFamily: '"JetBrains Mono", monospace'
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.68rem", fontWeight: 700, color: "var(--text-sub)" }}>
-                        <span>Monthly Req: ₹{requiredMonthlySavings.toLocaleString("en-IN")}</span>
-                        <span style={{ color: "var(--primary)" }}>{monthsRemaining}mo left</span>
-                      </div>
-                      <div style={{ fontSize: "0.74rem", fontWeight: 700, color: deficit > 0 ? "#ef4444" : "#10b981", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                        {deficit > 0 ? <ShieldAlert size={12} style={{ color: "#ef4444" }} /> : <CheckCircle2 size={12} style={{ color: "#10b981" }} />}
-                        <span>{deficit > 0 ? `₹${deficit.toLocaleString("en-IN")} deficit` : "On Track"}</span>
-                      </div>
+        {/* MOBILE TOP BAR */}
+        <div className="mob-topbar">
+          <button className="mob-topbar-menu" onClick={() => setDrawerOpen(true)}><Menu size={17}/></button>
+          <div className="mob-topbar-brand">
+            <div className="mob-topbar-dot"/>
+            <span className="mob-topbar-logo">Syntra&nbsp;&nbsp;</span>
+            <span className="mob-topbar-title">{SCREEN_COPY[screen].title}</span>
+          </div>
+          <button className="mob-topbar-action" onClick={()=>{resetForm();goScreen("add-goal");}}><Plus size={17}/></button>
+        </div>
+
+        <div className="content-shell">
+
+          {/* ─── OVERVIEW ─── */}
+          {screen==="home" && (
+            <div className="screen">
+              <div className="page-top">
+                <div className="page-title-block">
+                  <div className="page-eyebrow">
+                    <div className="page-eyebrow-dot"/>
+                    <span className="page-eyebrow-text">Goal Center</span>
+                  </div>
+                  <h1 className="page-title"><Typewriter phrases={SCREEN_COPY["home"].phrases}/></h1>
+                  <p className="page-subtitle">{SCREEN_COPY["home"].sub}</p>
+                </div>
+                <div>
+                  <button className="btn-primary" onClick={()=>{resetForm();setScreen("add-goal");}}>
+                    <Plus size={14}/> New Goal
+                  </button>
+                </div>
+              </div>
+
+              <div className="body-pad">
+                <div className="section-hd"><span className="section-hd-label">Quick Actions</span><div className="section-hd-rule"/></div>
+                <div className="qa-grid">
+                  <button className="qa-card" onClick={()=>{resetForm();setScreen("add-goal");}}>
+                    <div className="qa-icon"><Plus size={19}/></div>
+                    <div><div className="qa-title">Add New Goal</div><div className="qa-sub">Create a goal with AI-suggested milestones</div></div>
+                    <ChevronRight size={15} className="qa-arrow"/>
+                  </button>
+                  <button className="qa-card" onClick={()=>setScreen("goals-list")}>
+                    <div className="qa-icon"><Rocket size={19}/></div>
+                    <div><div className="qa-title">My Goals ({goals.length})</div><div className="qa-sub">Track progress, complete milestones</div></div>
+                    <ChevronRight size={15} className="qa-arrow"/>
+                  </button>
+                </div>
+
+                <div className="section-hd"><span className="section-hd-label">Overview</span><div className="section-hd-rule"/></div>
+                <div className="stats-grid">
+                  <StatCard icon={<Target size={17}/>} iconBg="rgba(0,71,212,0.1)" iconColor={BRAND}
+                    value={goals.length} label="Active Goals" ring={{pct:overallPct,color:BRAND}}/>
+                  <StatCard icon={<CheckCircle2 size={17}/>} iconBg="rgba(22,163,74,0.1)" iconColor="#16a34a"
+                    value={doneMs} suffix={`/${totalMs}`} label="Steps Completed"/>
+                  <StatCard icon={<Star size={17}/>} iconBg="rgba(217,119,6,0.1)" iconColor="#d97706"
+                    value={doneMs*100} label="XP Earned"/>
+                </div>
+
+                <div className="section-hd"><span className="section-hd-label">Recent Goals</span><div className="section-hd-rule"/></div>
+                {goals.length===0 ? (
+                  <div className="empty-state">
+                    <div className="empty-state-icon">🎯</div>
+                    <p style={{fontSize:"0.86rem",color:"var(--text-muted)",lineHeight:1.65}}>No goals yet. Create your first goal to get started.</p>
+                  </div>
+                ) : (
+                  <div className="goals-stack">
+                    {goals.slice(0,4).map(g=>{
+                      const dc=DC[g.domain];
+                      const total=g.milestones?.length??0;
+                      const done=g.milestones?.filter(m=>m.completed).length??0;
+                      const pct=total>0?Math.round((done/total)*100):0;
+                      const p=PRIO[g.priority as keyof typeof PRIO]||PRIO.medium;
+                      return (
+                        <div key={g._id} className="goal-preview-row" onClick={()=>setScreen("goals-list")}>
+                          <div className="gpr-icon" style={{background:dc.bg,color:dc.color,border:`1px solid ${dc.border}`}}>{dc.icon}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div className="gpr-title">{g.title}</div>
+                            <div className="gpr-tags">
+                              <span className="tag" style={{background:p.bg,color:p.color}}>{p.emoji} {p.label}</span>
+                              <span className="tag tag-neutral">{dc.label}</span>
+                              {total>0&&<span className="tag" style={{background:"rgba(0,71,212,0.07)",color:BRAND}}>{done}/{total} steps</span>}
+                            </div>
+                          </div>
+                          {total>0&&(
+                            <div style={{position:"relative",width:38,height:38,flexShrink:0}}>
+                              <svg width="38" height="38" style={{transform:"rotate(-90deg)",position:"absolute",inset:0}}>
+                                <circle cx="19" cy="19" r="15" fill="none" stroke="#E8EDF5" strokeWidth="4"/>
+                                <circle cx="19" cy="19" r="15" fill="none" stroke={dc.color} strokeWidth="4" strokeLinecap="round"
+                                  strokeDasharray={`${(pct/100)*2*Math.PI*15} ${2*Math.PI*15}`}
+                                  style={{transition:"stroke-dasharray .8s ease",filter:`drop-shadow(0 0 3px ${dc.color}55)`}}/>
+                              </svg>
+                              <span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.54rem",fontWeight:800,color:dc.color}}>{pct}%</span>
+                            </div>
+                          )}
+                          <ChevronRight size={15} className="gpr-arrow"/>
+                        </div>
+                      );
+                    })}
+                    {goals.length>4&&(
+                      <button className="view-all-btn" onClick={()=>setScreen("goals-list")}>
+                        View all {goals.length} goals →
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ─── MY GOALS ─── */}
+          {screen==="goals-list" && (
+            <div className="screen">
+              <div className="page-top">
+                <div className="page-title-block">
+                  <div className="page-eyebrow"><div className="page-eyebrow-dot"/><span className="page-eyebrow-text">Goal Center</span></div>
+                  <h1 className="page-title"><Typewriter phrases={SCREEN_COPY["goals-list"].phrases}/></h1>
+                  <p className="page-subtitle">{SCREEN_COPY["goals-list"].sub}</p>
+                </div>
+                <div>
+                  <button className="btn-primary" onClick={()=>{resetForm();setScreen("add-goal");}}>
+                    <Plus size={14}/> New Goal
+                  </button>
+                </div>
+              </div>
+              <div className="body-pad">
+                <div className="list-topbar">
+                  <span className="list-meta">
+                    <strong>{goals.length}</strong> goal{goals.length!==1?"s":""} &nbsp;·&nbsp; <strong>{doneMs}</strong>/{totalMs} steps &nbsp;·&nbsp; <strong>{overallPct}%</strong> overall
+                  </span>
+                </div>
+                {goals.length===0 ? (
+                  <div className="empty-state">
+                    <div className="empty-state-icon">🚀</div>
+                    <div className="empty-state-title">No goals yet</div>
+                    <div className="empty-state-sub">Create your first goal to start tracking progress and building momentum.</div>
+                    <button className="btn-primary" onClick={()=>{resetForm();setScreen("add-goal");}}>
+                      <Plus size={14}/> Create First Goal
+                    </button>
+                  </div>
+                ) : (
+                  <div className="goals-list">
+                    {goals.map(g=>(
+                      <GoalCard key={g._id} goal={g} onToggle={handleToggle} onEdit={startEdit} onDelete={handleDelete} floatId={floatId}/>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ─── ADD / EDIT GOAL ─── */}
+          {screen==="add-goal" && (
+            <div className="screen">
+              <div className="page-top">
+                <div className="page-title-block">
+                  <div className="page-eyebrow"><div className="page-eyebrow-dot"/><span className="page-eyebrow-text">Goal Center</span></div>
+                  <h1 className="page-title">
+                    {editId ? "Edit Goal" : <Typewriter phrases={SCREEN_COPY["add-goal"].phrases}/>}
+                  </h1>
+                  <p className="page-subtitle">
+                    {editId ? "Update your goal details below." : SCREEN_COPY["add-goal"].sub}
+                  </p>
+                </div>
+                {editId && (
+                  <div>
+                    <button className="eb-cancel" onClick={()=>{resetForm();setScreen("goals-list");}}>Cancel Edit</button>
+                  </div>
+                )}
+              </div>
+
+              <div className="body-pad">
+                <div className="form-wrap">
+                  {editId && (
+                    <div className="edit-banner">
+                      <div className="eb-label"><Pencil size={13}/> Editing an existing goal</div>
+                      <button className="eb-cancel" onClick={()=>{resetForm();setScreen("goals-list");}}>Cancel</button>
                     </div>
-                  );
-                }
+                  )}
 
-                return (
-                  <div className={`gcl-goal-card ${editingGoalId === goal._id ? "editing" : ""}`} key={goal._id}>
-                    <div className="gcl-goal-top" onClick={() => setExpandedGoalId(isExp ? null : goal._id || null)}>
-                      <div className="gcl-domain-icon" style={{ background: dc.ring.background, color: dc.ring.color }}>
-                        {dc.icon}
+                  {saved ? (
+                    <div className="success-card">
+                      <div className="succ-icon"><CheckCircle2 size={36} color="#fff"/></div>
+                      <div className="succ-title">{editId?"Goal Updated! ✅":"Goal Created! 🎉"}</div>
+                      <p className="succ-sub">{editId?"Your goal has been updated. Redirecting...":"Your new goal is live! Redirecting to your goals list..."}</p>
+                    </div>
+                  ) : (
+                    <>
+                      {msg && <div className="err-box"><AlertTriangle size={15}/> {msg}</div>}
+
+                      <div className="form-card">
+                        <div className="form-card-stripe" style={{background:"linear-gradient(90deg,#0047D4,#0066FF)"}}/>
+                        <div className="form-card-head">
+                          <div className="fch-icon" style={{background:"rgba(0,71,212,0.08)",color:BRAND}}><Target size={20}/></div>
+                          <div><div className="fch-title">What's your goal?</div><div className="fch-sub">Give it a clear, specific name</div></div>
+                        </div>
+                        <div className="form-card-body">
+                          <div className="field-grp">
+                            <label className="field-label">Goal Title <span className="field-req">*</span></label>
+                            <input className="field-input" type="text" style={{fontSize:"0.88rem",padding:"13px 15px"}}
+                              placeholder="e.g. Save ₹1 lakh by December, Run 5km under 25 min"
+                              value={title} onChange={e=>setTitle(e.target.value)}/>
+                          </div>
+                          <div className="field-grp">
+                            <label className="field-label">Area of life</label>
+                            <div className="domain-grid">
+                              {(["health","finance","career"] as const).map(d=>{
+                                const dcc=DC_FORM[d]; const on=domain===d;
+                                return (
+                                  <button key={d} className={`domain-btn${on?" on":""}`}
+                                    style={on?{borderColor:dcc.color,background:`${dcc.color}10`}:{}}
+                                    onClick={()=>setDomain(d)}>
+                                    <div className="db-icon" style={{background:on?dcc.bg:"#EEF1F8",color:on?dcc.color:"#64748B"}}>{dcc.icon}</div>
+                                    <span className="db-label" style={on?{color:dcc.color}:{}}>{dcc.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="gcl-goal-info">
-                        <div className="gcl-goal-name">{goal.title}</div>
-                        <div className="gcl-goal-meta">
-                          <span className={`goal-priority-badge ${pClass}`} style={{ fontSize: "0.65rem" }}>{goal.priority}</span>
-                          {total > 0 && <span style={{ color: "var(--primary)", fontWeight: 700 }}>{done}/{total}</span>}
-                          {goal.targetDate && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                              <Calendar size={10} />
-                              {new Date(goal.targetDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                            </span>
+
+                      <div className="form-card">
+                        <div className="form-card-stripe" style={{background:"linear-gradient(90deg,#0055EE,#2A18E8)"}}/>
+                        <div className="form-card-head">
+                          <div className="fch-icon" style={{background:"rgba(0,85,238,0.08)",color:"#0055EE"}}><TrendingUp size={20}/></div>
+                          <div><div className="fch-title">Priority & Timeline</div><div className="fch-sub">How important is this, and when by?</div></div>
+                        </div>
+                        <div className="form-card-body">
+                          <div className="field-grp">
+                            <label className="field-label">Priority level</label>
+                            <div className="prio-grid">
+                              {(["low","medium","high"] as const).map(p=>{
+                                const pp=PRIO[p]; const on=priority===p;
+                                return (
+                                  <button key={p} className="prio-btn"
+                                    style={on?{borderColor:pp.color,background:pp.bg}:{}}
+                                    onClick={()=>setPriority(p)}>
+                                    <span className="prio-emoji">{pp.emoji}</span>
+                                    <span className="prio-label" style={on?{color:pp.color}:{}}>{pp.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="field-grp">
+                            <label className="field-label">Target date <span className="field-opt">— optional</span></label>
+                            <input className="field-input" type="date" value={targetDate} onChange={e=>setTargetDate(e.target.value)}/>
+                          </div>
+                          {(title||daysLeft!==null)&&(
+                            <div className="goal-preview-block">
+                              <div className="gpb-icon" style={{background:dfc.bg,color:dfc.color}}>{dfc.icon}</div>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div className="gpb-title" style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{title||"Your Goal"}</div>
+                                <div className="gpb-tags">
+                                  <span className="gpb-tag"><Flag size={9}/> {priority}</span>
+                                  <span className="gpb-tag">{dfc.label}</span>
+                                  {daysLeft!==null&&<span className="gpb-tag"><Calendar size={9}/> {daysLeft}d left</span>}
+                                  {milestones.length>0&&<span className="gpb-tag"><CheckCircle2 size={9}/> {milestones.length} steps</span>}
+                                </div>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>
-                      <div className="gcl-expand-btn">
-                        {total > 0 ? (isExp ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}
-                      </div>
-                      <button
-                        className="gcl-goal-edit-btn"
-                        onClick={(e) => { e.stopPropagation(); startEditing(goal); }}
-                        title="Edit goal"
-                      >
-                        <Pencil size={12} />
-                      </button>
-                      <button
-                        className="gcl-goal-del-btn"
-                        onClick={(e) => { e.stopPropagation(); goal._id && deleteGoal(goal._id); }}
-                        title="Delete goal"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                    {total > 0 && (
-                      <div className="gcl-ms-bar">
-                        <div className="gcl-ms-track">
-                          <div className="gcl-ms-fill" style={{ width: `${pct}%`, background: dc.progressColor }} />
+
+                      <div className="form-card">
+                        <div className="form-card-stripe" style={{background:"linear-gradient(90deg,#2A18E8,#0066FF)"}}/>
+                        <div className="form-card-head">
+                          <div className="fch-icon" style={{background:"rgba(124,58,237,0.08)",color:"#7c3aed"}}><CheckCircle2 size={20}/></div>
+                          <div><div className="fch-title">Break it into steps</div><div className="fch-sub">Milestones keep you moving — optional but powerful</div></div>
                         </div>
-                      </div>
-                    )}
-                    {inlineFinanceElement}
-                    {isExp && total > 0 && (
-                      <div className="gcl-milestones">
-                        {goal.milestones?.map((m) => (
-                          <div className="gcl-ms-row" key={m._id}>
-                            <div
-                              className={`gcl-ms-check ${m.completed ? "gcl-ms-check-done" : ""}`}
-                              onClick={() => goal._id && m._id && toggleMilestone(goal._id, m._id, m.completed)}
-                            >
-                              {m.completed && <CheckCircle2 size={9} color="#fff" />}
+                        <div className="form-card-body">
+                          <div>
+                            <div className="ai-row">
+                              <label className="field-label" style={{margin:0}}>AI Suggestions</label>
+                              <button className="ai-btn" onClick={generateSugg} disabled={suggestLoading||!title.trim()}>
+                                <Sparkles size={11}/> {suggestLoading?"Thinking…":aiSuggestions.length?"Regenerate":"Suggest steps"}
+                              </button>
                             </div>
-                            <span className={`gcl-ms-text ${m.completed ? "gcl-ms-text-done" : ""}`}>{m.text}</span>
-                            {floatXP && floatXP.id === m._id && (
-                              <span className="xp-float" key={floatXP.key} style={{ right: 28 }}>+100 XP</span>
-                            )}
-                            <button className="gcl-ms-del" onClick={() => goal._id && m._id && deleteMilestone(goal._id, m._id)}>
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* ── RIGHT SECTION: Goal Creator Wizard ── */}
-        <div className="goals-control-right">
-          <div className="main-wrapper">
-
-            <div className="exit-bar" onClick={() => router.push("/dashboard")}>
-              <ArrowLeft size={14} /> <span>Return to Dashboard</span>
-            </div>
-
-            <div className="title-container">
-              <h1 className="dynamic-title">
-                <span className="title-accent">{typedTitle}</span>
-                <span className="cursor" />
-              </h1>
-              <p className="dynamic-sub">Define objectives, lock in milestones, and let Syntra optimize your path.</p>
-            </div>
-
-            {editingGoalId && (
-              <div className="edit-mode-bar">
-                <div className="edit-mode-bar-label">
-                  <Pencil size={14} /> Editing goal — modify details below
-                </div>
-                <button className="edit-cancel-btn" onClick={cancelEdit}>Cancel</button>
-              </div>
-            )}
-
-            <StepDots current={step} completed={completed} />
-
-            {message && !submitted && (
-              <div className="live-status-banner" style={{ borderColor: isError(message) ? "rgba(239, 68, 68, 0.2)" : "rgba(37, 99, 235, 0.2)", background: isError(message) ? "rgba(239, 68, 68, 0.04)" : "rgba(37, 99, 235, 0.04)", color: isError(message) ? "#ef4444" : "var(--primary)" }}>
-                {isError(message) ? <ShieldAlert size={16} /> : <CheckCircle2 size={16} />}
-                <span style={{ fontWeight: 600 }}>{message}</span>
-              </div>
-            )}
-
-            {submitted ? (
-              <div className="success-card">
-                <div className="success-icon"><CheckCircle2 size={34} color="#fff" /></div>
-                <h2 className="success-title">{editingGoalId ? "Goal Updated" : "Mission Established"}</h2>
-                <p className="success-sub">{editingGoalId ? "Your goal has been updated successfully. Syntra is recalibrating your trajectory." : "Your goal has been logged and your milestones are now tracked. Syntra is recalibrating your optimal trajectory."}</p>
-              </div>
-            ) : (
-              <div className={`step-card ${animating ? (animDir === "forward" ? "slide-exit-forward" : "slide-exit-backward") : (animDir === "forward" ? "slide-enter-forward" : "slide-enter-backward")}`}>
-                <ProgressBar pct={stepProgress[step]} gradient={gradients[step]} />
-                <div className="progress-label">{stepProgress[step]}% complete</div>
-
-                {/* ── Step 0: Define Objective ── */}
-                {step === 0 && (
-                  <>
-                    <div className="card-header">
-                      <div className="icon-ring" style={{ background: iconRings[0].bg, color: iconRings[0].color }}><Target size={22} /></div>
-                      <div className="card-label">
-                        <span className="card-title">Define Objective</span>
-                        <span className="card-sub">Name your mission target</span>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      <div className="field">
-                        <label className="form-label">Objective Title <span className="req">*</span></label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="e.g., Run 5k under 25 minutes"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          style={{ height: 44, fontSize: "0.93rem" }}
-                        />
-                      </div>
-                      <div className="field">
-                        <label className="form-label">Domain</label>
-                        <select className="form-input" value={domain} onChange={(e) => setDomain(e.target.value as Goal["domain"])}>
-                          <option value="health">Health</option>
-                          <option value="finance">Finance</option>
-                          <option value="career">Career</option>
-                        </select>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* ── Step 1: Set Details ── */}
-                {step === 1 && (
-                  <>
-                    <div className="card-header">
-                      <div className="icon-ring" style={{ background: iconRings[1].bg, color: iconRings[1].color }}><Calendar size={22} /></div>
-                      <div className="card-label">
-                        <span className="card-title">Goal Parameters</span>
-                        <span className="card-sub">Priority and timeline configuration</span>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      <div className="field-row">
-                        <div className="field">
-                          <label className="form-label">Priority Layer</label>
-                          <select className="form-input" value={priority} onChange={(e) => setPriority(e.target.value)}>
-                            <option value="low">Low</option>
-                            <option value="medium">Medium</option>
-                            <option value="high">High</option>
-                          </select>
-                        </div>
-                        <div className="field">
-                          <label className="form-label">Target Date <span className="opt-tag">(optional)</span></label>
-                          <input type="date" className="form-input" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="section-divider" />
-                      <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "6px 0" }}>
-                        <div style={{ width: 38, height: 38, borderRadius: 10, background: domainConfig[domain].ring.background, display: "flex", alignItems: "center", justifyContent: "center", color: domainConfig[domain].ring.color, flexShrink: 0 }}>
-                          {domainConfig[domain].icon}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: "0.86rem", fontWeight: 700, color: "var(--text-main)" }}>{title || "Untitled Goal"}</div>
-                          <div style={{ fontSize: "0.74rem", color: "var(--text-sub)", marginTop: 2 }}>{domain.charAt(0).toUpperCase() + domain.slice(1)} · {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority{targetDate ? ` · Due ${new Date(targetDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""}</div>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* ── Step 2: Add Milestones ── */}
-                {step === 2 && (
-                  <>
-                    <div className="card-header">
-                      <div className="icon-ring" style={{ background: iconRings[2].bg, color: iconRings[2].color }}><CheckCircle2 size={22} /></div>
-                      <div className="card-label">
-                        <span className="card-title">Milestone Nodes</span>
-                        <span className="card-sub">Break your goal into trackable steps</span>
-                      </div>
-                    </div>
-                    <div className="card-body">
-
-                      {/* AI generation row */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                        <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--text-sub)" }}>
-                          Let AI suggest milestones for <em style={{ color: "var(--primary)", fontStyle: "normal" }}>{title}</em>
-                        </span>
-                        <button
-                          className="add-btn"
-                          style={{ background: "linear-gradient(135deg,#2563eb,#8b5cf6)", color: "#fff", border: "none", gap: 6, minWidth: 130 }}
-                          onClick={generateSuggestions}
-                          disabled={suggestLoading}
-                        >
-                          <Sparkles size={13} />
-                          {suggestLoading ? "Generating…" : aiSuggestions.length > 0 ? "Regenerate" : "Generate with AI"}
-                        </button>
-                      </div>
-
-                      {/* AI suggestion chips */}
-                      {aiSuggestions.length > 0 && (
-                        <div style={{ marginBottom: 16 }}>
-                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#8b5cf6", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-                            <Sparkles size={11} /> AI Suggestions — tap to add
-                          </div>
-                          <div className="ms-chips">
-                            {aiSuggestions.map((s, i) => {
-                              const selected = milestones.includes(s);
-                              return (
-                                <div
-                                  key={i}
-                                  className="chip"
-                                  onClick={() => toggleSuggestion(s)}
-                                  style={{
-                                    cursor: "pointer",
-                                    background: selected ? "linear-gradient(135deg,#2563eb15,#8b5cf615)" : "#f8fafc",
-                                    border: selected ? "1.5px solid #8b5cf6" : "1.5px solid #e2e8f0",
-                                    color: selected ? "#5b21b6" : "var(--text-main)",
-                                    userSelect: "none",
-                                  }}
-                                >
-                                  {selected ? <CheckCircle2 size={11} style={{ color: "#8b5cf6", flexShrink: 0 }} /> : <Plus size={11} style={{ flexShrink: 0 }} />}
-                                  {s}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Divider */}
-                      {aiSuggestions.length > 0 && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 14px" }}>
-                          <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
-                          <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600 }}>or add custom</span>
-                          <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
-                        </div>
-                      )}
-
-                      {/* Manual input */}
-                      <div className="field">
-                        <label className="form-label">Custom Milestone <span className="opt-tag">(optional)</span></label>
-                        <div className="add-row">
-                          <input
-                            type="text"
-                            className="form-input"
-                            placeholder="e.g., Complete week 1 training"
-                            value={milestoneInput}
-                            onChange={(e) => setMilestoneInput(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && addMilestone()}
-                            style={{ flex: 1 }}
-                          />
-                          <button className="add-btn" onClick={addMilestone}>
-                            <Plus size={14} /> Add
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Selected milestones */}
-                      {milestones.length > 0 && (
-                        <div style={{ marginTop: 8 }}>
-                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--text-sub)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-                            Selected ({milestones.length})
-                          </div>
-                          <div className="ms-chips">
-                            {milestones.map((m, i) => (
-                              <div key={i} className="chip" style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", color: "#166534" }}>
-                                {m}
-                                <span className="chip-x" onClick={() => removeMilestone(i)}>✕</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{ marginTop: 10, fontSize: "0.8rem", color: "var(--primary)", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                            <CheckCircle2 size={14} /> {milestones.length} milestone{milestones.length !== 1 ? "s" : ""} queued
-                          </div>
-                        </div>
-                      )}
-                      {milestones.length === 0 && aiSuggestions.length === 0 && !suggestLoading && (
-                        <div style={{ fontSize: "0.84rem", color: "#94a3b8", textAlign: "center", padding: "16px 0" }}>
-                          Generate AI suggestions or add milestones manually — you can also skip this step.
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {/* ── Step 3: Review Goals ── */}
-                {step === 3 && (
-                  <>
-                    <div className="card-header">
-                      <div className="icon-ring" style={{ background: iconRings[3].bg, color: iconRings[3].color }}><Rocket size={22} /></div>
-                      <div className="card-label">
-                        <span className="card-title">Mission Review Console</span>
-                        <span className="card-sub">{goals.length} active goal{goals.length !== 1 ? "s" : ""} · confirm and sync</span>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      {/* New goal preview */}
-                      <div style={{ background: "rgba(37, 99, 235, 0.04)", border: "1.5px solid rgba(37, 99, 235, 0.12)", borderRadius: 14, padding: "14px 16px" }}>
-                        <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--primary)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, fontFamily: '"JetBrains Mono", monospace' }}>New goal to be created</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 34, height: 34, borderRadius: 10, background: domainConfig[domain].ring.background, color: domainConfig[domain].ring.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            {domainConfig[domain].icon}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--text-main)" }}>{title || "Untitled Goal"}</div>
-                            <div style={{ fontSize: "0.74rem", color: "var(--text-sub)", marginTop: 3 }}>
-                              {domain.charAt(0).toUpperCase() + domain.slice(1)} · {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
-                              {targetDate ? ` · ${new Date(targetDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""}
-                              {milestones.length > 0 ? ` · ${milestones.length} milestone${milestones.length !== 1 ? "s" : ""}` : ""}
-                            </div>
-                          </div>
-                          <span className={`goal-priority-badge ${priority === "high" ? "p-high" : priority === "medium" ? "p-medium" : "p-low"}`}>
-                            {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Existing goals list */}
-                      {goals.length > 0 && (
-                        <>
-                          <div className="section-divider" />
-                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: '"JetBrains Mono", monospace' }}>
-                            Existing goals ({goals.length})
-                          </div>
-                          <div className="goals-list">
-                            {goals.map((goal, index) => {
-                              const dc = domainConfig[goal.domain];
-                              const total = goal.milestones?.length ?? 0;
-                              const done = goal.milestones?.filter(m => m.completed).length ?? 0;
-                              const pClass = goal.priority === "high" ? "p-high" : goal.priority === "medium" ? "p-medium" : "p-low";
-                              return (
-                                <div className="goal-item" key={goal._id || index}>
-                                  <div style={{ width: 30, height: 30, borderRadius: 8, background: dc.ring.background, color: dc.ring.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                    {dc.icon}
-                                  </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div className="goal-title-text">{goal.title}</div>
-                                    <div className="goal-meta">
-                                      <span className={`goal-priority-badge ${pClass}`} style={{ fontSize: "0.66rem" }}>{goal.priority}</span>
-                                      {total > 0 && <span className="goal-ms-progress">{done}/{total} done</span>}
-                                      {goal.targetDate && (
-                                        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                                          <Calendar size={10} />
-                                          {new Date(goal.targetDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                                        </span>
-                                      )}
+                            {!title.trim()&&<p style={{fontSize:"0.73rem",color:"var(--text-muted)",marginTop:6}}>Enter a goal title first.</p>}
+                            {aiSuggestions.length>0&&(
+                              <div>
+                                <p style={{fontSize:"0.67rem",fontWeight:700,color:"#7c3aed",textTransform:"uppercase",letterSpacing:"0.07em",margin:"10px 0 8px",display:"flex",alignItems:"center",gap:4}}>
+                                  <Sparkles size={10}/> Tap to add or remove
+                                </p>
+                                <div className="ai-chips">
+                                  {aiSuggestions.map((s,i)=>(
+                                    <div key={i} className={`ai-chip${milestones.includes(s)?" on":""}`} onClick={()=>toggleSugg(s)}>
+                                      {milestones.includes(s)?<CheckCircle2 size={10}/>:<Plus size={10}/>} {s}
                                     </div>
-                                  </div>
-                                  <button className="btn-delete-goal" onClick={() => goal._id && confirm("Delete this goal?") && deleteGoal(goal._id)}>
-                                    <Trash2 size={12} />
-                                  </button>
+                                  ))}
                                 </div>
-                              );
-                            })}
+                              </div>
+                            )}
                           </div>
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
+                          <div className="field-divider"/>
+                          <div className="field-grp">
+                            <label className="field-label">Custom step <span className="field-opt">— press Enter or Add</span></label>
+                            <div className="ms-input-row">
+                              <input className="field-input" style={{flex:1}} type="text"
+                                placeholder="e.g. Complete week 1 training plan"
+                                value={msInput} onChange={e=>setMsInput(e.target.value)}
+                                onKeyDown={e=>e.key==="Enter"&&addMs()}/>
+                              <button className="ms-add-btn" onClick={addMs}><Plus size={13}/> Add</button>
+                            </div>
+                          </div>
+                          {milestones.length>0&&(
+                            <div>
+                              <p style={{fontSize:"0.69rem",fontWeight:700,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8,display:"flex",alignItems:"center",gap:5}}>
+                                <CheckCircle2 size={11} style={{color:"#16a34a"}}/> {milestones.length} step{milestones.length!==1?"s":""} planned
+                              </p>
+                              <div className="ms-list">
+                                {milestones.map((m,i)=>(
+                                  <div key={i} className="ms-item">
+                                    <div className="ms-num">{i+1}</div>
+                                    <span className="ms-text">{m}</span>
+                                    <button className="ms-del" onClick={()=>removeMs(i)}><X size={13}/></button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {milestones.length===0&&aiSuggestions.length===0&&(
+                            <p style={{textAlign:"center",padding:"12px 0",color:"var(--text-muted)",fontSize:"0.81rem"}}>
+                              ✨ You can skip milestones or add them after creating the goal.
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
-                <div className="card-footer">
-                  {step > 0 && (
-                    <button className="nav-btn" onClick={handleBack} disabled={loading}>
-                      <ChevronLeft size={16} /> Back
-                    </button>
-                  )}
-                  {step < 3 ? (
-                    <button
-                      className="submit-btn"
-                      onClick={handleNext}
-                      disabled={loading || !canNext}
-                      style={{ background: canNext ? btnGradients[step] : undefined, boxShadow: canNext ? btnShadows[step] : undefined, opacity: canNext ? 1 : 0.5 }}
-                    >
-                      Next Step <ArrowRight size={16} />
-                    </button>
-                  ) : (
-                    <button
-                      className="submit-btn"
-                      onClick={createGoal}
-                      disabled={loading}
-                      style={{ background: btnGradients[3], boxShadow: btnShadows[3] }}
-                    >
-                      <Rocket size={14} /> {loading ? (editingGoalId ? "Saving changes..." : "Establishing mission...") : (editingGoalId ? "Save Changes" : "Establish Goal")}
-                    </button>
+                      <div>
+                        <button className="save-btn" onClick={handleSave} disabled={saving||!title.trim()}>
+                          {saving
+                            ?<><Activity size={16}/>{editId?"Saving changes…":"Creating goal…"}</>
+                            :<><Rocket size={15}/>{editId?"Update Goal":"Create Goal"}</>}
+                        </button>
+                        {!title.trim()&&<p className="save-hint">Enter a goal title to enable saving.</p>}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
 
-      </div>
+        </div>{/* content-shell */}
+      </div>{/* main-wrapper */}
+
+      {/* ══════════════════ MOBILE BOTTOM TAB BAR ══════════════════ */}
+      <nav className="mob-tabbar">
+        <div className="mob-tabbar-inner">
+          <button className={`mob-tab${screen==="home" ? " active" : ""}`} onClick={()=>setScreen("home")}>
+            <div className="mob-tab-icon"><Home size={20}/></div>
+            <span className="mob-tab-label">Overview</span>
+          </button>
+          <button className={`mob-tab${screen==="goals-list" ? " active" : ""}`} onClick={()=>setScreen("goals-list")}>
+            <div className="mob-tab-icon"><Rocket size={20}/></div>
+            <span className="mob-tab-label">My Goals</span>
+            {goals.length > 0 && <span className="mob-tab-badge">{goals.length > 9 ? "9+" : goals.length}</span>}
+          </button>
+          <button className={`mob-tab${screen==="add-goal" ? " active" : ""}`} onClick={()=>{resetForm();setScreen("add-goal");}}>
+            <div className="mob-tab-icon"><Plus size={20}/></div>
+            <span className="mob-tab-label">Add Goal</span>
+          </button>
+        </div>
+      </nav>
+
     </div>
   );
 }

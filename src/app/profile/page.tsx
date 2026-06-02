@@ -1,1416 +1,1268 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import {
-  Cpu,
-  Shield,
-  Sparkles,
-  Briefcase,
-  HeartPulse,
-  Wallet,
-  ArrowLeft,
-  CheckCircle2,
-  User,
-  Mail,
-  Calendar,
-  LogOut,
-  Edit3,
-  X,
-  Save,
-  Lock,
-  Eye,
-  EyeOff,
-  Check,
-  RefreshCw,
-  BookOpen,
-  Trophy,
-  Star,
-  Zap,
-  Target,
-  Flame,
-  Award,
+  Cpu, Shield, Sparkles, Briefcase, HeartPulse, Wallet,
+  ArrowLeft, CheckCircle2, User, Mail, Calendar, LogOut,
+  Edit3, X, Save, Lock, Eye, EyeOff, Check, RefreshCw,
+  BookOpen, Trophy, Star, Zap, Target, Flame, Award,
+  ChevronRight, Camera, BarChart3, Activity, Layers,
 } from "lucide-react";
 
-/* ─────────────────────────────────────────────
-   Types
-───────────────────────────────────────────── */
+/* ─── TYPES ──────────────────────────────────────────────────────── */
 type SyncStatus = "idle" | "syncing" | "synced";
-type OptVector = "career" | "health" | "finance";
+type OptVector  = "career" | "health" | "finance";
 
-/* ─────────────────────────────────────────────
-   Premium Avatar Options (4 brand avatars)
-───────────────────────────────────────────── */
-const PREMIUM_AVATARS = [
+/* ─── AVATARS — same as onboarding ──────────────────────────────── */
+const AVATARS = [
   {
-    id: "aether",
-    name: "Aether",
-    bg: "linear-gradient(135deg,#0a0f2e,#0044DD)",
-    accentColor: "#60a5fa",
-    svg: (
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+    id:"chronos", numId:"1", name:"Chronos", focus:"Learning · Growth · Knowledge",
+    accent:"#0044DD", lightBg:"#eff4ff",
+    svg:(
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
         <defs>
-          <radialGradient id="aether-glow" cx="50%" cy="40%" r="50%">
-            <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.4"/>
-            <stop offset="100%" stopColor="#0044DD" stopOpacity="0"/>
-          </radialGradient>
+          <radialGradient id="ch-f" cx="50%" cy="42%" r="55%"><stop offset="0%" stopColor="#BFDBFE"/><stop offset="100%" stopColor="#60A5FA"/></radialGradient>
+          <radialGradient id="ch-g" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3"/><stop offset="100%" stopColor="#1E40AF" stopOpacity="0"/></radialGradient>
+          <filter id="ch-blur"><feGaussianBlur stdDeviation="2"/></filter>
         </defs>
-        <circle cx="50" cy="50" r="48" fill="url(#aether-glow)"/>
-        {/* Geometric face */}
-        <polygon points="50,12 72,36 72,64 50,88 28,64 28,36" fill="none" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6"/>
-        <circle cx="50" cy="42" r="14" fill="none" stroke="#60a5fa" strokeWidth="2"/>
-        <circle cx="50" cy="42" r="7" fill="#60a5fa" opacity="0.8"/>
-        <circle cx="50" cy="42" r="3" fill="#ffffff"/>
-        {/* Scan lines */}
-        <line x1="28" y1="58" x2="72" y2="58" stroke="#60a5fa" strokeWidth="1" opacity="0.3"/>
-        <line x1="32" y1="64" x2="68" y2="64" stroke="#60a5fa" strokeWidth="0.8" opacity="0.2"/>
-        {/* Data nodes */}
-        <circle cx="28" cy="36" r="3" fill="#60a5fa"/>
-        <circle cx="72" cy="36" r="3" fill="#60a5fa"/>
-        <circle cx="28" cy="64" r="3" fill="#60a5fa"/>
-        <circle cx="72" cy="64" r="3" fill="#60a5fa"/>
-        <circle cx="50" cy="12" r="3" fill="#60a5fa"/>
-        <circle cx="50" cy="88" r="3" fill="#60a5fa"/>
+        <circle cx="40" cy="40" r="36" fill="url(#ch-g)" filter="url(#ch-blur)"/>
+        <ellipse cx="40" cy="37" rx="19" ry="21" fill="url(#ch-f)"/>
+        <path d="M24 25 Q40 11 56 25" stroke="#93C5FD" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <circle cx="40" cy="12" r="2" fill="#60A5FA" opacity="0.85"/>
+        <path d="M21 35 H15 V27 H19" stroke="#60A5FA" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6"/>
+        <path d="M59 35 H65 V27 H61" stroke="#60A5FA" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6"/>
+        <ellipse cx="33" cy="36" rx="4" ry="4" fill="#0EA5E9"/><ellipse cx="47" cy="36" rx="4" ry="4" fill="#0EA5E9"/>
+        <ellipse cx="33" cy="36" rx="2.2" ry="2.2" fill="#E0F2FE"/><ellipse cx="47" cy="36" rx="2.2" ry="2.2" fill="#E0F2FE"/>
+        <circle cx="33" cy="36" r="0.9" fill="#0369A1"/><circle cx="47" cy="36" r="0.9" fill="#0369A1"/>
+        <circle cx="33.8" cy="35" r="0.7" fill="white" opacity="0.9"/><circle cx="47.8" cy="35" r="0.7" fill="white" opacity="0.9"/>
+        <path d="M35 51 Q40 55 45 51" stroke="#BFDBFE" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        <path d="M23 70 Q23 59 40 57 Q57 59 57 70" fill="#1D4ED8" opacity="0.9"/>
       </svg>
     ),
   },
   {
-    id: "chronos",
-    name: "Chronos",
-    bg: "linear-gradient(135deg,#1a0a00,#92400e)",
-    accentColor: "#f59e0b",
-    svg: (
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+    id:"apex", numId:"2", name:"Apex", focus:"Productivity · Discipline · Execution",
+    accent:"#dc2626", lightBg:"#fff5f5",
+    svg:(
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
         <defs>
-          <radialGradient id="chronos-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3"/>
-            <stop offset="100%" stopColor="#92400e" stopOpacity="0"/>
-          </radialGradient>
+          <radialGradient id="ap-f" cx="50%" cy="42%" r="55%"><stop offset="0%" stopColor="#FECACA"/><stop offset="100%" stopColor="#F87171"/></radialGradient>
+          <radialGradient id="ap-g" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#EF4444" stopOpacity="0.3"/><stop offset="100%" stopColor="#7F1D1D" stopOpacity="0"/></radialGradient>
+          <filter id="ap-blur"><feGaussianBlur stdDeviation="2"/></filter>
         </defs>
-        <circle cx="50" cy="50" r="48" fill="url(#chronos-glow)"/>
-        {/* Clock face */}
-        <circle cx="50" cy="50" r="34" fill="none" stroke="#f59e0b" strokeWidth="2" opacity="0.7"/>
-        <circle cx="50" cy="50" r="28" fill="none" stroke="#f59e0b" strokeWidth="0.8" opacity="0.3"/>
-        {/* Hour markers */}
-        {[0,30,60,90,120,150,180,210,240,270,300,330].map((deg, i) => {
-          const r1 = i % 3 === 0 ? 22 : 25, r2 = 28;
-          const rad = (deg - 90) * Math.PI / 180;
-          return <line key={deg} x1={50 + r1 * Math.cos(rad)} y1={50 + r1 * Math.sin(rad)} x2={50 + r2 * Math.cos(rad)} y2={50 + r2 * Math.sin(rad)} stroke="#f59e0b" strokeWidth={i % 3 === 0 ? 2 : 1} opacity="0.8"/>;
-        })}
-        {/* Clock hands */}
-        <line x1="50" y1="50" x2="50" y2="26" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round"/>
-        <line x1="50" y1="50" x2="64" y2="56" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="50" cy="50" r="3" fill="#f59e0b"/>
-        {/* Face eyes */}
-        <ellipse cx="40" cy="44" rx="4" ry="3" fill="#f59e0b" opacity="0.9"/>
-        <ellipse cx="60" cy="44" rx="4" ry="3" fill="#f59e0b" opacity="0.9"/>
-        <circle cx="40" cy="44" r="1.5" fill="#1a0a00"/>
-        <circle cx="60" cy="44" r="1.5" fill="#1a0a00"/>
-        <path d="M42 62 Q50 68 58 62" stroke="#f59e0b" strokeWidth="2" fill="none" strokeLinecap="round"/>
+        <circle cx="40" cy="40" r="36" fill="url(#ap-g)" filter="url(#ap-blur)"/>
+        <ellipse cx="40" cy="37" rx="19" ry="21" fill="url(#ap-f)"/>
+        <polygon points="40,9 44,17 36,17" fill="#F87171" opacity="0.9"/>
+        <polygon points="33,11 35.5,18 29.5,16" fill="#FCA5A5" opacity="0.6"/>
+        <polygon points="47,11 50.5,16 44.5,18" fill="#FCA5A5" opacity="0.6"/>
+        <path d="M21 37 H14 M14 37 L14 29" stroke="#F87171" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <path d="M59 37 H66 M66 37 L66 29" stroke="#F87171" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <ellipse cx="33" cy="36" rx="4" ry="4" fill="#DC2626"/><ellipse cx="47" cy="36" rx="4" ry="4" fill="#DC2626"/>
+        <ellipse cx="33" cy="36" rx="2.2" ry="2.2" fill="#FEF2F2"/><ellipse cx="47" cy="36" rx="2.2" ry="2.2" fill="#FEF2F2"/>
+        <circle cx="33" cy="36" r="0.9" fill="#7F1D1D"/><circle cx="47" cy="36" r="0.9" fill="#7F1D1D"/>
+        <circle cx="33.8" cy="35" r="0.7" fill="white" opacity="0.9"/><circle cx="47.8" cy="35" r="0.7" fill="white" opacity="0.9"/>
+        <path d="M35 51 Q40 55 45 51" stroke="#FECACA" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        <path d="M23 70 Q23 59 40 57 Q57 59 57 70" fill="#B91C1C" opacity="0.9"/>
       </svg>
     ),
   },
   {
-    id: "apex",
-    name: "Apex",
-    bg: "linear-gradient(135deg,#0f0f0f,#1f0f3a)",
-    accentColor: "#a855f7",
-    svg: (
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+    id:"nexus", numId:"3", name:"Nexus", focus:"Wealth · Planning · Stability",
+    accent:"#059669", lightBg:"#f0fdf4",
+    svg:(
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
         <defs>
-          <radialGradient id="apex-glow" cx="50%" cy="40%" r="60%">
-            <stop offset="0%" stopColor="#a855f7" stopOpacity="0.4"/>
-            <stop offset="100%" stopColor="#1f0f3a" stopOpacity="0"/>
-          </radialGradient>
+          <radialGradient id="nx-f" cx="50%" cy="42%" r="55%"><stop offset="0%" stopColor="#D1FAE5"/><stop offset="100%" stopColor="#6EE7B7"/></radialGradient>
+          <radialGradient id="nx-g" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#10B981" stopOpacity="0.3"/><stop offset="100%" stopColor="#065F46" stopOpacity="0"/></radialGradient>
+          <filter id="nx-blur"><feGaussianBlur stdDeviation="2"/></filter>
         </defs>
-        <circle cx="50" cy="50" r="48" fill="url(#apex-glow)"/>
-        {/* Crown */}
-        <polygon points="26,38 34,20 50,32 66,20 74,38" fill="none" stroke="#a855f7" strokeWidth="2" strokeLinejoin="round"/>
-        <polygon points="26,38 34,20 50,32 66,20 74,38" fill="#a855f7" opacity="0.15"/>
-        {/* Jewels on crown */}
-        <circle cx="34" cy="20" r="3" fill="#a855f7"/>
-        <circle cx="50" cy="32" r="3" fill="#a855f7"/>
-        <circle cx="66" cy="20" r="3" fill="#a855f7"/>
-        {/* Face */}
-        <circle cx="50" cy="60" r="22" fill="none" stroke="#a855f7" strokeWidth="1.5" opacity="0.4"/>
-        <ellipse cx="41" cy="56" rx="5" ry="5" fill="#a855f7" opacity="0.9"/>
-        <ellipse cx="59" cy="56" rx="5" ry="5" fill="#a855f7" opacity="0.9"/>
-        <circle cx="41" cy="56" r="2.5" fill="#0f0f0f"/>
-        <circle cx="59" cy="56" r="2.5" fill="#0f0f0f"/>
-        <circle cx="42" cy="55" r="1" fill="white" opacity="0.7"/>
-        <circle cx="60" cy="55" r="1" fill="white" opacity="0.7"/>
-        <path d="M41 68 Q50 76 59 68" stroke="#a855f7" strokeWidth="2" fill="none" strokeLinecap="round"/>
-        {/* Chin accent */}
-        <line x1="44" y1="77" x2="56" y2="77" stroke="#a855f7" strokeWidth="1.5" opacity="0.5"/>
+        <circle cx="40" cy="40" r="36" fill="url(#nx-g)" filter="url(#nx-blur)"/>
+        <ellipse cx="40" cy="37" rx="19" ry="21" fill="url(#nx-f)"/>
+        <polygon points="40,10 44,14 44,20 40,24 36,20 36,14" fill="none" stroke="#6EE7B7" strokeWidth="1.4" opacity="0.75"/>
+        <circle cx="40" cy="17" r="1.8" fill="#10B981" opacity="0.9"/>
+        <path d="M21 35 H15 V43 H19" stroke="#34D399" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.65"/>
+        <path d="M59 35 H65 V43 H61" stroke="#34D399" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.65"/>
+        <ellipse cx="33" cy="36" rx="4" ry="4" fill="#059669"/><ellipse cx="47" cy="36" rx="4" ry="4" fill="#059669"/>
+        <ellipse cx="33" cy="36" rx="2.2" ry="2.2" fill="#ECFDF5"/><ellipse cx="47" cy="36" rx="2.2" ry="2.2" fill="#ECFDF5"/>
+        <circle cx="33" cy="36" r="0.9" fill="#065F46"/><circle cx="47" cy="36" r="0.9" fill="#065F46"/>
+        <circle cx="33.8" cy="35" r="0.7" fill="white" opacity="0.9"/><circle cx="47.8" cy="35" r="0.7" fill="white" opacity="0.9"/>
+        <polygon points="40,28 42,31 40,34 38,31" fill="#A7F3D0" opacity="0.6"/>
+        <path d="M35 51 Q40 55 45 51" stroke="#A7F3D0" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        <path d="M23 70 Q23 59 40 57 Q57 59 57 70" fill="#047857" opacity="0.9"/>
       </svg>
     ),
   },
   {
-    id: "nexus",
-    name: "Nexus",
-    bg: "linear-gradient(135deg,#001a1a,#065f46)",
-    accentColor: "#10b981",
-    svg: (
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+    id:"titan", numId:"4", name:"Titan", focus:"Fitness · Energy · Health",
+    accent:"#d97706", lightBg:"#fffbeb",
+    svg:(
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
         <defs>
-          <radialGradient id="nexus-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.4"/>
-            <stop offset="100%" stopColor="#065f46" stopOpacity="0"/>
-          </radialGradient>
+          <radialGradient id="ti-f" cx="50%" cy="42%" r="55%"><stop offset="0%" stopColor="#FEF3C7"/><stop offset="100%" stopColor="#FCD34D"/></radialGradient>
+          <radialGradient id="ti-g" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#F59E0B" stopOpacity="0.3"/><stop offset="100%" stopColor="#78350F" stopOpacity="0"/></radialGradient>
+          <filter id="ti-blur"><feGaussianBlur stdDeviation="2"/></filter>
         </defs>
-        <circle cx="50" cy="50" r="48" fill="url(#nexus-glow)"/>
-        {/* Neural network nodes */}
-        <circle cx="50" cy="22" r="5" fill="#10b981" opacity="0.9"/>
-        <circle cx="22" cy="50" r="5" fill="#10b981" opacity="0.9"/>
-        <circle cx="78" cy="50" r="5" fill="#10b981" opacity="0.9"/>
-        <circle cx="50" cy="78" r="5" fill="#10b981" opacity="0.9"/>
-        <circle cx="30" cy="30" r="4" fill="#10b981" opacity="0.6"/>
-        <circle cx="70" cy="30" r="4" fill="#10b981" opacity="0.6"/>
-        <circle cx="30" cy="70" r="4" fill="#10b981" opacity="0.6"/>
-        <circle cx="70" cy="70" r="4" fill="#10b981" opacity="0.6"/>
-        {/* Network lines */}
-        <line x1="50" y1="22" x2="30" y2="30" stroke="#10b981" strokeWidth="1" opacity="0.4"/>
-        <line x1="50" y1="22" x2="70" y2="30" stroke="#10b981" strokeWidth="1" opacity="0.4"/>
-        <line x1="22" y1="50" x2="30" y2="30" stroke="#10b981" strokeWidth="1" opacity="0.4"/>
-        <line x1="22" y1="50" x2="30" y2="70" stroke="#10b981" strokeWidth="1" opacity="0.4"/>
-        <line x1="78" y1="50" x2="70" y2="30" stroke="#10b981" strokeWidth="1" opacity="0.4"/>
-        <line x1="78" y1="50" x2="70" y2="70" stroke="#10b981" strokeWidth="1" opacity="0.4"/>
-        <line x1="50" y1="78" x2="30" y2="70" stroke="#10b981" strokeWidth="1" opacity="0.4"/>
-        <line x1="50" y1="78" x2="70" y2="70" stroke="#10b981" strokeWidth="1" opacity="0.4"/>
-        {/* Central face */}
-        <circle cx="50" cy="50" r="16" fill="#10b981" opacity="0.1" stroke="#10b981" strokeWidth="1.5"/>
-        <rect x="42" y="44" rx="2" ry="2" width="6" height="8" fill="#10b981" opacity="0.9"/>
-        <rect x="52" y="44" rx="2" ry="2" width="6" height="8" fill="#10b981" opacity="0.9"/>
-        <rect x="43" y="56" rx="2" ry="2" width="14" height="4" fill="#10b981" opacity="0.7"/>
+        <circle cx="40" cy="40" r="36" fill="url(#ti-g)" filter="url(#ti-blur)"/>
+        <ellipse cx="40" cy="37" rx="19" ry="21" fill="url(#ti-f)"/>
+        <line x1="40" y1="15" x2="40" y2="9" stroke="#FCD34D" strokeWidth="1.5" strokeLinecap="round" opacity="0.7"/>
+        <line x1="33" y1="18" x2="29" y2="12" stroke="#FCD34D" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+        <line x1="47" y1="18" x2="51" y2="12" stroke="#FCD34D" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+        <path d="M21 37 H15 V31" stroke="#FCD34D" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <path d="M59 37 H65 V31" stroke="#FCD34D" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.7"/>
+        <ellipse cx="33" cy="36" rx="4" ry="4" fill="#D97706"/><ellipse cx="47" cy="36" rx="4" ry="4" fill="#D97706"/>
+        <ellipse cx="33" cy="36" rx="2.2" ry="2.2" fill="#FFFBEB"/><ellipse cx="47" cy="36" rx="2.2" ry="2.2" fill="#FFFBEB"/>
+        <circle cx="33" cy="36" r="0.9" fill="#92400E"/><circle cx="47" cy="36" r="0.9" fill="#92400E"/>
+        <circle cx="33.8" cy="35" r="0.7" fill="white" opacity="0.9"/><circle cx="47.8" cy="35" r="0.7" fill="white" opacity="0.9"/>
+        <path d="M35 51 Q40 55 45 51" stroke="#FDE68A" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        <circle cx="26" cy="44" r="1.4" fill="#FCD34D" opacity="0.4"/><circle cx="54" cy="44" r="1.4" fill="#FCD34D" opacity="0.4"/>
+        <path d="M23 70 Q23 59 40 57 Q57 59 57 70" fill="#B45309" opacity="0.9"/>
       </svg>
     ),
   },
 ];
 
-/* ─────────────────────────────────────────────
-   Badge Definitions
-───────────────────────────────────────────── */
+const getAvatarByNumId = (numId: string) =>
+  AVATARS.find(a => a.numId === String(numId)) || AVATARS[0];
+
+/* ─── BADGES ─────────────────────────────────────────────────────── */
 const BADGES = [
-  {
-    id: "week_warrior",
-    title: "Week Warrior",
-    description: "Awarded for maintaining a 7-day ingestion streak",
-    icon: Flame,
-    color: "#f59e0b",
-    bg: "#fef3c7",
-    unlocked: true,
-  },
-  {
-    id: "neural_init",
-    title: "Neural Init",
-    description: "First successful AI twin sync completed",
-    icon: Zap,
-    color: "#0044DD",
-    bg: "#dbeafe",
-    unlocked: true,
-  },
-  {
-    id: "apex_optimizer",
-    title: "Apex Optimizer",
-    description: "Reached top 10% on your optimization vector",
-    icon: Target,
-    color: "#a855f7",
-    bg: "#f3e8ff",
-    unlocked: true,
-  },
-  {
-    id: "data_sovereign",
-    title: "Data Sovereign",
-    description: "All three layers synced simultaneously",
-    icon: Star,
-    color: "#10b981",
-    bg: "#d1fae5",
-    unlocked: false,
-  },
-  {
-    id: "grand_architect",
-    title: "Grand Architect",
-    description: "Completed 30-day continuous twin operation",
-    icon: Award,
-    color: "#ef4444",
-    bg: "#fee2e2",
-    unlocked: false,
-  },
+  { id:"week_warrior",    title:"Week Warrior",     desc:"7-day logging streak",                icon:Flame,  color:"#f59e0b", bg:"#fef3c7" },
+  { id:"neural_init",     title:"Neural Init",      desc:"First AI twin sync completed",        icon:Zap,    color:"#0044DD", bg:"#dbeafe" },
+  { id:"apex_optimizer",  title:"Apex Optimizer",   desc:"Top 10% on your optimisation vector", icon:Target, color:"#a855f7", bg:"#f3e8ff" },
+  { id:"data_sovereign",  title:"Data Sovereign",   desc:"All three layers synced at once",     icon:Star,   color:"#10b981", bg:"#d1fae5" },
+  { id:"grand_architect", title:"Grand Architect",  desc:"30-day continuous twin operation",    icon:Award,  color:"#ef4444", bg:"#fee2e2" },
 ];
 
-/* ─────────────────────────────────────────────
-   InfoRow Component
-───────────────────────────────────────────── */
-function InfoRow({
-  icon: Icon, label, value, accent, editing, editValue, onEdit,
-}: {
-  icon: any; label: string; value: string; accent?: boolean;
-  editing?: boolean; editValue?: string; onEdit?: (v: string) => void;
-}) {
+/* ─── NAV SECTIONS ───────────────────────────────────────────────── */
+const NAV_SECTIONS = [
+  { id:"sec-profile",      icon:User,      label:"Twin Profile",   sub:"Identity & settings"  },
+  { id:"sec-telemetry",    icon:Cpu,       label:"Neural Sync",    sub:"Health, finance, career" },
+  { id:"sec-optimization", icon:BarChart3, label:"Optimisation",   sub:"Active vector"         },
+  { id:"sec-data",         icon:Layers,    label:"Data Layers",    sub:"Connected sources"     },
+];
+
+/* ─── TYPEWRITER ─────────────────────────────────────────────────── */
+function useTypewriter(fullText: string) {
+  const [displayed, setDisplayed] = useState("");
+  const phaseRef = useRef<"typing"|"pause"|"erasing"|"pauseEmpty">("typing");
+  const indexRef = useRef(0);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const phase = phaseRef.current;
+      if (phase === "typing") {
+        setDisplayed(fullText.slice(0, indexRef.current));
+        indexRef.current += 1;
+        if (indexRef.current > fullText.length) { phaseRef.current = "pause"; t = setTimeout(tick, 1900); }
+        else t = setTimeout(tick, 88);
+      } else if (phase === "pause") {
+        phaseRef.current = "erasing"; t = setTimeout(tick, 400);
+      } else if (phase === "erasing") {
+        if (indexRef.current > 0) { indexRef.current -= 1; setDisplayed(fullText.slice(0, indexRef.current)); t = setTimeout(tick, 52); }
+        else { phaseRef.current = "pauseEmpty"; t = setTimeout(tick, 500); }
+      } else { indexRef.current = 0; phaseRef.current = "typing"; t = setTimeout(tick, 300); }
+    };
+    t = setTimeout(tick, 88);
+    return () => clearTimeout(t);
+  }, [fullText]);
+  return displayed;
+}
+
+/* ─── INFO ROW ───────────────────────────────────────────────────── */
+function InfoRow({ icon: Icon, label, value, accent }: { icon: any; label: string; value: string; accent?: boolean }) {
   return (
-    <div className="pf-info-row">
-      <div className="pf-info-icon">
-        <Icon size={14} color={accent ? "#0044DD" : "#94a3b8"} />
-      </div>
-      <div className="pf-info-content">
-        <span className="pf-info-label">{label}</span>
-        {editing && onEdit ? (
-          <input
-            className="pf-edit-input"
-            value={editValue ?? value}
-            onChange={e => onEdit(e.target.value)}
-            autoFocus={label === "Full Name"}
-          />
-        ) : (
-          <span className="pf-info-value" style={{ color: accent ? "#0044DD" : "#111" }}>
-            {value || "—"}
-          </span>
-        )}
+    <div className="info-row">
+      <div className="info-icon"><Icon size={14} color={accent ? "#0047D4" : "#94a3b8"}/></div>
+      <div className="info-content">
+        <span className="info-label">{label}</span>
+        <span className="info-value" style={accent ? { color:"#0047D4" } : {}}>{value || "—"}</span>
       </div>
     </div>
   );
 }
 
-/* ─────────────────────────────────────────────
-   Typewriter Hook
-───────────────────────────────────────────── */
-function useTypewriter(fullText: string) {
-  const [displayed, setDisplayed] = useState("");
-  const phaseRef = useRef<"typing" | "pause" | "erasing" | "pauseEmpty">("typing");
-  const indexRef = useRef(0);
-
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
-    const tick = () => {
-      const phase = phaseRef.current;
-      if (phase === "typing") {
-        if (indexRef.current <= fullText.length) {
-          setDisplayed(fullText.slice(0, indexRef.current));
-          indexRef.current += 1;
-          timeout = setTimeout(tick, 90);
-        } else {
-          phaseRef.current = "pause";
-          timeout = setTimeout(tick, 1800);
-        }
-      } else if (phase === "pause") {
-        phaseRef.current = "erasing";
-        timeout = setTimeout(tick, 400);
-      } else if (phase === "erasing") {
-        if (indexRef.current > 0) {
-          indexRef.current -= 1;
-          setDisplayed(fullText.slice(0, indexRef.current));
-          timeout = setTimeout(tick, 55);
-        } else {
-          phaseRef.current = "pauseEmpty";
-          timeout = setTimeout(tick, 500);
-        }
-      } else if (phase === "pauseEmpty") {
-        indexRef.current = 0;
-        phaseRef.current = "typing";
-        timeout = setTimeout(tick, 300);
-      }
-    };
-    timeout = setTimeout(tick, 90);
-    return () => clearTimeout(timeout);
-  }, [fullText]);
-
-  return displayed;
+/* ─── AVATAR MODAL ───────────────────────────────────────────────── */
+function AvatarModal({ currentNumId, onSave, onClose }: {
+  currentNumId: string; onSave: (numId: string) => void; onClose: () => void;
+}) {
+  const [preview, setPreview] = useState(currentNumId);
+  const previewAv = getAvatarByNumId(preview);
+  return (
+    <div className="modal-overlay" onClick={e => { if(e.target===e.currentTarget) onClose(); }}>
+      <div className="modal-box">
+        <button className="modal-close" onClick={onClose}><X size={15}/></button>
+        <div className="modal-title">Choose Your Avatar</div>
+        <div className="modal-sub">Select an avatar that reflects your Syntra focus.</div>
+        <div className="modal-preview">
+          <div className="modal-preview-ring" style={{ background: previewAv.lightBg, border:`2.5px solid ${previewAv.accent}` }}>
+            <div style={{ width:68, height:68 }}>{previewAv.svg}</div>
+          </div>
+          <div>
+            <div className="modal-preview-name" style={{ color: previewAv.accent }}>{previewAv.name}</div>
+            <div className="modal-preview-focus">{previewAv.focus}</div>
+          </div>
+        </div>
+        <div className="modal-grid">
+          {AVATARS.map(av => {
+            const sel = preview === av.numId;
+            return (
+              <button key={av.id}
+                className={`modal-av-btn${sel?" modal-av-selected":""}`}
+                style={sel ? { borderColor:av.accent, background:av.lightBg, boxShadow:`0 6px 20px ${av.accent}22` } : {}}
+                onClick={() => setPreview(av.numId)}>
+                <div className="modal-av-img" style={sel ? { boxShadow:`0 0 0 3px ${av.accent}55` } : {}}>
+                  {av.svg}
+                </div>
+                <span className="modal-av-name" style={sel ? { color:av.accent } : {}}>{av.name}</span>
+                <span className="modal-av-focus">{av.focus}</span>
+                {sel && <div className="modal-av-check" style={{ background:av.accent }}><Check size={9} color="#fff"/></div>}
+              </button>
+            );
+          })}
+        </div>
+        <div className="modal-actions">
+          <button className="modal-btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="modal-btn-save" onClick={() => onSave(preview)} disabled={preview===currentNumId}>
+            <Check size={13}/> Save Avatar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-/* ─────────────────────────────────────────────
-   Main Profile Page
-───────────────────────────────────────────── */
+/* ─── SECTION HEADING ────────────────────────────────────────────── */
+function SectionHeading({ icon: Icon, title, sub, color = "#0047D4" }: {
+  icon: any; title: string; sub: string; color?: string;
+}) {
+  return (
+    <div className="section-heading">
+      <div className="sh-icon" style={{ background:`${color}12`, color }}><Icon size={16}/></div>
+      <div>
+        <div className="sh-title">{title}</div>
+        <div className="sh-sub">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── MAIN PAGE ──────────────────────────────────────────────────── */
 export default function ProfilePage() {
   const { data: session } = useSession();
-  const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [mounted, setMounted]                 = useState(false);
+  const [loading, setLoading]                 = useState(false);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [activeSection, setActiveSection]     = useState("sec-profile");
 
-  // Fetch full user profile details dynamically
+  /* ── Section refs ── */
+  const refProfile      = useRef<HTMLDivElement>(null);
+  const refTelemetry    = useRef<HTMLDivElement>(null);
+  const refOptimization = useRef<HTMLDivElement>(null);
+  const refData         = useRef<HTMLDivElement>(null);
+  const scrollRef       = useRef<HTMLDivElement>(null);
+
+  /*
+   * isProgrammaticScroll — when true the scroll-spy observer is temporarily
+   * suppressed so a sidebar click doesn't fight the highlight we set instantly.
+   */
+  const isProgrammaticScroll         = useRef(false);
+  const programmaticScrollTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const sectionOrder = ["sec-profile", "sec-telemetry", "sec-optimization", "sec-data"] as const;
+
+  const sectionRefs: Record<string, React.RefObject<HTMLDivElement>> = {
+    "sec-profile":      refProfile,
+    "sec-telemetry":    refTelemetry,
+    "sec-optimization": refOptimization,
+    "sec-data":         refData,
+  };
+
   const { data: profileRes, mutate: mutateProfile } = useSWR<any>("/api/profile", fetcher);
-
-  const { data: dashData } = useSWR<any>("/api/dashboard", fetcher, {
-    dedupingInterval: 60000,
-    revalidateOnFocus: true,
-  });
+  const { data: dashData }                           = useSWR<any>("/api/dashboard", fetcher, { dedupingInterval:60000, revalidateOnFocus:true });
   const userBadges = dashData?.dashboard?.gamification?.badges || [];
-  const streak = dashData?.dashboard?.gamification?.streak || 0;
+  const streak     = dashData?.dashboard?.gamification?.streak  || 0;
 
   const [profile, setProfile] = useState({
-    name: "",
-    email: "",
-    age: "",
-    avatarId: "1",
-    optimizationVector: "career" as OptVector,
-    gender: "male",
-    height: "",
-    weight: "",
-    averageSleep: "7",
-    workoutFrequency: "3",
-    activityLevel: "moderately_active",
-    healthConstraints: "none",
-    customHealthConstraint: "",
-    monthlyIncome: "",
-    currentSavings: "",
-    spendingStyle: "3",
-    hoursStudied: "3",
-    learningProfile: "",
-    archetype: "",
-    personalMission: "",
+    name:"", email:"", age:"", avatarId:"1",
+    optimizationVector:"career" as OptVector,
+    gender:"male", height:"", weight:"",
+    averageSleep:"7", workoutFrequency:"3",
+    activityLevel:"moderately_active", healthConstraints:"none",
+    customHealthConstraint:"",
+    monthlyIncome:"", currentSavings:"", spendingStyle:"3",
+    hoursStudied:"3", learningProfile:"", archetype:"", personalMission:"",
   });
 
-  // Edit mode toggles and state fields
-  const [editMode, setEditMode] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editAge, setEditAge] = useState("");
-  const [editGender, setEditGender] = useState("male");
-  const [editHeight, setEditHeight] = useState("");
-  const [editWeight, setEditWeight] = useState("");
-  const [editSleep, setEditSleep] = useState("7");
-  const [editWorkouts, setEditWorkouts] = useState("3");
-  const [editActivity, setEditActivity] = useState("moderately_active");
-  const [editConstraints, setEditConstraints] = useState("none");
+  const [editMode,             setEditMode]             = useState(false);
+  const [editName,             setEditName]             = useState("");
+  const [editEmail,            setEditEmail]            = useState("");
+  const [editAge,              setEditAge]              = useState("");
+  const [editGender,           setEditGender]           = useState("male");
+  const [editHeight,           setEditHeight]           = useState("");
+  const [editWeight,           setEditWeight]           = useState("");
+  const [editSleep,            setEditSleep]            = useState("7");
+  const [editWorkouts,         setEditWorkouts]         = useState("3");
+  const [editActivity,         setEditActivity]         = useState("moderately_active");
+  const [editConstraints,      setEditConstraints]      = useState("none");
   const [editCustomConstraint, setEditCustomConstraint] = useState("");
-  const [editIncome, setEditIncome] = useState("");
-  const [editSavings, setEditSavings] = useState("");
-  const [editSpending, setEditSpending] = useState("3");
-  const [editStudy, setEditStudy] = useState("3");
-  const [editLearning, setEditLearning] = useState("");
-  const [editArchetype, setEditArchetype] = useState("");
-  const [editMission, setEditMission] = useState("");
+  const [editIncome,           setEditIncome]           = useState("");
+  const [editSavings,          setEditSavings]          = useState("");
+  const [editSpending,         setEditSpending]         = useState("3");
+  const [editStudy,            setEditStudy]            = useState("3");
+  const [editLearning,         setEditLearning]         = useState("");
+  const [editArchetype,        setEditArchetype]        = useState("");
+  const [editMission,          setEditMission]          = useState("");
 
-  // Credentials drawer
-  const [credsOpen, setCredsOpen] = useState(false);
-  const [currentPw, setCurrentPw] = useState("");
-  const [newPw, setNewPw] = useState("");
-  const [confirmPw, setConfirmPw] = useState("");
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
-  const [showNewPw, setShowNewPw] = useState(false);
-  const [showConfirmPw, setShowConfirmPw] = useState(false);
-  const [pwError, setPwError] = useState("");
-  const [pwSuccess, setPwSuccess] = useState(false);
-
-  // Sync states
-  const [syncStatuses, setSyncStatuses] = useState<Record<string, "idle" | "syncing" | "synced">>({
-    health: "idle",
-    finance: "idle",
-    coursera: "idle",
-  });
-
-  // Optimization vector pulse
-  const [vectorPulse, setVectorPulse] = useState(false);
-
-  // Populate data when SWR response resolves
-  useEffect(() => {
-    setMounted(true);
-    if (profileRes?.success && profileRes?.user) {
-      const u = profileRes.user;
-      const p = u.profile || {};
-      setProfile({
-        name: u.name || "",
-        email: u.email || "",
-        age: typeof u.age !== "undefined" ? String(u.age) : "",
-        avatarId: String(u.avatarId || "1"),
-        optimizationVector: u.optimizationVector || "career",
-        gender: p.gender || "male",
-        height: typeof p.height !== "undefined" ? String(p.height) : "",
-        weight: typeof p.weight !== "undefined" ? String(p.weight) : "",
-        averageSleep: String(p.averageSleep || "7"),
-        workoutFrequency: String(p.workoutFrequency || "3"),
-        activityLevel: p.activityLevel || "moderately_active",
-        healthConstraints: u.healthConstraints || "none",
-        customHealthConstraint: u.healthConstraints !== "none" && u.healthConstraints !== "mild" && u.healthConstraints !== "strict" ? u.healthConstraints : "",
-        monthlyIncome: typeof p.monthlyIncome !== "undefined" ? String(p.monthlyIncome) : "",
-        currentSavings: typeof p.currentSavings !== "undefined" ? String(p.currentSavings) : "",
-        spendingStyle: String(p.spendingStyle || "3"),
-        hoursStudied: String(p.hoursStudied || "3"),
-        learningProfile: p.learningProfile || "",
-        archetype: p.archetype || "",
-        personalMission: u.personalMission || "",
-      });
-    } else if (session?.user) {
-      setProfile(p => ({
-        ...p,
-        name: session.user?.name || "",
-        email: session.user?.email || "",
-      }));
-    }
-  }, [profileRes, session]);
-
-  const selectedAvatar =
-    PREMIUM_AVATARS.find(a => String(a.id === "aether" ? "1" : a.id === "chronos" ? "2" : a.id === "apex" ? "3" : "4") === String(profile.avatarId)) || PREMIUM_AVATARS[0];
-
-  const vectorMeta: Record<OptVector, { label: string; color: string; bg: string; icon: any; desc: string }> = {
-    career:  { label: "Career Layer",  color: "#0066FF", bg: "#eff6ff", icon: Briefcase, desc: "Focus duration thresholds & production output metrics." },
-    health:  { label: "Health Layer",  color: "#ef4444", bg: "#fef2f2", icon: HeartPulse, desc: "Biometric rest cycles, metabolic energy & stability profiles." },
-    finance: { label: "Finance Layer", color: "#10b981", bg: "#f0fdf4", icon: Wallet,     desc: "Run-rate curves, micro-spending & risk parameters." },
-  };
-  const activeVector = vectorMeta[profile.optimizationVector];
+  const [credsOpen,    setCredsOpen]    = useState(false);
+  const [currentPw,    setCurrentPw]    = useState("");
+  const [newPw,        setNewPw]        = useState("");
+  const [confirmPw,    setConfirmPw]    = useState("");
+  const [showCurPw,    setShowCurPw]    = useState(false);
+  const [showNewPw,    setShowNewPw]    = useState(false);
+  const [showConPw,    setShowConPw]    = useState(false);
+  const [pwError,      setPwError]      = useState("");
+  const [pwSuccess,    setPwSuccess]    = useState(false);
+  const [syncStatuses, setSyncStatuses] = useState<Record<string,"idle"|"syncing"|"synced">>({ health:"idle", finance:"idle", coursera:"idle" });
+  const [vectorPulse,  setVectorPulse]  = useState(false);
 
   const twinText = useTypewriter("Twin Profile");
 
-  // Edit mode handlers
+  /* ── Populate from API ── */
+  useEffect(() => {
+    setMounted(true);
+    if (profileRes?.success && profileRes?.user) {
+      const u = profileRes.user, p = u.profile || {};
+      setProfile({
+        name: u.name||"", email: u.email||"",
+        age: u.age!=null ? String(u.age) : "",
+        avatarId: String(u.avatarId||"1"),
+        optimizationVector: u.optimizationVector||"career",
+        gender: p.gender||"male",
+        height: p.height!=null ? String(p.height) : "",
+        weight: p.weight!=null ? String(p.weight) : "",
+        averageSleep: String(p.averageSleep||"7"),
+        workoutFrequency: String(p.workoutFrequency||"3"),
+        activityLevel: p.activityLevel||"moderately_active",
+        healthConstraints: u.healthConstraints||"none",
+        customHealthConstraint: !["none","diabetes","hypertension","asthma"].includes(u.healthConstraints||"none") ? (u.healthConstraints||"") : "",
+        monthlyIncome: p.monthlyIncome!=null ? String(p.monthlyIncome) : "",
+        currentSavings: p.currentSavings!=null ? String(p.currentSavings) : "",
+        spendingStyle: String(p.spendingStyle||"3"),
+        hoursStudied: String(p.hoursStudied||"3"),
+        learningProfile: p.learningProfile||"",
+        archetype: p.archetype||"",
+        personalMission: u.personalMission||"",
+      });
+    } else if (session?.user) {
+      setProfile(p => ({ ...p, name:session.user?.name||"", email:session.user?.email||"" }));
+    }
+  }, [profileRes, session]);
+
+  /* ══════════════════════════════════════════════════════════════════
+     SCROLL-SPY — measures visible height of each section inside the
+     scroll container and activates whichever occupies the most pixels.
+
+     Strategy:
+       On every scroll event, iterate over all four section elements.
+       For each, compute how many pixels of it are currently visible
+       inside the scroll container's viewport. The section with the
+       most visible pixels wins and becomes active.
+
+     Why this beats the "trigger line" approach:
+       - Twin Profile is much taller than the others, so even when the
+         user scrolls deep into it the bottom of it may still be in
+         view. Measuring actual visible area solves that naturally.
+       - At the very bottom of the page, Data Layers lights up even
+         though it may be shorter than the viewport.
+  ══════════════════════════════════════════════════════════════════ */
+  const computeActiveSection = useCallback((): string => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return "sec-profile";
+
+    // Viewport bounds of the scroll container in client coordinates
+    const containerTop    = scrollEl.getBoundingClientRect().top;
+    const containerBottom = containerTop + scrollEl.clientHeight;
+
+    let bestId      = sectionOrder[0];
+    let bestVisible = -1;
+
+    for (const id of sectionOrder) {
+      const el = sectionRefs[id]?.current;
+      if (!el) continue;
+
+      const rect = el.getBoundingClientRect();
+
+      // Clamp the section rect to the container's visible area
+      const visTop    = Math.max(rect.top,    containerTop);
+      const visBottom = Math.min(rect.bottom, containerBottom);
+      const visible   = Math.max(0, visBottom - visTop);
+
+      if (visible > bestVisible) {
+        bestVisible = visible;
+        bestId      = id;
+      }
+    }
+
+    return bestId;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    if (isProgrammaticScroll.current) return;
+    setActiveSection(computeActiveSection());
+  }, [computeActiveSection]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    scrollEl.addEventListener("scroll", handleScroll, { passive: true });
+
+    // Set correct initial state once layout has settled
+    const raf = requestAnimationFrame(() => setActiveSection(computeActiveSection()));
+
+    return () => {
+      scrollEl.removeEventListener("scroll", handleScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [mounted, handleScroll, computeActiveSection]);
+
+  /* ── scrollToSection ──────────────────────────────────────────────
+     Lock the spy while the smooth scroll animation plays, then
+     re-measure once it has finished so the final resting position
+     is always reflected correctly.
+  ─────────────────────────────────────────────────────────────────── */
+  const scrollToSection = useCallback((id: string) => {
+    const el = sectionRefs[id]?.current;
+    if (!el) return;
+
+    // Suppress spy during animation
+    isProgrammaticScroll.current = true;
+    if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
+
+    // Highlight immediately on click — no wait
+    setActiveSection(id);
+
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // Re-enable spy after smooth-scroll completes (~700 ms is sufficient)
+    programmaticScrollTimer.current = setTimeout(() => {
+      isProgrammaticScroll.current = false;
+      setActiveSection(computeActiveSection());
+    }, 750);
+  }, [computeActiveSection]);
+
+  const selectedAvatar = getAvatarByNumId(profile.avatarId);
+
+  const vectorMeta: Record<OptVector,{ label:string; color:string; bg:string; icon:any; desc:string }> = {
+    career:  { label:"Career",  color:"#0066FF", bg:"#eff6ff", icon:Briefcase, desc:"Focus time and productivity output." },
+    health:  { label:"Health",  color:"#ef4444", bg:"#fef2f2", icon:HeartPulse,desc:"Sleep, energy and fitness metrics." },
+    finance: { label:"Finance", color:"#10b981", bg:"#f0fdf4", icon:Wallet,    desc:"Savings rate and spending patterns." },
+  };
+  const activeVector = vectorMeta[profile.optimizationVector];
+
+  /* ── Handlers ── */
   const handleEditStart = () => {
-    setEditName(profile.name);
-    setEditEmail(profile.email);
-    setEditAge(profile.age);
-    setEditGender(profile.gender);
-    setEditHeight(profile.height);
-    setEditWeight(profile.weight);
-    setEditSleep(profile.averageSleep);
-    setEditWorkouts(profile.workoutFrequency);
+    setEditName(profile.name); setEditEmail(profile.email); setEditAge(profile.age);
+    setEditGender(profile.gender); setEditHeight(profile.height); setEditWeight(profile.weight);
+    setEditSleep(profile.averageSleep); setEditWorkouts(profile.workoutFrequency);
     setEditActivity(profile.activityLevel);
-    const isStandardConstraint = ["none", "diabetes", "hypertension", "asthma"].includes(profile.healthConstraints || "none");
-    setEditConstraints(isStandardConstraint ? (profile.healthConstraints || "none") : "custom");
-    setEditCustomConstraint(isStandardConstraint ? "" : (profile.healthConstraints || ""));
-    setEditIncome(profile.monthlyIncome);
-    setEditSavings(profile.currentSavings);
-    setEditSpending(profile.spendingStyle);
-    setEditStudy(profile.hoursStudied);
-    setEditLearning(profile.learningProfile);
-    setEditArchetype(profile.archetype);
-    setEditMission(profile.personalMission);
-    setEditMode(true);
+    const std = ["none","diabetes","hypertension","asthma"].includes(profile.healthConstraints||"none");
+    setEditConstraints(std ? (profile.healthConstraints||"none") : "custom");
+    setEditCustomConstraint(std ? "" : (profile.healthConstraints||""));
+    setEditIncome(profile.monthlyIncome); setEditSavings(profile.currentSavings);
+    setEditSpending(profile.spendingStyle); setEditStudy(profile.hoursStudied);
+    setEditLearning(profile.learningProfile); setEditArchetype(profile.archetype);
+    setEditMission(profile.personalMission); setEditMode(true);
   };
 
   const handleEditSave = async () => {
     setLoading(true);
     try {
-      const finalHealthConstraint = editConstraints === "custom" ? (editCustomConstraint || "none") : editConstraints;
+      const finalHC = editConstraints==="custom" ? (editCustomConstraint||"none") : editConstraints;
       const res = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method:"PUT", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
-          name: editName,
-          age: editAge ? Number(editAge) : undefined,
-          avatarId: Number(profile.avatarId) || 1,
-          optimizationVector: profile.optimizationVector,
-          personalMission: editMission,
-          healthConstraints: finalHealthConstraint,
-          gender: editGender,
-          height: editHeight ? Number(editHeight) : undefined,
-          weight: editWeight ? Number(editWeight) : undefined,
-          averageSleep: Number(editSleep) || 7,
-          workoutFrequency: Number(editWorkouts) || 3,
-          activityLevel: editActivity,
-          monthlyIncome: editIncome ? Number(editIncome) : undefined,
-          currentSavings: editSavings ? Number(editSavings) : undefined,
-          spendingStyle: Number(editSpending) || 3,
-          hoursStudied: Number(editStudy) || 3,
-          learningProfile: editLearning,
-          archetype: editArchetype,
+          name:editName, age:editAge?Number(editAge):undefined,
+          avatarId:Number(profile.avatarId)||1,
+          optimizationVector:profile.optimizationVector,
+          personalMission:editMission, healthConstraints:finalHC,
+          gender:editGender,
+          height:editHeight?Number(editHeight):undefined,
+          weight:editWeight?Number(editWeight):undefined,
+          averageSleep:Number(editSleep)||7, workoutFrequency:Number(editWorkouts)||3,
+          activityLevel:editActivity,
+          monthlyIncome:editIncome?Number(editIncome):undefined,
+          currentSavings:editSavings?Number(editSavings):undefined,
+          spendingStyle:Number(editSpending)||3,
+          hoursStudied:Number(editStudy)||3,
+          learningProfile:editLearning, archetype:editArchetype,
         }),
       });
-
       const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "Failed to update profile.");
-
-      mutateProfile();
-      setEditMode(false);
+      if (!res.ok) throw new Error(d.error||"Failed to update profile.");
+      mutateProfile(); setEditMode(false);
       window.dispatchEvent(new Event("syntra-refresh"));
-      alert("Twin parameters successfully updated & potential scores recalculated!");
-    } catch (e: any) {
-      console.error(e);
-      alert(e.message || "Failed to save profile changes.");
-    } finally {
-      setLoading(false);
-    }
+    } catch(e:any) { alert(e.message||"Save failed."); }
+    finally { setLoading(false); }
   };
 
-  const handleEditCancel = () => setEditMode(false);
-
-  // Avatar selector persistence
-  const handleAvatarSelect = async (avId: string) => {
-    setProfile(p => ({ ...p, avatarId: avId === "aether" ? "1" : avId === "chronos" ? "2" : avId === "apex" ? "3" : "4" }));
-    const numericalId = avId === "aether" ? 1 : avId === "chronos" ? 2 : avId === "apex" ? 3 : 4;
+  const handleAvatarSave = async (numId: string) => {
+    setProfile(p => ({ ...p, avatarId:numId }));
+    setAvatarModalOpen(false);
     try {
-      await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ avatarId: numericalId }),
-      });
-      mutateProfile();
-      window.dispatchEvent(new Event("syntra-refresh"));
-    } catch (e) {
-      console.error("Failed to save avatar select:", e);
-    }
+      await fetch("/api/profile", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ avatarId:Number(numId) }) });
+      mutateProfile(); window.dispatchEvent(new Event("syntra-refresh"));
+    } catch(e) { console.error(e); }
   };
 
-  // Optimization vector selector persistence
   const handleVectorSelect = async (v: OptVector) => {
-    setProfile(p => ({ ...p, optimizationVector: v }));
-    setVectorPulse(true);
-    setTimeout(() => setVectorPulse(false), 600);
+    setProfile(p => ({ ...p, optimizationVector:v }));
+    setVectorPulse(true); setTimeout(()=>setVectorPulse(false), 600);
     try {
-      await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ optimizationVector: v }),
-      });
-      mutateProfile();
-      window.dispatchEvent(new Event("syntra-refresh"));
-    } catch (e) {
-      console.error("Failed to save vector choice:", e);
-    }
+      await fetch("/api/profile", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ optimizationVector:v }) });
+      mutateProfile(); window.dispatchEvent(new Event("syntra-refresh"));
+    } catch(e) { console.error(e); }
   };
 
-  // Password update handler
+  const handleSync = (key:string) => {
+    if (syncStatuses[key]!=="idle") return;
+    setSyncStatuses(s=>({ ...s, [key]:"syncing" }));
+    setTimeout(()=>{ setSyncStatuses(s=>({ ...s, [key]:"synced" })); setTimeout(()=>setSyncStatuses(s=>({ ...s, [key]:"idle" })), 3000); }, 1800);
+  };
+
   const handlePwSubmit = () => {
     setPwError("");
-    if (!currentPw) { setPwError("Current password is required."); return; }
-    if (newPw.length < 8) { setPwError("New password must be at least 8 characters."); return; }
-    if (newPw !== confirmPw) { setPwError("Passwords do not match."); return; }
-    
-    fetch("/api/auth/change-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
-    })
-      .then(async (res) => {
-        const d = await res.json();
-        if (!res.ok) throw new Error(d.error || "Failed to rotate credentials.");
-        setPwSuccess(true);
-        setTimeout(() => {
-          setPwSuccess(false);
-          setCredsOpen(false);
-          setCurrentPw(""); setNewPw(""); setConfirmPw("");
-        }, 2200);
-      })
-      .catch((err) => {
-        setPwError(err.message || "Credential mutation failed.");
-      });
-  };
-
-  // Sync handler
-  const handleSync = (key: string) => {
-    if (syncStatuses[key] !== "idle") return;
-    setSyncStatuses(s => ({ ...s, [key]: "syncing" }));
-    setTimeout(() => {
-      setSyncStatuses(s => ({ ...s, [key]: "synced" }));
-      setTimeout(() => setSyncStatuses(s => ({ ...s, [key]: "idle" })), 3000);
-    }, 1800);
+    if (!currentPw) { setPwError("Enter your current password."); return; }
+    if (newPw.length<8) { setPwError("New password must be at least 8 characters."); return; }
+    if (newPw!==confirmPw) { setPwError("Passwords do not match."); return; }
+    fetch("/api/auth/change-password", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ currentPassword:currentPw, newPassword:newPw }) })
+      .then(async res=>{ const d=await res.json(); if(!res.ok) throw new Error(d.error||"Failed."); setPwSuccess(true); setTimeout(()=>{ setPwSuccess(false); setCredsOpen(false); setCurrentPw(""); setNewPw(""); setConfirmPw(""); }, 2200); })
+      .catch(err=>setPwError(err.message));
   };
 
   if (!mounted) return null;
 
+  const spendLabel    = (v:string) => v==="1"?"Very frugal":v==="2"?"Careful":v==="3"?"Balanced":v==="4"?"Generous":"Big spender";
+  const activityLabel = (v:string) => v==="sedentary"?"Mostly sitting":v==="lightly_active"?"Lightly active":v==="moderately_active"?"Moderately active":v==="very_active"?"Very active":"Athlete";
+  const learnLabel    = (v:string) => v==="student"?"Student — exams or placement prep":v==="professional"?"Working professional":v==="founder"?"Founder / builder":v==="freelancer"?"Freelancer":v==="job_seeker"?"Actively job seeking":v;
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#f7f8fc",
-      fontFamily: '"Inter","DM Sans",-apple-system,sans-serif',
-      display: "flex",
-      alignItems: "stretch",
-    }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@700&display=swap');
+    <div className="pf-root">
+      <style>{CSS}</style>
 
-        /* ── SIDEBAR ── */
-        .pf-left {
-          width: 240px; height: 100vh; position: sticky; top: 0; flex-shrink: 0;
-          background: linear-gradient(140deg,#0044DD 0%,#0066FF 55%,#3322EE 100%);
-          display: flex; flex-direction: column; align-items: center;
-          padding: 48px 24px 36px; overflow: hidden; gap: 0;
-        }
-        .pf-left::before {
-          content:''; position:absolute; top:60px; left:50%; transform:translateX(-50%);
-          width:320px; height:320px; border-radius:50%; border:1px solid rgba(255,255,255,0.06); pointer-events:none;
-        }
-        .pf-left::after {
-          content:''; position:absolute; top:90px; left:50%; transform:translateX(-50%);
-          width:220px; height:220px; border-radius:50%; border:1px solid rgba(255,255,255,0.05); pointer-events:none;
-        }
-        .pf-brand { font-family:'DM Sans',sans-serif; font-size:1.3rem; font-weight:800; color:#ffffff; letter-spacing:0.08em; text-transform:uppercase; margin:0 0 4px; position:relative; z-index:1; }
-        .pf-brand-sub { font-size:0.7rem; font-weight:500; color:rgba(255,255,255,0.35); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:36px; position:relative; z-index:1; }
-        .pf-sidebar-divider { width:100%; height:1px; background:rgba(255,255,255,0.08); margin-bottom:28px; position:relative; z-index:1; }
-        .pf-nav { width:100%; display:flex; flex-direction:column; gap:6px; position:relative; z-index:1; flex:1; }
-        .pf-nav-item { display:flex; align-items:center; gap:11px; padding:10px 14px; border-radius:12px; font-size:0.8rem; font-weight:600; color:rgba(255,255,255,0.5); font-family:'Inter',sans-serif; cursor:default; transition:all 0.2s; letter-spacing:0.01em; }
-        .pf-nav-item:hover { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.8); }
-        .pf-nav-item.active { background:rgba(255,255,255,0.12); color:#fff; border:1px solid rgba(255,255,255,0.14); }
-        .pf-nav-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
-        .pf-status-badge { width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:10px; margin-bottom:14px; position:relative; z-index:1; }
-        .pf-status-pulse { width:8px; height:8px; border-radius:50%; background:#34d399; flex-shrink:0; box-shadow:0 0 0 3px rgba(52,211,153,0.25); animation:pulse 2s ease-in-out infinite; }
-        @keyframes pulse { 0%,100% { box-shadow:0 0 0 3px rgba(52,211,153,0.25); } 50% { box-shadow:0 0 0 6px rgba(52,211,153,0.1); } }
-        .pf-status-text { font-size:0.72rem; font-weight:600; color:rgba(255,255,255,0.55); font-family:'Inter',sans-serif; letter-spacing:0.03em; }
-        .pf-status-val { font-size:0.72rem; font-weight:700; color:#34d399; }
-        .pf-signout-btn { display:flex; align-items:center; justify-content:center; gap:8px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:10px 14px; color:rgba(255,255,255,0.45); font-size:0.78rem; font-weight:600; cursor:pointer; transition:all 0.2s; width:100%; font-family:'Inter',sans-serif; position:relative; z-index:1; }
-        .pf-signout-btn:hover { background:rgba(255,80,80,0.15); border-color:rgba(255,120,120,0.3); color:#fca5a5; }
+      {/* ── AVATAR MODAL ── */}
+      {avatarModalOpen && <AvatarModal currentNumId={profile.avatarId} onSave={handleAvatarSave} onClose={()=>setAvatarModalOpen(false)}/>}
 
-        /* ── MAIN ── */
-        .pf-right { flex:1; background:#f7f8fc; display:flex; flex-direction:column; align-items:center; padding:40px 32px; min-height:100vh; }
-        .pf-main-wrapper { width:100%; max-width:680px; }
-        .pf-exit-bar { display:inline-flex; align-items:center; gap:8px; font-size:0.8rem; font-weight:600; color:#64748b; margin-bottom:32px; padding:7px 14px; border-radius:9999px; background:#fff; border:1px solid #e2e8f0; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.06); transition:all 0.2s; width:fit-content; }
-        .pf-exit-bar:hover { color:#0044DD; border-color:#b8d0ff; background:#f0f5ff; transform:translateX(-2px); }
-
-        /* Header */
-        .pf-page-header { margin-bottom:24px; }
-        .pf-title { font-family:'DM Sans',sans-serif; font-size:clamp(1.5rem,3vw,2rem); font-weight:800; color:#0d1117; letter-spacing:-0.04em; margin:0 0 4px; min-height:2.6rem; display:block; line-height:1.2; }
-        .pf-title-accent { color:#0044DD; display:inline; }
-        .pf-title-rest { color:#0d1117; display:inline; }
-        .pf-title-cursor { display:inline-block; width:2.5px; height:1em; background:#0044DD; margin-left:3px; vertical-align:middle; border-radius:1px; animation:cursorBlink 1.1s ease-in-out infinite; opacity:0.85; }
-        @keyframes cursorBlink { 0%,100% { opacity:0.85; } 48%,52% { opacity:0; } }
-        .pf-subtitle { font-size:0.83rem; color:#64748b; margin:0; }
-
-        /* Edit Config Button */
-        .pf-edit-config-btn {
-          display: inline-flex; align-items: center; gap: 7px;
-          background: rgba(0,68,221,0.07);
-          border: 1.5px solid rgba(0,68,221,0.2);
-          backdrop-filter: blur(8px);
-          border-radius: 12px;
-          padding: 9px 16px;
-          font-size: 0.78rem; font-weight: 700;
-          color: #0044DD;
-          cursor: pointer;
-          transition: all 0.2s;
-          font-family: 'Inter', sans-serif;
-          letter-spacing: 0.01em;
-          float: right;
-          margin-top: -4px;
-        }
-        .pf-edit-config-btn:hover { background:rgba(0,68,221,0.12); border-color:rgba(0,68,221,0.4); transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,68,221,0.15); }
-        .pf-edit-actions { display:flex; gap:8px; margin-top:14px; padding:0 14px; }
-        .pf-btn-save { display:flex; align-items:center; gap:6px; background:#0044DD; border:none; border-radius:10px; padding:9px 18px; color:#fff; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:'Inter',sans-serif; }
-        .pf-btn-save:hover { background:#0033bb; transform:translateY(-1px); }
-        .pf-btn-cancel { display:flex; align-items:center; gap:6px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; padding:9px 18px; color:#64748b; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:'Inter',sans-serif; }
-        .pf-btn-cancel:hover { background:#e2e8f0; }
-
-        /* Creds button */
-        .pf-creds-btn { display:inline-flex; align-items:center; gap:7px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 14px; font-size:0.77rem; font-weight:700; color:#475569; cursor:pointer; transition:all 0.18s; font-family:'Inter',sans-serif; margin-top:10px; margin-left:14px; }
-        .pf-creds-btn:hover { background:#f1f5f9; border-color:#cbd5e1; color:#0044DD; }
-
-        /* ── HERO CARD ── */
-        .pf-hero-card { background:#fff; border-radius:22px; border:1px solid #e4e9f4; box-shadow:0 8px 40px rgba(0,68,221,0.08),0 1px 4px rgba(0,0,0,0.04); overflow:hidden; margin-bottom:14px; }
-        .pf-hero-banner { height:80px; background:linear-gradient(120deg,#0044DD 0%,#0066FF 50%,#3322EE 100%); position:relative; overflow:hidden; flex-shrink:0; }
-        .pf-hero-banner::before { content:''; position:absolute; top:-40px; right:-40px; width:160px; height:160px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.15) 0%,transparent 70%); }
-        .pf-hero-banner::after  { content:''; position:absolute; bottom:-30px; left:60px; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 70%); }
-        .pf-hero-body { padding:0 28px 26px; }
-        .pf-avatar-row { display:flex; align-items:flex-end; gap:20px; margin-top:-46px; margin-bottom:22px; padding-top:0; }
-        .pf-avatar-outer { position:relative; flex-shrink:0; }
-        .pf-avatar-glow { position:absolute; inset:-4px; border-radius:50%; background:conic-gradient(from 0deg,#0044DD,#0066FF,#3322EE,#0044DD); opacity:0.6; filter:blur(4px); }
-        .pf-avatar-ring { width:90px; height:90px; border-radius:50%; background:#fff; border:3px solid #fff; box-shadow:0 6px 20px rgba(0,68,221,0.25); display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative; z-index:1; }
-        .pf-avatar-inner { width:80px; height:80px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; }
-        .pf-avatar-meta { padding-bottom:6px; display:flex; flex-direction:column; justify-content:flex-end; flex:1; }
-        .pf-hero-name { font-family:'DM Sans',sans-serif; font-size:1.35rem; font-weight:800; color:#0d1117; letter-spacing:-0.03em; line-height:1.2; }
-        .pf-twin-badge { display:inline-flex; align-items:center; gap:5px; background:linear-gradient(90deg,#eff4ff,#e8edfc); border:1px solid #c7d7fb; border-radius:9999px; padding:4px 10px; font-size:0.68rem; font-weight:700; color:#0044DD; letter-spacing:0.06em; text-transform:uppercase; margin-top:8px; width:fit-content; }
-
-        /* Info rows */
-        .pf-info-section { display:flex; flex-direction:column; gap:2px; }
-        .pf-info-row { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:11px; transition:background 0.15s; }
-        .pf-info-row:hover { background:#f7f9ff; }
-        .pf-info-icon { width:30px; height:30px; border-radius:9px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .pf-info-content { display:flex; flex-direction:column; gap:1px; flex:1; }
-        .pf-info-label { font-size:0.68rem; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; }
-        .pf-info-value { font-size:0.88rem; color:#111; font-weight:600; }
-        .pf-info-divider { height:1px; background:#f1f5f9; margin:4px 14px; }
-
-        /* ── SECONDARY CARDS ── */
-        .pf-card { background:#fff; border-radius:18px; border:1px solid #e4e9f4; overflow:hidden; box-shadow:0 4px 20px rgba(0,68,221,0.05),0 1px 3px rgba(0,0,0,0.03); margin-bottom:14px; }
-        .pf-card-header { padding:16px 22px 14px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:13px; }
-        .pf-icon-ring { width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .pf-card-title { font-size:0.88rem; font-weight:700; color:#0d1117; letter-spacing:-0.01em; }
-        .pf-card-sub { font-size:0.72rem; color:#94a3b8; font-weight:500; margin-top:1px; }
-        .pf-card-body { padding:18px 22px; }
-
-        /* ── PREMIUM AVATAR GRID ── */
-        .pf-avatar-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
-        .pf-avatar-card {
-          border-radius:16px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px;
-          border:2px solid transparent; cursor:pointer; transition:all 0.22s; position:relative; overflow:hidden;
-        }
-        .pf-avatar-card:hover { transform:translateY(-3px) scale(1.03); }
-        .pf-avatar-card.selected { border-color:var(--av-accent); }
-        .pf-avatar-card-img { width:64px; height:64px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; transition:box-shadow 0.22s; }
-        .pf-avatar-card.selected .pf-avatar-card-img { box-shadow:0 0 0 3px var(--av-accent), 0 0 20px color-mix(in srgb,var(--av-accent) 50%,transparent); }
-        .pf-avatar-card-name { font-size:0.72rem; font-weight:700; color:#374151; letter-spacing:0.04em; text-transform:uppercase; }
-        .pf-avatar-check { position:absolute; top:7px; right:7px; background:var(--av-accent); border-radius:50%; width:18px; height:18px; display:flex; align-items:center; justify-content:center; }
-
-        /* ── SYNC CARDS ── */
-        .pf-sync-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-        .pf-sync-card {
-          border-radius:14px; padding:14px 12px; display:flex; flex-direction:column; align-items:center; gap:8px;
-          border:1.5px solid transparent; cursor:pointer; transition:all 0.2s; position:relative; overflow:hidden;
-          text-align:center;
-        }
-        .pf-sync-card:hover:not(.syncing):not(.synced) { transform:translateY(-2px); filter:brightness(0.97); }
-        .pf-sync-card.syncing { cursor:wait; }
-        .pf-sync-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .pf-sync-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
-        .pf-sync-status { font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:4px; }
-        @keyframes spin { to { transform:rotate(360deg); } }
-        .spinning { animation:spin 0.8s linear infinite; }
-        @keyframes gradientSweep {
-          0% { background-position:200% center; }
-          100% { background-position:-200% center; }
-        }
-        .pf-sync-card.syncing { background-size:200% 100%; animation:gradientSweep 1.4s linear infinite; }
-
-        /* ── OPTIMIZATION VECTOR SELECTOR ── */
-        .pf-vector-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-        .pf-vector-card {
-          border-radius:14px; padding:16px 14px; display:flex; flex-direction:column; gap:8px;
-          border:2px solid transparent; cursor:pointer; transition:all 0.22s; position:relative; overflow:hidden;
-        }
-        .pf-vector-card:hover { transform:scale(1.025); }
-        .pf-vector-card.selected { border-color:var(--vc-color); }
-        .pf-vector-card.pulse { animation:vectorPulse 0.55s ease-out; }
-        @keyframes vectorPulse {
-          0% { transform:scale(1.025); box-shadow:0 0 0 0 var(--vc-shadow); }
-          50% { transform:scale(1.04); box-shadow:0 0 0 8px transparent; }
-          100% { transform:scale(1.025); box-shadow:0 0 0 0 transparent; }
-        }
-        .pf-vector-card.selected { box-shadow:0 0 0 3px color-mix(in srgb,var(--vc-color) 25%,transparent); }
-        .pf-vector-card-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
-        .pf-vector-card-label { font-size:0.68rem; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.07em; }
-        .pf-vector-card-name { font-size:0.88rem; font-weight:800; }
-        .pf-vector-card-desc { font-size:0.67rem; color:#64748b; line-height:1.4; }
-        .pf-vector-active-chip { display:inline-flex; align-items:center; gap:4px; font-size:0.62rem; font-weight:700; padding:3px 8px; border-radius:9999px; }
-
-        /* ── CREDENTIALS DRAWER ── */
-        .pf-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.3); backdrop-filter:blur(4px); z-index:100; display:flex; align-items:center; justify-content:center; animation:fadeIn 0.2s ease; }
-        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-        .pf-drawer {
-          background:#fff; border-radius:22px; padding:30px 28px; width:100%; max-width:420px;
-          box-shadow:0 24px 80px rgba(0,0,0,0.18),0 4px 20px rgba(0,0,0,0.08);
-          animation:slideUp 0.25s cubic-bezier(0.16,1,0.3,1);
-          position:relative;
-        }
-        @keyframes slideUp { from { transform:translateY(24px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-        .pf-drawer-title { font-family:'DM Sans',sans-serif; font-size:1.1rem; font-weight:800; color:#0d1117; margin:0 0 4px; }
-        .pf-drawer-sub { font-size:0.78rem; color:#94a3b8; margin:0 0 22px; }
-        .pf-drawer-close { position:absolute; top:18px; right:18px; width:32px; height:32px; border-radius:10px; background:#f1f5f9; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#64748b; transition:all 0.15s; }
-        .pf-drawer-close:hover { background:#e2e8f0; color:#0d1117; }
-        .pf-pw-field { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
-        .pf-pw-label { font-size:0.72rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.07em; }
-        .pf-pw-input-wrap { display:flex; align-items:center; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; overflow:hidden; transition:border-color 0.15s; }
-        .pf-pw-input-wrap:focus-within { border-color:#0044DD; background:#eff4ff; }
-        .pf-pw-input { flex:1; border:none; background:transparent; padding:10px 12px; font-size:0.85rem; font-weight:500; color:#0d1117; outline:none; font-family:'Inter',sans-serif; }
-        .pf-pw-toggle { padding:0 12px; border:none; background:transparent; cursor:pointer; color:#94a3b8; display:flex; align-items:center; transition:color 0.15s; }
-        .pf-pw-toggle:hover { color:#0044DD; }
-        .pf-pw-error { font-size:0.75rem; font-weight:600; color:#ef4444; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
-        .pf-pw-success { font-size:0.8rem; font-weight:600; color:#10b981; background:#f0fdf4; border:1px solid #a7f3d0; border-radius:10px; padding:12px 16px; text-align:center; display:flex; align-items:center; justify-content:center; gap:8px; }
-        .pf-pw-submit { width:100%; background:#0044DD; border:none; border-radius:12px; padding:12px; color:#fff; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:'Inter',sans-serif; margin-top:4px; }
-        .pf-pw-submit:hover { background:#0033bb; transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,68,221,0.25); }
-
-        /* ── BADGE VAULT ── */
-        .pf-badge-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
-        .pf-badge-card { border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; border:1.5px solid transparent; }
-        .pf-badge-card.unlocked { border-color:color-mix(in srgb,var(--b-color) 25%,transparent); }
-        .pf-badge-card.locked { opacity:0.45; filter:grayscale(0.6); }
-        .pf-badge-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
-        .pf-badge-card.unlocked .pf-badge-icon { box-shadow:0 0 0 3px color-mix(in srgb,var(--b-color) 30%,transparent), 0 0 16px color-mix(in srgb,var(--b-color) 25%,transparent); }
-        .pf-badge-title { font-size:0.67rem; font-weight:800; color:#0d1117; letter-spacing:0.02em; text-transform:uppercase; }
-        .pf-badge-desc { font-size:0.6rem; color:#64748b; line-height:1.35; }
-        .pf-badge-lock { font-size:0.6rem; color:#94a3b8; display:flex; align-items:center; gap:3px; font-weight:600; }
-
-        /* Active chip */
-        .pf-active-chip { margin-left:auto; display:flex; align-items:center; gap:5px; font-size:0.68rem; font-weight:700; color:#0044DD; background:#eff4ff; border:1px solid #c7d7fb; border-radius:9999px; padding:4px 10px; flex-shrink:0; }
-
-        /* ── EXTENDED FORM CONTROLS ── */
-        .pf-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px; }
-        .pf-form-group { display:flex; flex-direction:column; gap:6px; }
-        .pf-form-label { font-size:0.7rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.06em; }
-        .pf-form-input { padding:10px 12px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:0.86rem; color:#1d1d1f; outline:none; transition:all 0.15s; font-family:'Inter',sans-serif; background:#fff; height:42px; }
-        .pf-form-input:focus { border-color:#0044DD; box-shadow:0 0 0 3px rgba(0,68,221,0.1); }
-        .pf-form-select { padding:10px 12px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:0.86rem; color:#1d1d1f; outline:none; transition:all 0.15s; font-family:'Inter',sans-serif; background:#fff; height:42px; -webkit-appearance:none; }
-        .pf-form-select:focus { border-color:#0044DD; }
-        .pf-form-slider-wrap { display:flex; align-items:center; gap:12px; }
-        .pf-form-slider { -webkit-appearance:none; flex:1; height:4px; border-radius:99px; background:#e4e8f2; outline:none; cursor:pointer; }
-        .pf-form-slider-val { font-size:0.88rem; font-weight:700; color:#0044DD; font-family:'JetBrains Mono',monospace; width:44px; text-align:right; }
-
-        @media (max-width:860px) { .pf-left { display:none; } .pf-right { padding:28px 16px; } }
-        @media (max-width:600px) { .pf-avatar-grid { grid-template-columns:repeat(2,1fr); } .pf-sync-grid { grid-template-columns:1fr 1fr; } .pf-vector-grid { grid-template-columns:1fr; } .pf-badge-grid { grid-template-columns:repeat(3,1fr); } }
-        @media (max-width:420px) { .pf-hero-name { font-size:1.1rem; } }
-      `}</style>
-
-      {/* ── CREDENTIALS DRAWER/MODAL ── */}
+      {/* ── CREDENTIALS MODAL ── */}
       {credsOpen && (
-        <div className="pf-overlay" onClick={e => { if (e.target === e.currentTarget) setCredsOpen(false); }}>
-          <div className="pf-drawer">
-            <button className="pf-drawer-close" onClick={() => setCredsOpen(false)}>
-              <X size={15} />
-            </button>
-            <div className="pf-drawer-title">Update Credentials</div>
-            <div className="pf-drawer-sub">Secure credential rotation — changes apply immediately.</div>
-
+        <div className="modal-overlay" onClick={e=>{ if(e.target===e.currentTarget) setCredsOpen(false); }}>
+          <div className="modal-box" style={{ maxWidth:400 }}>
+            <button className="modal-close" onClick={()=>setCredsOpen(false)}><X size={15}/></button>
+            <div className="modal-title">Update Password</div>
+            <div className="modal-sub">Changes apply immediately after saving.</div>
             {pwSuccess ? (
-              <div className="pf-pw-success">
-                <CheckCircle2 size={18} color="#10b981" /> Password updated successfully!
-              </div>
+              <div className="pw-success"><CheckCircle2 size={16} color="#10b981"/> Password updated successfully!</div>
             ) : (
               <>
-                {pwError && (
-                  <div className="pf-pw-error">
-                    <X size={13} /> {pwError}
+                {pwError && <div className="pw-error"><X size={12}/> {pwError}</div>}
+                {[
+                  { label:"Current Password", val:currentPw, set:setCurrentPw, show:showCurPw, toggle:()=>setShowCurPw(v=>!v), ph:"Enter current password" },
+                  { label:"New Password",     val:newPw,     set:setNewPw,     show:showNewPw, toggle:()=>setShowNewPw(v=>!v), ph:"At least 8 characters"  },
+                  { label:"Confirm Password", val:confirmPw, set:setConfirmPw, show:showConPw, toggle:()=>setShowConPw(v=>!v), ph:"Repeat new password"     },
+                ].map(f=>(
+                  <div key={f.label} className="pw-field">
+                    <label className="pw-label">{f.label}</label>
+                    <div className="pw-input-wrap">
+                      <input className="pw-input" type={f.show?"text":"password"} placeholder={f.ph}
+                        value={f.val} onChange={e=>f.set(e.target.value)}
+                        onKeyDown={f.label==="Confirm Password"?(e=>e.key==="Enter"&&handlePwSubmit()):undefined}/>
+                      <button className="pw-toggle" onClick={f.toggle}>{f.show?<EyeOff size={14}/>:<Eye size={14}/>}</button>
+                    </div>
                   </div>
-                )}
-
-                <div className="pf-pw-field">
-                  <div className="pf-pw-label">Current Password</div>
-                  <div className="pf-pw-input-wrap">
-                    <input className="pf-pw-input" type={showCurrentPw ? "text" : "password"} placeholder="Enter current password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
-                    <button className="pf-pw-toggle" onClick={() => setShowCurrentPw(v => !v)}>{showCurrentPw ? <EyeOff size={15}/> : <Eye size={15}/>}</button>
-                  </div>
-                </div>
-
-                <div className="pf-pw-field">
-                  <div className="pf-pw-label">New Password</div>
-                  <div className="pf-pw-input-wrap">
-                    <input className="pf-pw-input" type={showNewPw ? "text" : "password"} placeholder="Min. 8 characters" value={newPw} onChange={e => setNewPw(e.target.value)} />
-                    <button className="pf-pw-toggle" onClick={() => setShowNewPw(v => !v)}>{showNewPw ? <EyeOff size={15}/> : <Eye size={15}/>}</button>
-                  </div>
-                </div>
-
-                <div className="pf-pw-field">
-                  <div className="pf-pw-label">Confirm Password</div>
-                  <div className="pf-pw-input-wrap">
-                    <input className="pf-pw-input" type={showConfirmPw ? "text" : "password"} placeholder="Repeat new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} onKeyDown={e => e.key === "Enter" && handlePwSubmit()} />
-                    <button className="pf-pw-toggle" onClick={() => setShowConfirmPw(v => !v)}>{showConfirmPw ? <EyeOff size={15}/> : <Eye size={15}/>}</button>
-                  </div>
-                </div>
-
-                <button className="pf-pw-submit" onClick={handlePwSubmit}>
-                  Update Password
-                </button>
+                ))}
+                <button className="pw-submit" onClick={handlePwSubmit}>Update Password</button>
               </>
             )}
           </div>
         </div>
       )}
 
-      {/* ── LEFT SIDEBAR ── */}
-      <div className="pf-left">
-        <div className="pf-brand">Syntra</div>
-        <div className="pf-brand-sub">AI Twin Platform</div>
-        <div className="pf-sidebar-divider" />
-        <div className="pf-nav">
-          <div className="pf-nav-item active">
-            <div className="pf-nav-dot" style={{ background: "#60a5fa" }} /> Twin Profile
-          </div>
-          <div className="pf-nav-item">
-            <div className="pf-nav-dot" style={{ background: "rgba(255,255,255,0.2)" }} /> Neural Sync
-          </div>
-          <div className="pf-nav-item">
-            <div className="pf-nav-dot" style={{ background: "rgba(255,255,255,0.2)" }} /> Optimization
-          </div>
-          <div className="pf-nav-item">
-            <div className="pf-nav-dot" style={{ background: "rgba(255,255,255,0.2)" }} /> Data Layers
-          </div>
+      {/* ═══════════════ SIDEBAR ═══════════════ */}
+      <div className="sidebar">
+        <div className="sb-grid"/>
+
+        {/* Brand */}
+        <div className="sb-brand-block">
+          <div className="sb-logo"><div className="sb-logo-dot"/>Syntra</div>
+          <div className="sb-heading">Twin Profile</div>
+          <div className="sb-sub">Your digital identity and AI twin configuration.</div>
         </div>
-        <div className="pf-status-badge">
-          <div className="pf-status-pulse" />
+
+        {/* Scroll-anchor navigation */}
+        <div className="sb-sections">
+          {NAV_SECTIONS.map(item => {
+            const isActive = activeSection === item.id;
+            return (
+              <button
+                key={item.id}
+                className={`sb-section-item${isActive?" sb-section-active":""}`}
+                onClick={() => scrollToSection(item.id)}
+              >
+                <div className="sb-section-icon"><item.icon size={14}/></div>
+                <div className="sb-section-text">
+                  <span className="sb-section-label">{item.label}</span>
+                  <span className="sb-section-sub">{item.sub}</span>
+                </div>
+                {isActive && <ChevronRight size={12} className="sb-section-arrow"/>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Status pill */}
+        <div className="sb-status">
+          <div className="sb-status-dot"/>
           <div>
-            <div className="pf-status-text">Twin Status</div>
-            <div className="pf-status-val">Online & Syncing</div>
+            <div className="sb-status-label">Twin Status</div>
+            <div className="sb-status-val">Online & Syncing</div>
           </div>
         </div>
-        <button className="pf-signout-btn" onClick={() => signOut({ callbackUrl: "/" })}>
-          <LogOut size={13} /> Log Out
+
+        {/* Sign out */}
+        <button className="sb-signout" onClick={()=>signOut({ callbackUrl:"/" })}>
+          <LogOut size={13}/> Sign Out
         </button>
       </div>
 
-      {/* ── MAIN CONTENT ── */}
-      <div className="pf-right">
-        <div className="pf-main-wrapper">
+      {/* ═══════════════ SCROLLABLE CONTENT ═══════════════ */}
+      <div className="pf-right" ref={scrollRef}>
+        <div className="pf-inner">
 
-          <div className="pf-exit-bar" onClick={() => history.back()}>
-            <ArrowLeft size={13} /> Return to Dashboard
-          </div>
-
-          <div className="pf-page-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-            <div>
-              <h1 className="pf-title">
-                <span className="pf-title-accent">{twinText.slice(0, 4) || ""}</span>
-                <span className="pf-title-rest">{twinText.slice(4) || ""}</span>
-                <span className="pf-title-cursor" />
-              </h1>
-              <p className="pf-subtitle">Your digital identity and AI twin configuration overview.</p>
-            </div>
+          {/* Back + page heading */}
+          <div className="pf-topbar">
+            <button className="back-btn" onClick={()=>history.back()}>
+              <ArrowLeft size={13}/> Return to Dashboard
+            </button>
             {!editMode && (
-              <button className="pf-edit-config-btn" onClick={handleEditStart}>
-                <Edit3 size={13} /> Edit Configuration
+              <button className="edit-config-btn" onClick={handleEditStart}>
+                <Edit3 size={13}/> Edit Configuration
               </button>
             )}
           </div>
 
-          {/* ── HERO PROFILE CARD ── */}
-          <div className="pf-hero-card">
-            <div className="pf-hero-banner" />
-            <div className="pf-hero-body">
-              <div className="pf-avatar-row">
-                <div className="pf-avatar-outer">
-                  <div className="pf-avatar-glow" />
-                  <div className="pf-avatar-ring">
-                    <div className="pf-avatar-inner" style={{ background: "transparent" }}>
-                      {selectedAvatar.svg}
-                    </div>
-                  </div>
-                </div>
-                <div className="pf-avatar-meta">
-                  <div className="pf-avatar-meta-top">
-                    <div>
-                      <div className="pf-hero-name">{profile.name || "Your Name"}</div>
-                      <div className="pf-twin-badge">
-                        <Sparkles size={10} /> Syntra AI Twin — {selectedAvatar.name}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          <div className="pf-heading-block">
+            <h1 className="pf-title">
+              <span style={{ color:"#0047D4" }}>{twinText.slice(0,4)||""}</span>
+              <span style={{ color:"#0D1117" }}>{twinText.slice(4)||""}</span>
+              <span className="pf-cursor"/>
+            </h1>
+            <p className="pf-subtitle">Your digital identity, settings, and AI twin configuration — all in one place.</p>
+          </div>
 
-              {/* Core Profile Edit Fields */}
-              <div className="pf-info-section">
+          {/* ══════════════════════════════════════
+              SECTION 1 — TWIN PROFILE
+          ══════════════════════════════════════ */}
+          <div ref={refProfile} id="sec-profile" className="content-section">
+            <SectionHeading icon={User} title="Twin Profile" sub="Your personal information and identity settings" color="#0047D4"/>
+
+            {/* Hero identity card */}
+            <div className="card mb-14">
+              <div className="hero-banner"/>
+              <div className="hero-body">
+                <div className="avatar-row">
+                  <div className="avatar-outer" onClick={()=>setAvatarModalOpen(true)} title="Click to change avatar">
+                    <div className="avatar-glow"/>
+                    <div className="avatar-ring" style={{ background:selectedAvatar.lightBg }}>
+                      <div style={{ width:80, height:80 }}>{selectedAvatar.svg}</div>
+                    </div>
+                    <div className="avatar-edit-overlay"><Camera size={14} color="#fff"/></div>
+                  </div>
+                  <div className="avatar-meta">
+                    <div className="hero-name">{profile.name||"Your Name"}</div>
+                    <div className="twin-badge"><Sparkles size={9} style={{ color:"#0047D4" }}/> Syntra Twin — {selectedAvatar.name}</div>
+                    <div className="avatar-change-hint" onClick={()=>setAvatarModalOpen(true)}><Camera size={10}/> Change avatar</div>
+                  </div>
+                </div>
+
                 {editMode ? (
-                  <div className="pf-form-grid" style={{ gridTemplateColumns: "1fr" }}>
-                    <div className="pf-form-group">
-                      <label className="pf-form-label">Full Name</label>
-                      <input className="pf-form-input" value={editName} onChange={e => setEditName(e.target.value)} placeholder="Full Name" />
-                    </div>
-                    <div className="pf-form-group">
-                      <label className="pf-form-label">Email Address</label>
-                      <input className="pf-form-input" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="Email" />
-                    </div>
-                    <div className="pf-form-group">
-                      <label className="pf-form-label">Age</label>
-                      <input className="pf-form-input" type="number" value={editAge} onChange={e => setEditAge(e.target.value)} placeholder="Age (min. 13)" />
-                    </div>
-                    <div className="pf-form-group">
-                      <label className="pf-form-label">Personal Mission</label>
-                      <input className="pf-form-input" value={editMission} onChange={e => setEditMission(e.target.value)} placeholder="Enter your personal mission narrative" />
-                    </div>
+                  <div className="edit-grid-single">
+                    {[
+                      { label:"Full Name",       val:editName,    set:setEditName,    type:"text",  ph:"Full name" },
+                      { label:"Email Address",   val:editEmail,   set:setEditEmail,   type:"email", ph:"Email address" },
+                      { label:"Age",             val:editAge,     set:setEditAge,     type:"number",ph:"Age" },
+                      { label:"Personal Mission",val:editMission, set:setEditMission, type:"text",  ph:"What you're working toward" },
+                    ].map(f=>(
+                      <div key={f.label} className="form-group">
+                        <label className="form-label">{f.label}</label>
+                        <input className="form-input" type={f.type} placeholder={f.ph} value={f.val} onChange={e=>f.set(e.target.value)}/>
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <>
-                    <InfoRow icon={User} label="Full Name" value={profile.name} />
-                    <div className="pf-info-divider" />
-                    <InfoRow icon={Mail} label="Email Address" value={profile.email} />
-                    <div className="pf-info-divider" />
-                    <InfoRow icon={Calendar} label="Age" value={profile.age ? `${profile.age} years` : "—"} />
-                    <div className="pf-info-divider" />
-                    <InfoRow icon={Target} label="Personal Mission" value={profile.personalMission || "Achieve Personal Optimization"} />
-                    <div className="pf-info-divider" />
-                    <InfoRow icon={Shield} label="Access Level" value="Authenticated Member" accent />
-                  </>
+                  <div className="info-section">
+                    <InfoRow icon={User}     label="Full Name"        value={profile.name}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Mail}     label="Email Address"    value={profile.email}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Calendar} label="Age"              value={profile.age?`${profile.age} years`:""}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Target}   label="Personal Mission" value={profile.personalMission||"Achieve Personal Optimisation"}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Shield}   label="Access Level"     value="Authenticated Member" accent/>
+                    <button className="creds-btn" onClick={()=>setCredsOpen(true)}><Lock size={11}/> Update Password</button>
+                  </div>
                 )}
               </div>
+            </div>
 
-              {editMode && (
-                <div className="pf-edit-actions" style={{ paddingLeft: 0, paddingRight: 0 }}>
-                  <button className="pf-btn-save" onClick={handleEditSave} disabled={loading}>
-                    {loading ? <RefreshCw size={13} className="spinning" /> : <Save size={13} />} Save Changes
-                  </button>
-                  <button className="pf-btn-cancel" onClick={handleEditCancel}>
-                    <X size={13} /> Cancel
-                  </button>
+            {/* Telemetry card (inside profile section as twin params) */}
+            <div className="card mb-0">
+              <div className="card-header">
+                <div className="card-hicon" style={{ background:"rgba(0,68,221,0.07)" }}><Cpu size={17} color="#0044DD"/></div>
+                <div>
+                  <div className="card-title">Twin Telemetry Settings</div>
+                  <div className="card-sub">Health, financial, and behavioural parameters from your onboarding</div>
                 </div>
-              )}
-
-              {!editMode && (
-                <button className="pf-creds-btn" onClick={() => setCredsOpen(true)} style={{ marginLeft: 0 }}>
-                  <Lock size={12} /> Update Credentials
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* ── NEW SECTION CARD: DIGITAL TWIN PARAMETERS & HABITS ── */}
-          <div className="pf-card">
-            <div className="pf-card-header">
-              <div className="pf-icon-ring" style={{ background: "rgba(0, 68, 221, 0.05)" }}>
-                <Cpu size={17} color="#0044DD" />
               </div>
-              <div>
-                <div className="pf-card-title">Digital Twin Telemetry Settings</div>
-                <div className="pf-card-sub">Anatomical, financial, and behavioral settings derived from onboarding</div>
-              </div>
-            </div>
-            <div className="pf-card-body">
-              {editMode ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                  {/* Health Section */}
-                  <div>
-                    <h4 style={{ fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", color: "#ef4444", borderBottom: "1.5px solid #f1f5f9", paddingBottom: "6px", marginBottom: "14px", fontFamily: "'Inter', sans-serif" }}>1. Anatomical &amp; rest parameters</h4>
-                    <div className="pf-form-grid">
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Gender</label>
-                        <select className="pf-form-select" value={editGender} onChange={e => setEditGender(e.target.value)}>
-                          <option value="male">Male</option>
-                          <option value="female">Female</option>
-                          <option value="non-binary">Non-Binary</option>
-                        </select>
+              <div className="card-body">
+                {editMode ? (
+                  <div style={{ display:"flex",flexDirection:"column",gap:24 }}>
+                    {/* Health edit */}
+                    <div>
+                      <div className="section-divider-label" style={{ color:"#ef4444" }}><HeartPulse size={11}/> Health & Body</div>
+                      <div className="edit-grid">
+                        {[
+                          { label:"Gender", field:"sel", val:editGender, set:setEditGender, opts:[{v:"male",l:"Male"},{v:"female",l:"Female"},{v:"non-binary",l:"Non-Binary"}] },
+                          { label:"Height (cm)", field:"num", val:editHeight, set:setEditHeight, ph:"cm" },
+                          { label:"Weight (kg)", field:"num", val:editWeight, set:setEditWeight, ph:"kg" },
+                          { label:"Activity Level", field:"sel", val:editActivity, set:setEditActivity, opts:[
+                            {v:"sedentary",l:"Mostly sitting"},{v:"lightly_active",l:"Lightly active"},
+                            {v:"moderately_active",l:"Moderately active"},{v:"very_active",l:"Very active"},{v:"athlete",l:"Athlete"}
+                          ] },
+                        ].map(f=>(
+                          <div key={f.label} className="form-group">
+                            <label className="form-label">{f.label}</label>
+                            {f.field==="sel"
+                              ? <select className="form-select" value={f.val} onChange={e=>f.set(e.target.value)}>
+                                  {(f.opts||[]).map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                                </select>
+                              : <input className="form-input" type="number" value={f.val} onChange={e=>f.set(e.target.value)} placeholder={(f as any).ph||""}/>
+                            }
+                          </div>
+                        ))}
                       </div>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Height (cm)</label>
-                        <input className="pf-form-input" type="number" min="100" max="250" value={editHeight} onChange={e => setEditHeight(e.target.value)} placeholder="cm" />
-                      </div>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Weight (kg)</label>
-                        <input className="pf-form-input" type="number" min="30" max="300" value={editWeight} onChange={e => setEditWeight(e.target.value)} placeholder="kg" />
-                      </div>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Activity Level</label>
-                        <select className="pf-form-select" value={editActivity} onChange={e => setEditActivity(e.target.value)}>
-                          <option value="sedentary">Mostly sitting — desk job, little exercise</option>
-                          <option value="lightly_active">Lightly active — occasional walks or gym</option>
-                          <option value="moderately_active">Moderately active — gym 3–4× per week</option>
-                          <option value="very_active">Very active — intense training 5–6× per week</option>
-                          <option value="athlete">Athlete — training twice a day</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="pf-form-grid" style={{ gridTemplateColumns: "1fr" }}>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Average Sleep Routine</label>
-                        <div className="pf-form-slider-wrap">
-                          <input className="pf-form-slider" type="range" min="4" max="10" step="0.5" value={editSleep} onChange={e => setEditSleep(e.target.value)} />
-                          <span className="pf-form-slider-val">{editSleep}h</span>
+                      <div className="edit-grid-single">
+                        {[
+                          { label:`Sleep per night — ${editSleep}h`,     val:editSleep,    set:setEditSleep,    min:"4",  max:"10", step:"0.5" },
+                          { label:`Workouts per week — ${editWorkouts}×`, val:editWorkouts, set:setEditWorkouts, min:"0",  max:"7",  step:"1"   },
+                        ].map(s=>(
+                          <div key={s.label} className="form-group">
+                            <label className="form-label">{s.label}</label>
+                            <input className="form-slider" type="range" min={s.min} max={s.max} step={s.step} value={s.val} onChange={e=>s.set(e.target.value)}/>
+                          </div>
+                        ))}
+                        <div className="form-group">
+                          <label className="form-label">Health Conditions</label>
+                          <select className="form-select" value={editConstraints} onChange={e=>setEditConstraints(e.target.value)}>
+                            <option value="none">None</option>
+                            <option value="diabetes">Diabetes</option>
+                            <option value="hypertension">High Blood Pressure</option>
+                            <option value="asthma">Asthma</option>
+                            <option value="custom">Other</option>
+                          </select>
                         </div>
-                      </div>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Workout Frequency</label>
-                        <div className="pf-form-slider-wrap">
-                          <input className="pf-form-slider" type="range" min="0" max="7" step="1" value={editWorkouts} onChange={e => setEditWorkouts(e.target.value)} />
-                          <span className="pf-form-slider-val">{editWorkouts}×/wk</span>
-                        </div>
-                      </div>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Health Constraints</label>
-                        <select className="pf-form-select" value={editConstraints} onChange={e => setEditConstraints(e.target.value)}>
-                          <option value="none">None — I'm generally healthy</option>
-                          <option value="diabetes">Diabetes</option>
-                          <option value="hypertension">High Blood Pressure</option>
-                          <option value="asthma">Asthma</option>
-                          <option value="custom">Other</option>
-                        </select>
-                      </div>
-                      {editConstraints === "custom" && (
-                        <div className="pf-form-group">
-                          <label className="pf-form-label">Custom Health Constraint Description</label>
-                          <input className="pf-form-input" value={editCustomConstraint} onChange={e => setEditCustomConstraint(e.target.value)} placeholder="Specify thyroid, migraines, etc..." />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Finance Section */}
-                  <div>
-                    <h4 style={{ fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", color: "#10b981", borderBottom: "1.5px solid #f1f5f9", paddingBottom: "6px", marginBottom: "14px", fontFamily: "'Inter', sans-serif" }}>2. Financial parameters</h4>
-                    <div className="pf-form-grid">
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Monthly Income (₹)</label>
-                        <input className="pf-form-input" type="number" value={editIncome} onChange={e => setEditIncome(e.target.value)} placeholder="Monthly Income" />
-                      </div>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Current Savings (₹)</label>
-                        <input className="pf-form-input" type="number" value={editSavings} onChange={e => setEditSavings(e.target.value)} placeholder="Savings Value" />
-                      </div>
-                    </div>
-                    <div className="pf-form-grid" style={{ gridTemplateColumns: "1fr" }}>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Spending Style (Budget Frugality)</label>
-                        <div className="pf-form-slider-wrap">
-                          <input className="pf-form-slider" type="range" min="1" max="5" step="1" value={editSpending} onChange={e => setEditSpending(e.target.value)} />
-                          <span className="pf-form-slider-val" style={{ width: "90px" }}>
-                            {editSpending === "1" ? "Very frugal" : editSpending === "2" ? "Careful" : editSpending === "3" ? "Balanced" : editSpending === "4" ? "Generous" : "Big spender"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Career Section */}
-                  <div>
-                    <h4 style={{ fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", color: "#0066FF", borderBottom: "1.5px solid #f1f5f9", paddingBottom: "6px", marginBottom: "14px", fontFamily: "'Inter', sans-serif" }}>3. Behavioral &amp; Career parameters</h4>
-                    <div className="pf-form-grid">
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Situation/Learning Profile</label>
-                        <select className="pf-form-select" value={editLearning} onChange={e => setEditLearning(e.target.value)}>
-                          <option value="">Select situation...</option>
-                          <option value="student">Student — exams or placement prep</option>
-                          <option value="professional">Working professional — career growth</option>
-                          <option value="founder">Founder / builder — working on a product</option>
-                          <option value="freelancer">Freelancer — managing clients and projects</option>
-                          <option value="job_seeker">Actively looking for a job</option>
-                        </select>
-                      </div>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Twin Focus Archetype</label>
-                        <select className="pf-form-select" value={editArchetype} onChange={e => setEditArchetype(e.target.value)}>
-                          <option value="">Select Archetype</option>
-                          <option value="chronos">Chronos (Learning · Growth · Knowledge)</option>
-                          <option value="apex">Apex (Productivity · Discipline · Execution)</option>
-                          <option value="nexus">Nexus (Wealth · Planning · Stability)</option>
-                          <option value="titan">Titan (Fitness · Energy · Health)</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="pf-form-grid" style={{ gridTemplateColumns: "1fr" }}>
-                      <div className="pf-form-group">
-                        <label className="pf-form-label">Daily Study/Upskilling Routine</label>
-                        <div className="pf-form-slider-wrap">
-                          <input className="pf-form-slider" type="range" min="0" max="14" step="0.5" value={editStudy} onChange={e => setEditStudy(e.target.value)} />
-                          <span className="pf-form-slider-val">{editStudy}h/day</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="pf-info-section">
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "10px 14px 4px", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase", color: "#ef4444", letterSpacing: "0.06em", fontFamily: "'Inter', sans-serif" }}>
-                    <HeartPulse size={12} /> Anatomical &amp; Rest
-                  </div>
-                  <InfoRow icon={User} label="Gender" value={profile.gender ? (profile.gender === "non-binary" ? "Non-Binary" : profile.gender.replace(/\b\w/g, c => c.toUpperCase())) : "—"} />
-                  <div className="pf-info-divider" />
-                  <InfoRow icon={Calendar} label="Height / Weight" value={profile.height && profile.weight ? `${profile.height} cm / ${profile.weight} kg` : "—"} />
-                  <div className="pf-info-divider" />
-                  <InfoRow icon={HeartPulse} label="Activity Level" value={profile.activityLevel ? (
-                    profile.activityLevel === "sedentary" ? "Mostly sitting (Desk job)" :
-                    profile.activityLevel === "lightly_active" ? "Lightly Active (gym/occasional walks)" :
-                    profile.activityLevel === "moderately_active" ? "Moderately Active (gym 3-4x/week)" :
-                    profile.activityLevel === "very_active" ? "Very Active (gym 5-6x/week)" :
-                    profile.activityLevel === "athlete" ? "Athlete (2x daily training)" : profile.activityLevel.replace("_", " ").toUpperCase()
-                  ) : "—"} />
-                  <div className="pf-info-divider" />
-                  <InfoRow icon={Zap} label="Daily Sleep Routine" value={profile.averageSleep ? `${profile.averageSleep} hours/night` : "—"} />
-                  <div className="pf-info-divider" />
-                  <InfoRow icon={Flame} label="Weekly Workout Frequency" value={profile.workoutFrequency ? `${profile.workoutFrequency} workouts/week` : "—"} />
-                  <div className="pf-info-divider" />
-                  <InfoRow icon={Shield} label="Health Constraints" value={profile.healthConstraints ? (
-                    profile.healthConstraints === "none" ? "None (Generally Healthy)" :
-                    profile.healthConstraints === "diabetes" ? "Diabetes" :
-                    profile.healthConstraints === "hypertension" ? "High Blood Pressure" :
-                    profile.healthConstraints === "asthma" ? "Asthma" : profile.healthConstraints.replace(/\b\w/g, c => c.toUpperCase())
-                  ) : "—"} />
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "18px 14px 4px", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase", color: "#10b981", letterSpacing: "0.06em", fontFamily: "'Inter', sans-serif" }}>
-                    <Wallet size={12} /> Financial Parameters
-                  </div>
-                  <InfoRow icon={Wallet} label="Monthly Income" value={profile.monthlyIncome ? `₹${Number(profile.monthlyIncome).toLocaleString("en-IN")}` : "—"} />
-                  <div className="pf-info-divider" />
-                  <InfoRow icon={Trophy} label="Savings Portfolio Balance" value={profile.currentSavings ? `₹${Number(profile.currentSavings).toLocaleString("en-IN")}` : "—"} />
-                  <div className="pf-info-divider" />
-                  <InfoRow icon={Briefcase} label="Spending Frugality Profile" value={
-                    profile.spendingStyle === "1" ? "Very frugal" :
-                    profile.spendingStyle === "2" ? "Careful" :
-                    profile.spendingStyle === "3" ? "Balanced" :
-                    profile.spendingStyle === "4" ? "Generous" :
-                    profile.spendingStyle === "5" ? "Big spender" : "—"
-                  } />
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "18px 14px 4px", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase", color: "#0066FF", letterSpacing: "0.06em", fontFamily: "'Inter', sans-serif" }}>
-                    <Briefcase size={12} /> Habits &amp; Upskilling
-                  </div>
-                  <InfoRow icon={Zap} label="Situation Profile" value={profile.learningProfile ? (
-                    profile.learningProfile === "student" ? "Student — exams or placement prep" :
-                    profile.learningProfile === "professional" ? "Working professional — career growth" :
-                    profile.learningProfile === "founder" ? "Founder / builder — working on a product" :
-                    profile.learningProfile === "freelancer" ? "Freelancer — managing clients and projects" :
-                    profile.learningProfile === "job_seeker" ? "Actively looking for a job" : profile.learningProfile.replace("_", " ").toUpperCase()
-                  ) : "—"} />
-                  <div className="pf-info-divider" />
-                  <InfoRow icon={BookOpen} label="Twin Optimization Archetype" value={profile.archetype ? (
-                    profile.archetype === "chronos" ? "Chronos (Learning · Growth · Knowledge)" :
-                    profile.archetype === "apex" ? "Apex (Productivity · Discipline · Execution)" :
-                    profile.archetype === "nexus" ? "Nexus (Wealth · Planning · Stability)" :
-                    profile.archetype === "titan" ? "Titan (Fitness · Energy · Health)" : profile.archetype.toUpperCase()
-                  ) : "—"} />
-                  <div className="pf-info-divider" />
-                  <InfoRow icon={Target} label="Daily Study / Upskilling hours" value={profile.hoursStudied ? `${profile.hoursStudied} hours/day` : "—"} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── PREMIUM AVATAR GRID SELECTOR ── */}
-          <div className="pf-card">
-            <div className="pf-card-header">
-              <div className="pf-icon-ring" style={{ background: "#f3e8ff" }}>
-                <User size={17} color="#a855f7" />
-              </div>
-              <div>
-                <div className="pf-card-title">Avatar Selection</div>
-                <div className="pf-card-sub">Choose your premium Syntra identity</div>
-              </div>
-            </div>
-            <div className="pf-card-body">
-              <div className="pf-avatar-grid">
-                {PREMIUM_AVATARS.map(av => {
-                  const avNumericalId = av.id === "aether" ? "1" : av.id === "chronos" ? "2" : av.id === "apex" ? "3" : "4";
-                  const isSelected = String(profile.avatarId) === String(avNumericalId);
-                  return (
-                    <div
-                      key={av.id}
-                      className={`pf-avatar-card${isSelected ? " selected" : ""}`}
-                      style={{
-                        background: "linear-gradient(135deg,#f8fafc,#f1f5f9)",
-                        ["--av-accent" as any]: av.accentColor,
-                      }}
-                      onClick={() => handleAvatarSelect(av.id)}
-                    >
-                      {isSelected && (
-                        <div className="pf-avatar-check">
-                          <Check size={10} color="#fff" />
-                        </div>
-                      )}
-                      <div className="pf-avatar-card-img" style={{ background: av.bg }}>
-                        {av.svg}
-                      </div>
-                      <div className="pf-avatar-card-name" style={{ color: isSelected ? av.accentColor : "#374151" }}>
-                        {av.name}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* ── NEURAL SYNC OVERVIEW ── */}
-          <div className="pf-card">
-            <div className="pf-card-header">
-              <div className="pf-icon-ring" style={{ background: "#dbeafe" }}>
-                <Cpu size={17} color="#0044DD" />
-              </div>
-              <div>
-                <div className="pf-card-title">Neural Sync Overview</div>
-                <div className="pf-card-sub">Live status across all twin data layers</div>
-              </div>
-            </div>
-            <div className="pf-card-body">
-              <div className="pf-sync-grid">
-                {[
-                  { key: "health", icon: HeartPulse, label: "Apple Health", color: "#ef4444" },
-                  { key: "finance", icon: Wallet, label: "Bank Account", color: "#10b981" },
-                  { key: "coursera", icon: BookOpen, label: "Coursera API", color: "#0066FF" }
-                ].map(s => (
-                  <div
-                    key={s.key}
-                    className={`pf-sync-card${syncStatuses[s.key] === "syncing" ? " syncing" : ""}`}
-                    style={{ background: "#f8fafc", borderColor: syncStatuses[s.key] === "synced" ? "#10b981" : "#e2e8f0" }}
-                    onClick={() => handleSync(s.key)}
-                  >
-                    <div className="pf-sync-icon" style={{ background: `${s.color}15` }}>
-                      <s.icon size={17} color={s.color} />
-                    </div>
-                    <div className="pf-sync-label" style={{ color: s.color }}>{s.label}</div>
-                    <div className="pf-sync-status" style={{ color: syncStatuses[s.key] === "synced" ? "#10b981" : s.color }}>
-                      {syncStatuses[s.key] === "idle" && <><RefreshCw size={11}/> Sync</>}
-                      {syncStatuses[s.key] === "syncing" && <><RefreshCw size={11} className="spinning"/> Syncing...</>}
-                      {syncStatuses[s.key] === "synced" && <><Check size={11}/> Synced</>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── BADGE VAULT ── */}
-          <div className="pf-card">
-            <div className="pf-card-header">
-              <div className="pf-icon-ring" style={{ background: "#fef3c7" }}>
-                <Trophy size={17} color="#f59e0b" />
-              </div>
-              <div>
-                <div className="pf-card-title">Badge Vault</div>
-                <div className="pf-card-sub">Achievements earned through twin activity</div>
-              </div>
-            </div>
-            <div className="pf-card-body">
-              <div className="pf-badge-grid">
-                {BADGES.map(badge => {
-                  const BIcon = badge.icon;
-                  const isUnlocked = userBadges.some((ub: string) => 
-                    ub.toLowerCase() === badge.title.toLowerCase() || 
-                    ub.toLowerCase() === badge.id.toLowerCase() ||
-                    ub.toLowerCase() === badge.id.replace("_", " ").toLowerCase()
-                  ) || (badge.id === "week_warrior" && streak >= 7)
-                    || (badge.id === "neural_init" && userBadges.length > 0)
-                    || (badge.id === "apex_optimizer" && (userBadges.includes("Rising Twin") || userBadges.includes("Apex Optimizer")))
-                    || (badge.id === "grand_architect" && (userBadges.includes("Month Master") || userBadges.includes("Grand Architect")));
-
-                  return (
-                    <div
-                      key={badge.id}
-                      className={`pf-badge-card ${isUnlocked ? "unlocked" : "locked"}`}
-                      style={{
-                        background: isUnlocked ? badge.bg : "#f8fafc",
-                        ["--b-color" as any]: badge.color,
-                      }}
-                    >
-                      <div className="pf-badge-icon" style={{ background: isUnlocked ? `${badge.color}22` : "#f1f5f9" }}>
-                        {isUnlocked
-                          ? <BIcon size={22} color={badge.color} />
-                          : <Lock size={18} color="#cbd5e1" />
-                        }
-                      </div>
-                      <div className="pf-badge-title" style={{ color: isUnlocked ? badge.color : "#94a3b8" }}>
-                        {badge.title}
-                      </div>
-                      {isUnlocked ? (
-                        <div className="pf-badge-desc">{badge.description}</div>
-                      ) : (
-                        <div className="pf-badge-lock"><Lock size={9}/> Locked</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* ── OPTIMIZATION VECTOR SELECTOR ── */}
-          <div className="pf-card" style={{ marginBottom: 40 }}>
-            <div className="pf-card-header">
-              <div className="pf-icon-ring" style={{ background: `${activeVector.color}18` }}>
-                <Sparkles size={17} color={activeVector.color} />
-              </div>
-              <div>
-                <div className="pf-card-title">Active Optimization Vector</div>
-                <div className="pf-card-sub">Primary axis driving twin's trade-off computations</div>
-              </div>
-            </div>
-            <div className="pf-card-body">
-              <div className="pf-vector-grid">
-                {(["health", "finance", "career"] as OptVector[]).map(v => {
-                  const meta = vectorMeta[v];
-                  const VIcon = meta.icon;
-                  const isSelected = profile.optimizationVector === v;
-                  return (
-                    <div
-                      key={v}
-                      className={`pf-vector-card${isSelected ? " selected" : ""}${isSelected && vectorPulse ? " pulse" : ""}`}
-                      style={{
-                        background: meta.bg,
-                        ["--vc-color" as any]: meta.color,
-                        ["--vc-shadow" as any]: `${meta.color}44`,
-                      }}
-                      onClick={() => handleVectorSelect(v)}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div className="pf-vector-card-icon" style={{ background: `${meta.color}18` }}>
-                          <VIcon size={18} color={meta.color} />
-                        </div>
-                        {isSelected && (
-                          <div className="pf-vector-active-chip" style={{ background: `${meta.color}18`, color: meta.color, border: `1px solid ${meta.color}33` }}>
-                            <CheckCircle2 size={10} /> Active
+                        {editConstraints==="custom"&&(
+                          <div className="form-group">
+                            <label className="form-label">Describe condition</label>
+                            <input className="form-input" value={editCustomConstraint} onChange={e=>setEditCustomConstraint(e.target.value)} placeholder="e.g. Thyroid, Migraines…"/>
                           </div>
                         )}
                       </div>
-                      <div className="pf-vector-card-label">Optimization</div>
-                      <div className="pf-vector-card-name" style={{ color: meta.color }}>{meta.label}</div>
-                      <div className="pf-vector-card-desc">{meta.desc}</div>
                     </div>
-                  );
-                })}
+                    {/* Finance edit */}
+                    <div>
+                      <div className="section-divider-label" style={{ color:"#10b981" }}><Wallet size={11}/> Finances</div>
+                      <div className="edit-grid">
+                        <div className="form-group">
+                          <label className="form-label">Monthly Income (₹)</label>
+                          <input className="form-input" type="number" value={editIncome} onChange={e=>setEditIncome(e.target.value)} placeholder="Monthly income"/>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Current Savings (₹)</label>
+                          <input className="form-input" type="number" value={editSavings} onChange={e=>setEditSavings(e.target.value)} placeholder="Total savings"/>
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Spending Style — {spendLabel(editSpending)}</label>
+                        <input className="form-slider" type="range" min="1" max="5" step="1" value={editSpending} onChange={e=>setEditSpending(e.target.value)}/>
+                      </div>
+                    </div>
+                    {/* Career edit */}
+                    <div>
+                      <div className="section-divider-label" style={{ color:"#0066FF" }}><Briefcase size={11}/> Career & Habits</div>
+                      <div className="edit-grid">
+                        <div className="form-group">
+                          <label className="form-label">Your Situation</label>
+                          <select className="form-select" value={editLearning} onChange={e=>setEditLearning(e.target.value)}>
+                            <option value="">Select…</option>
+                            <option value="student">Student — exams or placement</option>
+                            <option value="professional">Working professional</option>
+                            <option value="founder">Founder / builder</option>
+                            <option value="freelancer">Freelancer</option>
+                            <option value="job_seeker">Actively job seeking</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Focus Archetype</label>
+                          <select className="form-select" value={editArchetype} onChange={e=>setEditArchetype(e.target.value)}>
+                            <option value="">Select…</option>
+                            <option value="chronos">Chronos — Learning & Growth</option>
+                            <option value="apex">Apex — Productivity & Discipline</option>
+                            <option value="nexus">Nexus — Wealth & Planning</option>
+                            <option value="titan">Titan — Fitness & Energy</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Daily Study / Work Hours — {editStudy}h</label>
+                        <input className="form-slider" type="range" min="0" max="14" step="0.5" value={editStudy} onChange={e=>setEditStudy(e.target.value)}/>
+                      </div>
+                    </div>
+                    <div className="edit-actions">
+                      <button className="btn-save" onClick={handleEditSave} disabled={loading}>
+                        {loading?<RefreshCw size={13} style={{animation:"spin 0.8s linear infinite"}}/>:<Save size={13}/>} Save All Changes
+                      </button>
+                      <button className="btn-cancel" onClick={()=>setEditMode(false)}><X size={13}/> Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="info-section">
+                    <div className="section-divider-label" style={{ color:"#ef4444",marginBottom:6 }}><HeartPulse size={11}/> Health & Body</div>
+                    <InfoRow icon={User}      label="Gender"         value={profile.gender==="non-binary"?"Non-Binary":(profile.gender?profile.gender.replace(/\b\w/g,c=>c.toUpperCase()):"")}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Calendar}  label="Height / Weight" value={profile.height&&profile.weight?`${profile.height} cm / ${profile.weight} kg`:""}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={HeartPulse}label="Activity Level"  value={activityLabel(profile.activityLevel)}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Zap}       label="Sleep per Night" value={profile.averageSleep?`${profile.averageSleep}h`:""}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Flame}     label="Workouts / Week" value={profile.workoutFrequency?`${profile.workoutFrequency}×`:""}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Shield}    label="Health Conditions" value={profile.healthConstraints==="none"?"None (Generally healthy)":profile.healthConstraints==="diabetes"?"Diabetes":profile.healthConstraints==="hypertension"?"High Blood Pressure":profile.healthConstraints==="asthma"?"Asthma":(profile.healthConstraints||"")}/>
+                    <div className="section-divider-label" style={{ color:"#10b981",marginTop:18,marginBottom:6 }}><Wallet size={11}/> Finances</div>
+                    <InfoRow icon={Wallet}    label="Monthly Income"   value={profile.monthlyIncome?`₹${Number(profile.monthlyIncome).toLocaleString("en-IN")}`:""} accent/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Trophy}    label="Current Savings"  value={profile.currentSavings?`₹${Number(profile.currentSavings).toLocaleString("en-IN")}`:""} accent/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Briefcase} label="Spending Style"   value={spendLabel(profile.spendingStyle)}/>
+                    <div className="section-divider-label" style={{ color:"#0066FF",marginTop:18,marginBottom:6 }}><Briefcase size={11}/> Career & Habits</div>
+                    <InfoRow icon={Zap}       label="Current Situation" value={learnLabel(profile.learningProfile)}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={BookOpen}  label="Focus Archetype"   value={profile.archetype==="chronos"?"Chronos — Learning & Growth":profile.archetype==="apex"?"Apex — Productivity & Discipline":profile.archetype==="nexus"?"Nexus — Wealth & Planning":profile.archetype==="titan"?"Titan — Fitness & Energy":(profile.archetype||"")}/>
+                    <div className="info-divider"/>
+                    <InfoRow icon={Target}    label="Daily Study Hours" value={profile.hoursStudied?`${profile.hoursStudied}h/day`:""}/>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-        </div>
-      </div>
+          {/* ══════════════════════════════════════
+              SECTION 2 — NEURAL SYNC
+          ══════════════════════════════════════ */}
+          <div ref={refTelemetry} id="sec-telemetry" className="content-section">
+            <SectionHeading icon={Cpu} title="Neural Sync" sub="Status of your connected data sources" color="#0044DD"/>
+            <div className="card mb-0">
+              <div className="card-body">
+                <div className="sync-grid">
+                  {[
+                    { key:"health",  icon:HeartPulse, label:"Apple Health", color:"#ef4444" },
+                    { key:"finance", icon:Wallet,     label:"Bank Account",  color:"#10b981" },
+                    { key:"coursera",icon:BookOpen,   label:"Coursera",      color:"#0066FF" },
+                  ].map(s=>(
+                    <div key={s.key} className="sync-card"
+                      style={{ borderColor:syncStatuses[s.key]==="synced"?"#10b981":"#E4E9F4" }}
+                      onClick={()=>handleSync(s.key)}>
+                      <div className="sync-icon" style={{ background:`${s.color}12` }}><s.icon size={16} color={s.color}/></div>
+                      <div className="sync-label" style={{ color:s.color }}>{s.label}</div>
+                      <div className="sync-status" style={{ color:syncStatuses[s.key]==="synced"?"#10b981":s.color }}>
+                        {syncStatuses[s.key]==="idle"&&<><RefreshCw size={10}/> Sync</>}
+                        {syncStatuses[s.key]==="syncing"&&<><RefreshCw size={10} style={{animation:"spin 0.8s linear infinite"}}/> Syncing…</>}
+                        {syncStatuses[s.key]==="synced"&&<><Check size={10}/> Synced</>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Badges */}
+            <div className="card mt-14 mb-0">
+              <div className="card-header">
+                <div className="card-hicon" style={{ background:"#fef3c7" }}><Trophy size={17} color="#f59e0b"/></div>
+                <div>
+                  <div className="card-title">Badges & Achievements</div>
+                  <div className="card-sub">Earned through your Syntra activity and twin milestones</div>
+                </div>
+              </div>
+              <div className="card-body">
+                <div className="badge-grid">
+                  {BADGES.map(badge=>{
+                    const BIcon=badge.icon;
+                    const unlocked=userBadges.some((ub:string)=>ub.toLowerCase()===badge.title.toLowerCase()||ub.toLowerCase()===badge.id.toLowerCase())||(badge.id==="week_warrior"&&streak>=7)||(badge.id==="neural_init"&&userBadges.length>0)||(badge.id==="apex_optimizer"&&(userBadges.includes("Rising Twin")||userBadges.includes("Apex Optimizer")))||(badge.id==="grand_architect"&&(userBadges.includes("Month Master")||userBadges.includes("Grand Architect")));
+                    return (
+                      <div key={badge.id} className={`badge-card${unlocked?" badge-unlocked":" badge-locked"}`}
+                        style={{ background:unlocked?badge.bg:"#F8FAFC", ["--bc" as any]:badge.color }}>
+                        <div className="badge-icon" style={{ background:unlocked?`${badge.color}20`:"#F1F5F9" }}>
+                          {unlocked?<BIcon size={20} color={badge.color}/>:<Lock size={16} color="#CBD5E1"/>}
+                        </div>
+                        <div className="badge-title" style={{ color:unlocked?badge.color:"#94A3B8" }}>{badge.title}</div>
+                        {unlocked?<div className="badge-desc">{badge.desc}</div>:<div className="badge-lock"><Lock size={8}/> Locked</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════
+              SECTION 3 — OPTIMISATION
+          ══════════════════════════════════════ */}
+          <div ref={refOptimization} id="sec-optimization" className="content-section">
+            <SectionHeading icon={BarChart3} title="Optimisation" sub="Choose which area Syntra should prioritise in its recommendations" color={activeVector.color}/>
+            <div className="card mb-0">
+              <div className="card-body">
+                <div className="vector-grid">
+                  {(["health","finance","career"] as OptVector[]).map(v=>{
+                    const m=vectorMeta[v], VIcon=m.icon, sel=profile.optimizationVector===v;
+                    return (
+                      <div key={v}
+                        className={`vector-card${sel?" vector-selected":""}${sel&&vectorPulse?" vector-pulse":""}`}
+                        style={{ background:m.bg, ["--vc" as any]:m.color }}
+                        onClick={()=>handleVectorSelect(v)}>
+                        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+                          <div className="vector-icon" style={{ background:`${m.color}16` }}><VIcon size={17} color={m.color}/></div>
+                          {sel&&<div className="vector-active-chip" style={{ background:`${m.color}14`,color:m.color,border:`1px solid ${m.color}28` }}><CheckCircle2 size={9}/> Active</div>}
+                        </div>
+                        <div className="vector-name" style={{ color:m.color }}>{m.label}</div>
+                        <div className="vector-desc">{m.desc}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════
+              SECTION 4 — DATA LAYERS
+          ══════════════════════════════════════ */}
+          <div ref={refData} id="sec-data" className="content-section" style={{ paddingBottom:80 }}>
+            <SectionHeading icon={Layers} title="Data Layers" sub="Overview of all active data sources powering your twin" color="#7c3aed"/>
+            <div className="card mb-0">
+              <div className="card-body">
+                <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+                  {[
+                    { icon:HeartPulse, label:"Health Layer",      value:"Biometrics, sleep, workouts",  color:"#ef4444", status:"active" },
+                    { icon:Wallet,     label:"Finance Layer",     value:"Income, savings, spending",    color:"#10b981", status:"active" },
+                    { icon:Briefcase,  label:"Career Layer",      value:"Study hours, focus, archetype",color:"#0066FF", status:"active" },
+                    { icon:Activity,   label:"Behavioural Layer", value:"Daily logs, patterns",         color:"#7c3aed", status:"active" },
+                  ].map((layer,i)=>(
+                    <div key={i} className="data-layer-row">
+                      <div className="data-layer-icon" style={{ background:`${layer.color}12`, color:layer.color }}>
+                        <layer.icon size={15}/>
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div className="data-layer-label">{layer.label}</div>
+                        <div className="data-layer-value">{layer.value}</div>
+                      </div>
+                      <div className="data-layer-status" style={{ color:"#10b981" }}>
+                        <div className="data-layer-dot" style={{ background:"#10b981" }}/>
+                        Active
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>{/* pf-inner */}
+      </div>{/* pf-right */}
     </div>
   );
 }
+
+/* ─── CSS ────────────────────────────────────────────────────────── */
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800;9..40,900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --brand:#0047D4; --brand-lt:#EEF3FF; --brand-mid:#C7D7FA;
+    --surface:#FFFFFF; --bg:#F4F6FB; --border:#E4E9F4; --border-h:#C7D7FA;
+    --txt-1:#0D1117; --txt-2:#52637A; --txt-muted:#94A3B8;
+    --sh-sm:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+    --sh-md:0 4px 16px rgba(0,0,0,0.07),0 1px 4px rgba(0,0,0,0.04);
+    --sh-lg:0 8px 32px rgba(0,71,212,0.10),0 2px 8px rgba(0,0,0,0.04);
+    --r-md:12px; --r-lg:16px; --r-xl:20px; --r-2xl:24px;
+  }
+  body { background:var(--bg); font-family:"Inter",sans-serif; -webkit-font-smoothing:antialiased; color:var(--txt-1); }
+
+  @keyframes spin     { to{transform:rotate(360deg);} }
+  @keyframes fadeIn   { from{opacity:0;}to{opacity:1;} }
+  @keyframes slideUp  { from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);} }
+  @keyframes lp-pulse { 0%,100%{opacity:1;transform:scale(1);}50%{opacity:.62;transform:scale(1.36);} }
+  @keyframes curBlink { 0%,100%{opacity:.88;}48%,52%{opacity:0;} }
+  @keyframes vPulse   { 0%{transform:scale(1.02);}50%{transform:scale(1.04);}100%{transform:scale(1.02);} }
+
+  /* ═══ LAYOUT ═══ */
+  .pf-root { display:flex; min-height:100vh; background:var(--bg); }
+
+  /* ═══ SIDEBAR ═══ */
+  .sidebar {
+    width:288px; flex-shrink:0;
+    background:linear-gradient(160deg,#0036BB 0%,#0052E8 45%,#2A18E8 100%);
+    display:flex; flex-direction:column;
+    position:sticky; top:0; height:100vh; overflow:hidden;
+    box-shadow:4px 0 24px rgba(0,36,187,0.18); z-index:10;
+  }
+  .sidebar::before { content:''; position:absolute; top:-90px; left:-70px; width:260px; height:260px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.12) 0%,transparent 70%); pointer-events:none; }
+  .sidebar::after  { content:''; position:absolute; bottom:-60px; right:-50px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 70%); pointer-events:none; }
+  .sb-grid { position:absolute; inset:0; pointer-events:none; background-image:linear-gradient(rgba(255,255,255,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.035) 1px,transparent 1px); background-size:44px 44px; }
+
+  .sb-brand-block { padding:28px 22px 20px; position:relative; z-index:2; border-bottom:1px solid rgba(255,255,255,0.1); }
+  .sb-logo { display:inline-flex; align-items:center; gap:7px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); border-radius:9999px; padding:5px 14px; font-size:0.68rem; font-weight:800; color:#fff; letter-spacing:0.13em; text-transform:uppercase; margin-bottom:16px; font-family:"DM Sans",sans-serif; }
+  .sb-logo-dot { width:6px; height:6px; border-radius:50%; background:#4ade80; box-shadow:0 0 8px rgba(74,222,128,0.85); animation:lp-pulse 2.2s infinite; flex-shrink:0; }
+  .sb-heading { font-family:"DM Sans",sans-serif; font-size:1.35rem; font-weight:800; color:#fff; letter-spacing:-0.03em; line-height:1.2; }
+  .sb-sub { font-size:0.76rem; color:rgba(255,255,255,0.58); margin-top:6px; line-height:1.58; }
+
+  .sb-sections { padding:16px 12px; display:flex; flex-direction:column; gap:6px; flex:1; position:relative; z-index:2; overflow-y:auto; }
+  .sb-section-item {
+    width:100%; display:flex; align-items:center; gap:12px;
+    padding:12px 14px; border-radius:13px;
+    border:1px solid transparent; background:transparent;
+    cursor:pointer; text-align:left; transition:all 0.22s cubic-bezier(0.16,1,0.3,1);
+  }
+  .sb-section-item:hover { background:rgba(255,255,255,0.09); border-color:rgba(255,255,255,0.12); }
+  .sb-section-active {
+    background:rgba(255,255,255,0.16) !important;
+    border-color:rgba(255,255,255,0.26) !important;
+    box-shadow:0 4px 14px rgba(0,0,0,0.12);
+  }
+  .sb-section-icon { width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.14); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.55); flex-shrink:0; transition:all 0.2s; }
+  .sb-section-active .sb-section-icon { background:rgba(255,255,255,0.22); border-color:rgba(255,255,255,0.36); color:#fff; }
+  .sb-section-text { display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
+  .sb-section-label { font-family:"DM Sans",sans-serif; font-size:0.85rem; font-weight:600; color:rgba(255,255,255,0.52); transition:color 0.2s; white-space:nowrap; }
+  .sb-section-active .sb-section-label { color:#fff; font-weight:700; }
+  .sb-section-sub { font-size:0.68rem; color:rgba(255,255,255,0.34); }
+  .sb-section-arrow { color:rgba(255,255,255,0.6); flex-shrink:0; }
+
+  .sb-status { margin:0 12px 14px; padding:14px 15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; display:flex; align-items:center; gap:12px; position:relative; z-index:2; }
+  .sb-status-dot { width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 3px rgba(74,222,128,0.22); flex-shrink:0; animation:lp-pulse 2s infinite; }
+  .sb-status-label { font-size:0.7rem; font-weight:600; color:rgba(255,255,255,0.48); }
+  .sb-status-val   { font-size:0.72rem; font-weight:700; color:#4ade80; }
+  .sb-signout { display:flex; align-items:center; justify-content:center; gap:8px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:11px 14px; color:rgba(255,255,255,0.45); font-size:0.78rem; font-weight:600; cursor:pointer; transition:all 0.2s; margin:0 12px 16px; font-family:"Inter",sans-serif; position:relative; z-index:2; }
+  .sb-signout:hover { background:rgba(255,80,80,0.14); border-color:rgba(255,120,120,0.28); color:#fca5a5; }
+
+  /* ═══ SCROLLABLE RIGHT ═══ */
+  .pf-right {
+    flex:1;
+    background:var(--bg);
+    overflow-y:auto;
+    overflow-x:hidden;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    border-left:1px solid var(--border);
+  }
+  .pf-right::-webkit-scrollbar { width:5px; }
+  .pf-right::-webkit-scrollbar-thumb { background:rgba(0,71,212,0.14); border-radius:4px; }
+
+  .pf-inner { max-width:760px; width:100%; padding:40px 48px 0; }
+
+  /* ═══ TOP BAR ═══ */
+  .pf-topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; }
+  .back-btn { display:inline-flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:600; color:var(--txt-2); background:var(--surface); border:1px solid var(--border); border-radius:9999px; padding:8px 18px; cursor:pointer; transition:all 0.2s; box-shadow:var(--sh-sm); }
+  .back-btn:hover { color:var(--brand); border-color:var(--brand-mid); background:var(--brand-lt); transform:translateX(-2px); }
+  .edit-config-btn { display:inline-flex; align-items:center; gap:7px; background:var(--brand-lt); border:1.5px solid var(--brand-mid); border-radius:11px; padding:9px 16px; font-size:0.78rem; font-weight:700; color:var(--brand); cursor:pointer; transition:all 0.2s; white-space:nowrap; flex-shrink:0; }
+  .edit-config-btn:hover { background:rgba(0,71,212,0.12); border-color:rgba(0,71,212,0.35); transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,71,212,0.14); }
+
+  /* ═══ PAGE HEADING ═══ */
+  .pf-heading-block { margin-bottom:40px; }
+  .pf-title { font-family:"DM Sans",sans-serif; font-size:clamp(1.75rem,3vw,2.1rem); font-weight:800; letter-spacing:-0.045em; line-height:1.12; min-height:2.5rem; display:block; }
+  .pf-cursor { display:inline-block; width:2px; height:0.9em; background:var(--brand); margin-left:3px; vertical-align:text-bottom; border-radius:1px; animation:curBlink 1.1s ease-in-out infinite; }
+  .pf-subtitle { font-size:0.87rem; color:var(--txt-2); margin-top:8px; max-width:540px; line-height:1.65; }
+
+  /* ═══ CONTENT SECTIONS ═══ */
+  .content-section { margin-bottom:52px; scroll-margin-top:32px; }
+
+  /* ═══ SECTION HEADING ═══ */
+  .section-heading { display:flex; align-items:center; gap:13px; margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+  .sh-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .sh-title { font-family:"DM Sans",sans-serif; font-size:1.05rem; font-weight:800; color:var(--txt-1); letter-spacing:-0.02em; }
+  .sh-sub   { font-size:0.71rem; color:var(--txt-muted); font-weight:500; margin-top:2px; }
+
+  /* ═══ CARDS ═══ */
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-2xl); overflow:hidden; box-shadow:var(--sh-sm); transition:box-shadow 0.22s; }
+  .card:hover { box-shadow:var(--sh-lg); border-color:var(--border-h); }
+  .mb-0  { margin-bottom:0; }
+  .mb-14 { margin-bottom:14px; }
+  .mt-14 { margin-top:14px; }
+  .card-header { padding:18px 24px 14px; border-bottom:1px solid #F4F6FB; display:flex; align-items:center; gap:13px; }
+  .card-hicon  { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .card-title  { font-family:"DM Sans",sans-serif; font-size:0.95rem; font-weight:800; color:var(--txt-1); }
+  .card-sub    { font-size:0.7rem; color:var(--txt-muted); font-weight:500; margin-top:2px; }
+  .card-body   { padding:22px 24px; }
+
+  /* ═══ HERO CARD ═══ */
+  .hero-banner { height:76px; background:linear-gradient(120deg,#0047D4 0%,#0066FF 50%,#2A18E8 100%); position:relative; overflow:hidden; }
+  .hero-banner::before { content:''; position:absolute; top:-40px; right:-40px; width:160px; height:160px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.14) 0%,transparent 70%); }
+  .hero-banner::after  { content:''; position:absolute; bottom:-30px; left:60px; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.07) 0%,transparent 70%); }
+  .hero-body   { padding:0 24px 24px; }
+  .avatar-row  { display:flex; align-items:flex-end; gap:18px; margin-top:-44px; margin-bottom:20px; }
+  .avatar-outer { position:relative; flex-shrink:0; cursor:pointer; }
+  .avatar-glow { position:absolute; inset:-4px; border-radius:50%; background:conic-gradient(from 0deg,#0047D4,#0066FF,#2A18E8,#0047D4); opacity:0.55; filter:blur(5px); transition:opacity 0.2s; }
+  .avatar-outer:hover .avatar-glow { opacity:0.8; }
+  .avatar-ring { width:88px; height:88px; border-radius:50%; border:3px solid #fff; box-shadow:0 6px 20px rgba(0,71,212,0.22); display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative; z-index:1; }
+  .avatar-edit-overlay { position:absolute; inset:0; border-radius:50%; background:rgba(0,0,0,0.38); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s; z-index:2; }
+  .avatar-outer:hover .avatar-edit-overlay { opacity:1; }
+  .avatar-meta { padding-bottom:5px; }
+  .hero-name   { font-family:"DM Sans",sans-serif; font-size:1.3rem; font-weight:800; color:var(--txt-1); letter-spacing:-0.03em; }
+  .twin-badge  { display:inline-flex; align-items:center; gap:5px; background:var(--brand-lt); border:1px solid var(--brand-mid); border-radius:9999px; padding:4px 10px; font-size:0.67rem; font-weight:700; color:var(--brand); letter-spacing:0.05em; text-transform:uppercase; margin-top:6px; }
+  .avatar-change-hint { display:inline-flex; align-items:center; gap:4px; margin-top:6px; font-size:0.71rem; font-weight:600; color:var(--txt-muted); cursor:pointer; transition:color 0.18s; }
+  .avatar-change-hint:hover { color:var(--brand); }
+
+  /* ═══ INFO ROWS ═══ */
+  .info-section { display:flex; flex-direction:column; gap:2px; }
+  .info-row { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; transition:background 0.14s; }
+  .info-row:hover { background:#F7F9FF; }
+  .info-icon { width:30px; height:30px; border-radius:9px; background:#F1F5F9; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .info-content { display:flex; flex-direction:column; gap:1px; flex:1; }
+  .info-label { font-size:0.67rem; color:var(--txt-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.07em; }
+  .info-value { font-size:0.87rem; color:var(--txt-1); font-weight:600; }
+  .info-divider { height:1px; background:#F4F6FB; margin:2px 12px; }
+  .section-divider-label { display:flex; align-items:center; gap:6px; font-size:0.71rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin:0 12px 4px; }
+
+  .creds-btn { display:inline-flex; align-items:center; gap:7px; background:var(--bg); border:1px solid var(--border); border-radius:9px; padding:8px 14px; font-size:0.77rem; font-weight:600; color:var(--txt-2); cursor:pointer; transition:all 0.16s; margin:14px 12px 0; }
+  .creds-btn:hover { border-color:var(--brand-mid); color:var(--brand); background:var(--brand-lt); }
+
+  /* ═══ EDIT FORM ═══ */
+  .edit-grid        { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:12px; }
+  .edit-grid-single { display:flex; flex-direction:column; gap:12px; }
+  .form-group  { display:flex; flex-direction:column; gap:5px; }
+  .form-label  { font-size:0.72rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em; }
+  .form-input  { padding:10px 12px; border-radius:10px; border:1.5px solid var(--border); font-size:0.86rem; color:var(--txt-1); outline:none; transition:all 0.16s; font-family:"Inter",sans-serif; background:var(--bg); height:42px; width:100%; }
+  .form-input:focus  { border-color:var(--brand); background:var(--surface); box-shadow:0 0 0 3px rgba(0,71,212,0.09); }
+  .form-select { padding:10px 12px; border-radius:10px; border:1.5px solid var(--border); font-size:0.86rem; color:var(--txt-1); outline:none; transition:all 0.16s; font-family:"Inter",sans-serif; background:var(--bg); height:42px; width:100%; -webkit-appearance:none; }
+  .form-select:focus { border-color:var(--brand); }
+  .form-slider { -webkit-appearance:none; width:100%; height:4px; border-radius:99px; background:var(--border); outline:none; cursor:pointer; }
+  .form-slider::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:#fff; border:3px solid var(--brand); box-shadow:0 2px 6px rgba(0,71,212,0.3); cursor:pointer; transition:transform 0.14s; }
+  .form-slider::-webkit-slider-thumb:hover { transform:scale(1.2); }
+  .edit-actions { display:flex; gap:9px; margin-top:6px; }
+  .btn-save   { display:flex; align-items:center; gap:6px; background:var(--brand); border:none; border-radius:10px; padding:10px 18px; color:#fff; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:"Inter",sans-serif; }
+  .btn-save:hover:not(:disabled) { background:#0036BB; transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,71,212,0.28); }
+  .btn-save:disabled { opacity:0.5; cursor:not-allowed; }
+  .btn-cancel { display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 18px; color:var(--txt-2); font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:"Inter",sans-serif; }
+  .btn-cancel:hover { background:var(--border); }
+
+  /* ═══ SYNC ═══ */
+  .sync-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .sync-card { border-radius:14px; padding:16px 12px; display:flex; flex-direction:column; align-items:center; gap:8px; background:var(--bg); border:1.5px solid var(--border); cursor:pointer; transition:all 0.2s; text-align:center; }
+  .sync-card:hover { transform:translateY(-2px); box-shadow:var(--sh-sm); }
+  .sync-icon   { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+  .sync-label  { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
+  .sync-status { font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:4px; }
+
+  /* ═══ BADGES ═══ */
+  .badge-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+  .badge-card { border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; border:1.5px solid transparent; transition:all 0.2s; }
+  .badge-unlocked { border-color:color-mix(in srgb,var(--bc) 22%,transparent); }
+  .badge-unlocked:hover { transform:translateY(-2px); box-shadow:var(--sh-sm); }
+  .badge-locked { opacity:0.42; filter:grayscale(0.55); }
+  .badge-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
+  .badge-unlocked .badge-icon { box-shadow:0 0 0 3px color-mix(in srgb,var(--bc) 25%,transparent); }
+  .badge-title { font-size:0.65rem; font-weight:800; color:var(--txt-1); text-transform:uppercase; letter-spacing:0.03em; }
+  .badge-desc  { font-size:0.59rem; color:var(--txt-2); line-height:1.35; }
+  .badge-lock  { font-size:0.59rem; color:var(--txt-muted); display:flex; align-items:center; gap:3px; font-weight:600; }
+
+  /* ═══ VECTOR ═══ */
+  .vector-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .vector-card { border-radius:14px; padding:16px 14px; display:flex; flex-direction:column; gap:8px; border:2px solid transparent; cursor:pointer; transition:all 0.22s; }
+  .vector-card:hover { transform:scale(1.02); }
+  .vector-selected { border-color:var(--vc) !important; box-shadow:0 0 0 3px color-mix(in srgb,var(--vc) 18%,transparent); }
+  .vector-pulse { animation:vPulse 0.55s ease-out; }
+  .vector-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+  .vector-name { font-size:0.88rem; font-weight:800; }
+  .vector-desc { font-size:0.69rem; color:var(--txt-2); line-height:1.4; }
+  .vector-active-chip { display:inline-flex; align-items:center; gap:4px; font-size:0.63rem; font-weight:700; padding:3px 9px; border-radius:9999px; }
+
+  /* ═══ DATA LAYERS ═══ */
+  .data-layer-row { display:flex; align-items:center; gap:14px; padding:14px 16px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-lg); transition:all 0.2s; }
+  .data-layer-row:hover { background:var(--surface); box-shadow:var(--sh-sm); border-color:var(--border-h); }
+  .data-layer-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .data-layer-label { font-family:"DM Sans",sans-serif; font-size:0.88rem; font-weight:800; color:var(--txt-1); margin-bottom:2px; }
+  .data-layer-value { font-size:0.75rem; color:var(--txt-muted); font-weight:500; }
+  .data-layer-status { display:flex; align-items:center; gap:6px; font-size:0.72rem; font-weight:700; flex-shrink:0; }
+  .data-layer-dot { width:7px; height:7px; border-radius:50%; }
+
+  /* ═══ MODALS ═══ */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.36); backdrop-filter:blur(5px); z-index:200; display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeIn 0.2s ease; }
+  .modal-box { background:var(--surface); border-radius:24px; padding:32px 28px; width:100%; max-width:520px; box-shadow:0 24px 80px rgba(0,0,0,0.18); animation:slideUp 0.25s cubic-bezier(0.16,1,0.3,1); position:relative; max-height:90vh; overflow-y:auto; }
+  .modal-close { position:absolute; top:18px; right:18px; width:32px; height:32px; border-radius:9px; background:var(--bg); border:1px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--txt-2); transition:all 0.15s; }
+  .modal-close:hover { background:var(--border); color:var(--txt-1); }
+  .modal-title { font-family:"DM Sans",sans-serif; font-size:1.1rem; font-weight:800; color:var(--txt-1); margin-bottom:4px; }
+  .modal-sub   { font-size:0.79rem; color:var(--txt-muted); margin-bottom:22px; }
+  .modal-preview { display:flex; align-items:center; gap:16px; padding:14px 18px; background:var(--bg); border:1px solid var(--border); border-radius:14px; margin-bottom:20px; }
+  .modal-preview-ring { width:68px; height:68px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .modal-preview-name  { font-family:"DM Sans",sans-serif; font-size:1rem; font-weight:800; }
+  .modal-preview-focus { font-size:0.76rem; color:var(--txt-muted); margin-top:4px; }
+  .modal-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:20px; }
+  .modal-av-btn { border-radius:16px; padding:16px 12px; border:2px solid var(--border); background:var(--bg); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; transition:all 0.22s; position:relative; }
+  .modal-av-btn:hover { border-color:var(--border-h); background:var(--surface); transform:translateY(-2px); }
+  .modal-av-selected { transform:translateY(-2px); }
+  .modal-av-img  { width:72px; height:72px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+  .modal-av-name  { font-family:"DM Sans",sans-serif; font-size:0.86rem; font-weight:800; color:var(--txt-1); }
+  .modal-av-focus { font-size:0.69rem; color:var(--txt-muted); line-height:1.4; }
+  .modal-av-check { position:absolute; top:8px; right:8px; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .modal-actions { display:flex; gap:10px; }
+  .modal-btn-cancel { flex:1; padding:11px; border-radius:12px; border:1.5px solid var(--border); background:var(--bg); color:var(--txt-2); font-size:0.84rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:"Inter",sans-serif; }
+  .modal-btn-cancel:hover { background:var(--border); }
+  .modal-btn-save { flex:2; padding:11px; border-radius:12px; border:none; background:linear-gradient(135deg,var(--brand),#0066FF); color:#fff; font-size:0.84rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; transition:all 0.2s; box-shadow:0 4px 14px rgba(0,71,212,0.24); font-family:"Inter",sans-serif; }
+  .modal-btn-save:hover:not(:disabled) { filter:brightness(1.07); transform:translateY(-1px); }
+  .modal-btn-save:disabled { background:#94A3B8; box-shadow:none; cursor:default; }
+  .pw-error   { display:flex; align-items:center; gap:7px; background:#fef2f2; border:1px solid #fecaca; border-radius:9px; padding:10px 13px; color:#dc2626; font-size:0.79rem; font-weight:600; margin-bottom:14px; }
+  .pw-success { display:flex; align-items:center; justify-content:center; gap:8px; background:#f0fdf4; border:1px solid #a7f3d0; border-radius:12px; padding:14px; font-size:0.82rem; font-weight:600; color:#10b981; }
+  .pw-field   { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+  .pw-label   { font-size:0.71rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.07em; }
+  .pw-input-wrap { display:flex; align-items:center; background:var(--bg); border:1.5px solid var(--border); border-radius:10px; overflow:hidden; transition:border-color 0.15s; }
+  .pw-input-wrap:focus-within { border-color:var(--brand); background:var(--brand-lt); }
+  .pw-input  { flex:1; border:none; background:transparent; padding:10px 12px; font-size:0.85rem; font-weight:500; color:var(--txt-1); outline:none; font-family:"Inter",sans-serif; }
+  .pw-toggle { padding:0 12px; border:none; background:transparent; cursor:pointer; color:var(--txt-muted); display:flex; align-items:center; transition:color 0.15s; }
+  .pw-toggle:hover { color:var(--brand); }
+  .pw-submit { width:100%; background:var(--brand); border:none; border-radius:11px; padding:12px; color:#fff; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:"Inter",sans-serif; margin-top:4px; }
+  .pw-submit:hover { background:#0036BB; transform:translateY(-1px); box-shadow:0 5px 18px rgba(0,71,212,0.28); }
+
+  /* ═══ RESPONSIVE ═══ */
+  @media (max-width:960px) {
+    .sidebar { display:none; }
+    .pf-right { border-left:none; display:block; }
+    .pf-inner { padding:24px 20px 0; max-width:100%; }
+    .edit-grid { grid-template-columns:1fr; }
+    .vector-grid { grid-template-columns:1fr 1fr; }
+    .badge-grid { grid-template-columns:repeat(3,1fr); }
+  }
+  @media (max-width:560px) {
+    .pf-inner { padding:20px 16px 0; }
+    .sync-grid { grid-template-columns:1fr 1fr; }
+    .badge-grid { grid-template-columns:repeat(3,1fr); }
+    .modal-grid { grid-template-columns:1fr 1fr; }
+    .pf-topbar { flex-direction:column; align-items:flex-start; gap:10px; }
+    .edit-config-btn { align-self:stretch; justify-content:center; }
+  }
+`;

@@ -391,15 +391,14 @@ export default function HomePage() {
           margin-top: 24px;
           letter-spacing: 0.04em;
         }
-        .feature-graphic-box {
-          background: linear-gradient(145deg, #f7f8fc 0%, #eef1f8 100%);
-          border-radius: 28px;
-          padding: 44px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 360px;
-          border: 1px solid #e8ebf4;
+       .feature-graphic-box {
+         background: transparent;
+         border: none;
+         padding: 0;
+         min-height: auto;
+         display: flex;
+         justify-content: center;
+         align-items: center;
         }
         .graphic-inner {
           width: 100%;
@@ -729,27 +728,25 @@ export default function HomePage() {
             </div>
           </div>
           <div className="feature-graphic-box">
-            <div className="graphic-inner">
-              <div className="graphic-card">
-                <div className="graphic-card-title">Net Worth</div>
-                <div className="graphic-card-value">$248,500</div>
-                <div className="graphic-card-sub">↑ +8.4% this month</div>
-              </div>
-              {[
-                { label: "Sleep", val: "87%", w: "87%" },
-                { label: "Budget", val: "72%", w: "72%" },
-                { label: "Fitness", val: "94%", w: "94%" },
-              ].map((bar) => (
-                <div className="graphic-bar-row" key={bar.label}>
-                  <span className="graphic-label">{bar.label}</span>
-                  <div style={{ flex: 1, height: "10px", borderRadius: "99px", background: "#e8edf8" }}>
-                    <div className="graphic-bar" style={{ width: bar.w }} />
-                  </div>
-                  <span className="graphic-val">{bar.val}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+            <div
+              style={{
+              background: "#ffffff",
+              borderRadius: "24px",
+              overflow: "hidden",
+              boxShadow: "0 24px 60px rgba(0, 85, 238, 0.15)",
+              border: "1px solid rgba(0, 85, 238, 0.08)"
+          }}
+     >
+      <img
+      src="/dashboard-preview.jpg"
+      alt="Ingestion Preview"
+      style={{
+        width: "100%",
+        display: "block"
+      }}
+    />
+  </div>
+      </div>
         </div>
 
         {/* Feature 2 */}
@@ -763,32 +760,25 @@ export default function HomePage() {
             </div>
           </div>
           <div className="feature-graphic-box">
-            <div className="graphic-inner">
-              {[
-                { label: "Current path", color: "#cdd5e8", accent: "#8899cc" },
-                { label: "+$500/mo invest", color: "#c8e6ff", accent: "#0055EE" },
-                { label: "8h sleep routine", color: "#c8f4df", accent: "#1a9e55" },
-              ].map((scenario, i) => (
-                <div key={scenario.label} style={{
-                  background: "#fff",
-                  borderRadius: "14px",
-                  padding: "16px 18px",
-                  border: `1.5px solid ${scenario.color}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between"
-                }}>
-                  <div>
-                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.75rem", color: "#999", fontWeight: "600", marginBottom: "3px" }}>Scenario {i + 1}</div>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.9rem", fontWeight: "700", color: "#111" }}>{scenario.label}</div>
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "1.1rem", fontWeight: "800", color: scenario.accent }}>
-                    +{(22 + i * 18)}%
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+           <div
+            style={{
+             background: "#ffffff",
+             borderRadius: "24px",
+             overflow: "hidden",
+             boxShadow: "0 24px 60px rgba(0, 85, 238, 0.15)",
+            border: "1px solid rgba(0, 85, 238, 0.08)"
+       }}
+     >
+    <img
+      src="/simulator-preview.jpg"
+      alt="Simulator Preview"
+      style={{
+        width: "100%",
+        display: "block"
+      }}
+    />
+  </div>
+        </div>
         </div>
 
         {/* Feature 3 */}
@@ -802,21 +792,25 @@ export default function HomePage() {
             </div>
           </div>
           <div className="feature-graphic-box">
-            <div className="graphic-grid">
-              {[
-                { icon: "💼", label: "Career Score", val: "91/100" },
-                { icon: "📈", label: "Income Est.", val: "$128K" },
-                { icon: "🧠", label: "Skills Match", val: "78%" },
-                { icon: "⏱️", label: "Goal ETA", val: "14 mo" },
-              ].map((item) => (
-                <div className="graphic-mini-card" key={item.label}>
-                  <div className="graphic-mini-icon">{item.icon}</div>
-                  <div className="graphic-mini-label">{item.label}</div>
-                  <div className="graphic-mini-val">{item.val}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+            <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: "24px",
+                  overflow: "hidden",
+                  boxShadow: "0 24px 60px rgba(0, 85, 238, 0.15)",
+                  border: "1px solid rgba(0, 85, 238, 0.08)"
+           }}
+      >
+        <img
+          src="/insights-preview.jpg"
+          alt="Insights Preview"
+          style={{
+           width: "100%",
+           display: "block"
+        }}
+      />
+     </div>
+        </div>
         </div>
       </section>
 

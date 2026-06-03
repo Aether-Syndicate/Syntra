@@ -44,6 +44,7 @@
 
 import { TwinContext, DomainScores, aitwinReflectionResponse } from "../../types/ai";
 import { callGemini } from "../gemini";
+import { sanitizeForPrompt } from "../sanitize";
 import { z } from "zod";
 
 // ================================================================
@@ -351,18 +352,22 @@ export function buildaitwinReflectionPrompt(
   healthConstraints: string = "none"
 ): string {
 
+  const safeMission = sanitizeForPrompt(personalMission, 200);
+  const safeConstraints = sanitizeForPrompt(healthConstraints, 150);
+
   const trajectory = calculateTrajectory(context, scores);
   const risks = detectRisks(context, trajectory);
   const selectedExample = selectFewShotExample(context, scores);
   const criticalSection = buildCriticalDomainSection(trajectory.criticalDomain, context, scores);
-  const specificityRules = REFLECTION_SPECIFICITY_RULES(personalMission, healthConstraints);
- 
+  const specificityRules = REFLECTION_SPECIFICITY_RULES(safeMission, safeConstraints);
+
   // Safely extract active goals/gaps to feed Gemini the exact context with precomputed math
   const specificWealthGoals = (context as any).finance?.wealthGoals?.map((g: any) => {
+    const label = sanitizeForPrompt(g.goalLabel, 60);
     if (typeof g.requiredMonthlySavings === "number") {
-      return `${g.goalLabel} (Requires Rs. ${g.requiredMonthlySavings.toLocaleString("en-IN")}/month, actual savings: Rs. ${g.actualMonthlySavings?.toLocaleString("en-IN")}/month, Deficit: ${g.deficitText})`;
+      return `${label} (Requires Rs. ${g.requiredMonthlySavings.toLocaleString("en-IN")}/month, actual savings: Rs. ${g.actualMonthlySavings?.toLocaleString("en-IN")}/month, Deficit: ${g.deficitText})`;
     }
-    return g.goalLabel;
+    return label;
   }).join(", ") || "Dream Car / Home Downpayment";
   const specificHealthGaps = (context as any).health?.historicalNutrientGaps ? JSON.stringify((context as any).health.historicalNutrientGaps) : "General nutrient gaps";
  
@@ -390,8 +395,8 @@ YOUR VOICE AND CHARACTER:
  
 ━━━ USER STATE BRIEFING ━━━
  
-PERSONAL MISSION: ${personalMission}
-HEALTH CONSTRAINTS: ${healthConstraints}
+PERSONAL MISSION: ${safeMission}
+HEALTH CONSTRAINTS: ${safeConstraints}
  
 DOMAIN SCORES:
   Health:  ${scores.health}/100 (${interpretScore(scores.health)}) | Trend: ${context.trends.health}

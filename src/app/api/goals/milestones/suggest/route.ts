@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { callGemini } from "@/lib/gemini";
+import { sanitizeForPrompt } from "@/lib/sanitize";
+import { rl } from "@/lib/rateLimit";
 import { z } from "zod";
 
 const RequestSchema = z.object({
@@ -22,7 +24,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
 
+    const limit = rl.milestones(session.user.id ?? session.user.email!);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit reached. Retry in ${limit.retryAfterSec}s.` },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
+      );
+    }
+
     const { title, domain, priority } = parsed.data;
+    const safeTitle = sanitizeForPrompt(title, 200);
 
     const domainContext = {
       health: "physical fitness, wellness, nutrition, habits, or mental health",
@@ -33,7 +44,7 @@ export async function POST(req: NextRequest) {
     const prompt = `
 You are a goal-setting expert helping someone break a goal into actionable milestones.
 
-Goal: "${title}"
+Goal: "${safeTitle}"
 Domain: ${domain} (${domainContext})
 Priority: ${priority}
 

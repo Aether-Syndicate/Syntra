@@ -8,6 +8,7 @@ import {
   AlertTriangle, CheckCircle2, Send, Upload, MessageSquare,
   Sparkles, Heart, Star,
 } from "lucide-react";
+import Uploader from "@/components/Uploader";
 
 /* ─── TYPES ─────────────────────────────────────────────────────── */
 interface HealthData {
@@ -829,6 +830,29 @@ export default function IngestionPage() {
             <p className="note-prompt-text">💬 {prompt}</p>
             <textarea className="f-input f-textarea" style={{ minHeight: 92 }} placeholder="Write anything — even a sentence is helpful..." value={dailyNote} onChange={e => setDailyNote(e.target.value)} maxLength={500} />
             <div className="note-counter">{dailyNote.length} / 500</div>
+          </div>
+        </div>
+
+        {/* ─── DOCUMENT SYNC (PDF / IMAGE) ─── */}
+        <div className="sec-card">
+          <div className="sec-stripe" style={{ background: "linear-gradient(90deg,#7c3aed,#9f6ef5)" }} />
+          <div className="sec-head">
+            <div className="sec-icon" style={{ background: "#f5f3ff", color: "#7c3aed" }}><Upload size={22} /></div>
+            <div>
+              <div className="sec-title">Sync Document (PDF / Image)</div>
+              <div className="sec-sub">Intelligently parse reports, salary slips, resumes, and medical receipts</div>
+            </div>
+          </div>
+          <div className="sec-body">
+            <Uploader onUploadSuccess={() => {
+              // Update latest saved data and scores on successful sync
+              fetch("/api/log/latest", { credentials: "include" })
+                .then(r => r.json()).then(d => {
+                  if (!d.success) return;
+                  setLatest(d.latest);
+                  if (d.scores) setCurrentScores(d.scores);
+                });
+            }} />
           </div>
         </div>
 

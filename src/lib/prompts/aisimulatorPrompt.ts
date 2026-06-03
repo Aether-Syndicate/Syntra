@@ -8,6 +8,26 @@
 
 import { SimulatorScenario, SimulatorResponse, TwinContext, DomainScores } from "../../types/ai";
 import { callGemini } from "../gemini";
+import { sanitizeForPrompt } from "../sanitize";
+import { z } from "zod";
+
+const SimulatorResponseSchema = z.object({
+  scenarioTitle: z.string().min(1),
+  primaryOutcome: z.string().min(10),
+  tradeOffs: z.array(z.object({
+    domain: z.enum(["health", "finance", "career"]),
+    impact: z.enum(["positive", "negative", "neutral"]),
+    magnitude: z.number().min(1).max(10),
+    explanation: z.string().min(10),
+  })).min(1),
+  timelineProjection: z.array(z.object({
+    week: z.string().min(1),
+    projection: z.string().min(5),
+  })).min(1),
+  riskLevel: z.enum(["low", "medium", "high", "critical"]),
+  recommendedPath: z.string().min(10),
+  confidence: z.number().int().min(0).max(100),
+});
 
 // ── Domain trade-off knowledge base ─────────────────────────────
 // These are real behavioural science correlations injected as context.
@@ -80,10 +100,11 @@ export function buildSimulatorPrompt(
 
   // Safely extract specific goals if they exist on the context with precomputed math
   const specificWealthGoals = (currentContext as any).finance?.wealthGoals?.map((g: any) => {
+    const label = sanitizeForPrompt(g.goalLabel, 60);
     if (typeof g.requiredMonthlySavings === "number") {
-      return `${g.goalLabel} (Requires Rs. ${g.requiredMonthlySavings.toLocaleString("en-IN")}/month, actual savings: Rs. ${g.actualMonthlySavings?.toLocaleString("en-IN")}/month, Deficit: ${g.deficitText})`;
+      return `${label} (Requires Rs. ${g.requiredMonthlySavings.toLocaleString("en-IN")}/month, actual savings: Rs. ${g.actualMonthlySavings?.toLocaleString("en-IN")}/month, Deficit: ${g.deficitText})`;
     }
-    return g.goalLabel;
+    return label;
   }).join(", ") || "Dream Car / Home Downpayment";
   const specificHealthGaps = (currentContext as any).health?.historicalNutrientGaps ? JSON.stringify((currentContext as any).health.historicalNutrientGaps) : "Nutrient gaps / Weight goals";
 
@@ -159,8 +180,29 @@ export async function generateSimulatorInsight(
   confidence: number
 ): Promise<SimulatorResponse> {
   const prompt = buildSimulatorPrompt(scenario, currentContext, currentScores, confidence);
-  return callGemini<SimulatorResponse>(prompt, {
-    temperature: 0.35, // Lower = more consistent, numerical outputs
-    maxTokens: 4600,
+  const raw = await callGemini<unknown>(prompt, {
+    temperature: 0.35,
+    maxTokens: 2500,
   });
+  const check = SimulatorResponseSchema.safeParse(raw);
+  if (check.success) return check.data as SimulatorResponse;
+  console.warn("[Simulator] Zod validation failed:", check.error.issues.map(e => `${e.path}: ${e.message}`).join("; "));
+  // Deterministic fallback — guarantees a well-typed response even without AI
+  return {
+    scenarioTitle: `${scenario.domain} scenario projection`,
+    primaryOutcome: `Simulating a ${Math.abs(scenario.percentChange)}% change in ${scenario.variable}.`,
+    tradeOffs: [
+      { domain: "health",   impact: "neutral", magnitude: 3, explanation: "Insufficient AI data — monitor health metrics." },
+      { domain: "finance",  impact: "neutral", magnitude: 3, explanation: "Insufficient AI data — monitor budget adherence." },
+      { domain: "career",   impact: "neutral", magnitude: 3, explanation: "Insufficient AI data — track study consistency." },
+    ],
+    timelineProjection: [
+      { week: "Week 1", projection: "Adjustment phase — observe baseline changes." },
+      { week: "Week 2", projection: "Early signals become visible across domains." },
+      { week: "Week 3", projection: "Trend direction should be measurable." },
+    ],
+    riskLevel: Math.abs(scenario.percentChange) > 35 ? "high" : "medium",
+    recommendedPath: "Monitor all three domains as changes take effect.",
+    confidence: 0,
+  };
 }

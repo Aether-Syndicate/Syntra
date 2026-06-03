@@ -4,6 +4,28 @@ import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import mongoose from "mongoose";
+import { z } from "zod";
+
+const MilestoneSchema = z.object({
+  text: z.string().min(1).max(200),
+  completed: z.boolean().default(false),
+});
+
+const GoalCreateSchema = z.object({
+  title:      z.string().min(1).max(200),
+  domain:     z.enum(["health", "finance", "career"]),
+  priority:   z.enum(["low", "medium", "high"]),
+  targetDate: z.string().optional(),
+  milestones: z.array(MilestoneSchema).max(20).optional(),
+});
+
+const GoalUpdateSchema = GoalCreateSchema.extend({
+  goalId: z.string().min(1),
+});
+
+const GoalDeleteSchema = z.object({
+  goalId: z.string().min(1),
+});
 
 export async function POST(req: Request) {
   try {
@@ -12,16 +34,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // UPDATED: Destructure the new targetDate and milestones fields
-    const { title, domain, priority, targetDate, milestones } = await req.json();
-
-    if (!title || !domain || !priority) {
-      return NextResponse.json({ error: "Missing fields: title, domain, priority required" }, { status: 400 });
+    const parsed = GoalCreateSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
-
-    if (!["health", "finance", "career"].includes(domain)) {
-      return NextResponse.json({ error: "Invalid domain" }, { status: 400 });
-    }
+    const { title, domain, priority, targetDate, milestones } = parsed.data;
 
     await connectDB();
     
@@ -80,15 +97,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { goalId, title, domain, priority, targetDate, milestones } = await req.json();
-
-    if (!goalId || !title || !domain || !priority) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    const parsed = GoalUpdateSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
-
-    if (!["health", "finance", "career"].includes(domain)) {
-      return NextResponse.json({ error: "Invalid domain" }, { status: 400 });
-    }
+    const { goalId, title, domain, priority, targetDate, milestones } = parsed.data;
 
     await connectDB();
 
@@ -101,7 +114,7 @@ export async function PATCH(req: Request) {
     };
 
     const user = await User.findOneAndUpdate(
-      { email: session.user.email, "goals._id": new mongoose.Types.ObjectId(goalId) },
+      { email: session.user.email, "goals._id": new mongoose.Types.ObjectId(String(goalId)) },
       { $set: updateFields },
       { new: true }
     );
@@ -120,16 +133,15 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { goalId } = await req.json(); // Safely uses goalId
-
-    if (!goalId) {
+    const parsed = GoalDeleteSchema.safeParse(await req.json());
+    if (!parsed.success) {
       return NextResponse.json({ error: "goalId is required" }, { status: 400 });
     }
 
     await connectDB();
     const user = await User.findOneAndUpdate(
       { email: session.user.email },
-      { $pull: { goals: { _id: new mongoose.Types.ObjectId(goalId) } } },
+      { $pull: { goals: { _id: new mongoose.Types.ObjectId(String(parsed.data.goalId)) } } },
       { new: true }
     );
 

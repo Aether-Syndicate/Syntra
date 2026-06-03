@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import { rl } from "@/lib/rateLimit";
 
 export const authOptions: NextAuthOptions = {
   // Use JSON Web Tokens for secure session storage
@@ -18,9 +19,19 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Missing credentials.");
+        }
+
+        // IP-based brute-force protection — 10 attempts per 15 minutes
+        const ip =
+          (req as any)?.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() ||
+          (req as any)?.headers?.["x-real-ip"] ||
+          "unknown";
+        const loginLimit = rl.login(ip);
+        if (!loginLimit.allowed) {
+          throw new Error(`Too many login attempts. Try again in ${loginLimit.retryAfterSec}s.`);
         }
 
         await connectDB();

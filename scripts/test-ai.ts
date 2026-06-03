@@ -17,7 +17,6 @@ dotenv.config({ path: ".env" });
 import { callGemini } from "../src/lib/gemini";
 import { generateaitwinReflection } from "../src/lib/prompts/aitwinReflection";
 import { generateSimulatorInsight } from "../src/lib/prompts/aisimulatorPrompt";
-import { generateDailyChallenge } from "../src/lib/prompts/challengePrompt";
 import { generateHealthAnalysis, generateFinanceAnalysis, generateCareerAnalysis } from "../src/lib/prompts/domainPrompts";
 import type { TwinContext, DomainScores, ChallengeContext } from "../src/types/ai";
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -238,22 +237,12 @@ async function task5() {
 
 // ── TASK 6: Gamification ─────────────────────────────────────────
 async function task6() {
-  header("TASK 6 — Gamification Intelligence");
+  header("TASK 6 — Gamification Intelligence (via Twin Reflection)");
 
-  await test("generateDailyChallenge — all fields present", async () => {
-    const r = await generateDailyChallenge(TEST_CHALLENGE_CTX);
-    if (!r.challenge?.title) throw new Error("Missing challenge.title");
-    if (!r.streakNudge) throw new Error("Missing streakNudge");
-    if (!r.habitReinforcement) throw new Error("Missing habitReinforcement");
-    if (!r.motivationMessage) throw new Error("Missing motivationMessage");
-    console.log(C.dim(`    → "${r.challenge.title}" (${r.challenge.points} pts)`));
-    console.log(C.dim(`    → streakNudge: "${r.streakNudge.slice(0, 70)}..."`));
-  });
-
-  await test("Streak nudge references actual streak numbers", async () => {
-    const r = await generateDailyChallenge(TEST_CHALLENGE_CTX);
-    const hasNumbers = /\d/.test(r.streakNudge);
-    if (!hasNumbers) throw new Error("Streak nudge must reference actual numbers");
+  await test("dailyChallenge is present in reflection response", async () => {
+    const r = await generateaitwinReflection(TEST_CONTEXT, TEST_SCORES, 5, 72);
+    if (!r.dailyChallenge) throw new Error("Missing dailyChallenge");
+    console.log(C.dim(`    → dailyChallenge: "${r.dailyChallenge}"`));
   });
 }
 

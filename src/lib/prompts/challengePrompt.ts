@@ -12,7 +12,6 @@
 // ================================================================
 
 import { ChallengeContext, ChallengeResponse } from "../../types/ai";
-import { callGemini } from "../../lib/gemini";
 
 // ── Badge Catalog ────────────────
 export const BADGE_CATALOG = [
@@ -208,13 +207,6 @@ ${CHALLENGE_SPECIFICITY_RULES}
 `.trim();
 }
 
-// ── Convenience wrapper ──────────────────────────────────────────
-export async function generateDailyChallenge(
-  ctx: ChallengeContext
-): Promise<ChallengeResponse> {
-  const prompt = buildChallengePrompt(ctx);
-  return callGemini<ChallengeResponse>(prompt, {
-    temperature: 0.6, // Higher = more varied daily challenges
-    maxTokens: 4600,
-  });
-}
+// generateDailyChallenge removed — dailyChallenge is now generated as
+// part of aitwinReflection (see src/lib/prompts/aitwinReflection.ts),
+// eliminating a redundant Gemini call with overlapping context.

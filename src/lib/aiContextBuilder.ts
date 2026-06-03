@@ -129,22 +129,25 @@ function calculateTwinContext(
     .map(l => l.domainData?.productivityRating)
     .filter((v): v is number => typeof v === "number");
 
-  // Course names — deduplicated, most recent first
+  // Course names — deduplicated, most recent first, capped
   const courseNames = careerLogs
     .map(l => l.domainData?.courseName)
-    .filter((v): v is string => typeof v === "string" && v.length > 0);
+    .filter((v): v is string => typeof v === "string" && v.length > 0)
+    .map(v => v.slice(0, 60));
   const recentCourseNames = [...new Set(courseNames)].slice(0, 3);
 
-  // Goal worked on — most recent 3
+  // Goal worked on — most recent 3, capped
   const goalFocusEntries = careerLogs
     .map(l => l.domainData?.goalWorkedOn)
-    .filter((v): v is string => typeof v === "string" && v.length > 0);
+    .filter((v): v is string => typeof v === "string" && v.length > 0)
+    .map(v => v.slice(0, 80));
   const recentGoalFocus = goalFocusEntries.slice(0, 3);
 
-  // Blockers — most recent 3
+  // Blockers — most recent 3, capped
   const blockerEntries = careerLogs
     .map(l => l.domainData?.blockerToday)
-    .filter((v): v is string => typeof v === "string" && v.length > 0);
+    .filter((v): v is string => typeof v === "string" && v.length > 0)
+    .map(v => v.slice(0, 80));
   const recentBlockers = blockerEntries.slice(0, 3);
 
   // ─── Reflection / Daily Notes ───────────────────────────────────
@@ -152,12 +155,14 @@ function calculateTwinContext(
   const recentDailyNotes = reflectionLogs
     .map(l => l.domainData?.note)
     .filter((v): v is string => typeof v === "string" && v.length > 0)
+    .map(v => v.slice(0, 120))
     .slice(0, 3);
 
-  // Meals/Foods Eaten — most recent 5
+  // Meals/Foods Eaten — most recent 5, capped to prevent token bloat
   const mealsEatenList = healthLogs
     .map(l => l.domainData?.mealsEatenToday)
-    .filter((v): v is string => typeof v === "string" && v.length > 0);
+    .filter((v): v is string => typeof v === "string" && v.length > 0)
+    .map(v => v.slice(0, 100));
   const recentMealsEaten = mealsEatenList.slice(0, 5);
 
   // ─── Derived ────────────────────────────────────────────────────
@@ -165,7 +170,6 @@ function calculateTwinContext(
   const avgStress = avg(stressValues);
   const avgSpent = avg(spentValues);
   const avgSaved = avg(savedValues);
-  const avgProductivity = avg(productivityValues);
   const avgMood = avg(moodValues);
   const weeklyWorkouts = healthLogs.length >= 7
     ? Math.round(avg(workoutFlags) * 7 * 10) / 10

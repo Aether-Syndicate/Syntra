@@ -13,6 +13,7 @@ import {
   DailyNutritionLog,
 } from "@/lib/prompts/domainPrompts";
 import { preComputeWealthGoals } from "@/lib/financeMath";
+import { rl } from "@/lib/rateLimit";
 import mongoose from "mongoose";
 
 export async function GET(req: Request) {
@@ -29,6 +30,14 @@ export async function GET(req: Request) {
       return NextResponse.json(
         { error: "Invalid domain. Use health, finance, or career." },
         { status: 400 }
+      );
+    }
+
+    const limit = rl.aiDomain(session.user.id ?? session.user.email);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit reached. Retry in ${limit.retryAfterSec}s.` },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
       );
     }
 

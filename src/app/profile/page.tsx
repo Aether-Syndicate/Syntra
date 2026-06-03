@@ -325,7 +325,7 @@ export default function ProfilePage() {
   const [showConPw,    setShowConPw]    = useState(false);
   const [pwError,      setPwError]      = useState("");
   const [pwSuccess,    setPwSuccess]    = useState(false);
-  const [syncStatuses, setSyncStatuses] = useState<Record<string,"idle"|"syncing"|"synced">>({ health:"idle", finance:"idle", coursera:"idle" });
+  const [syncStatuses, setSyncStatuses] = useState<Record<string,"idle"|"syncing"|"synced">>({ health:"idle", finance:"idle", coursera:"idle", googleFit:"idle" });
   const [vectorPulse,  setVectorPulse]  = useState(false);
 
   const twinText = useTypewriter("Twin Profile");
@@ -386,7 +386,7 @@ export default function ProfilePage() {
     const containerTop    = scrollEl.getBoundingClientRect().top;
     const containerBottom = containerTop + scrollEl.clientHeight;
 
-    let bestId      = sectionOrder[0];
+    let bestId: typeof sectionOrder[number] = sectionOrder[0];
     let bestVisible = -1;
 
     for (const id of sectionOrder) {
@@ -532,6 +532,32 @@ export default function ProfilePage() {
     if (syncStatuses[key]!=="idle") return;
     setSyncStatuses(s=>({ ...s, [key]:"syncing" }));
     setTimeout(()=>{ setSyncStatuses(s=>({ ...s, [key]:"synced" })); setTimeout(()=>setSyncStatuses(s=>({ ...s, [key]:"idle" })), 3000); }, 1800);
+  };
+
+  const handleGoogleFitSync = async () => {
+    const isConnected = !!profileRes?.user?.googleFit?.syncActive;
+    if (!isConnected) {
+      window.location.href = "/api/auth/google-fit/connect";
+      return;
+    }
+
+    if (syncStatuses.googleFit !== "idle") return;
+    setSyncStatuses(s => ({ ...s, googleFit: "syncing" }));
+    
+    try {
+      const res = await fetch("/api/telemetry/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+      
+      setSyncStatuses(s => ({ ...s, googleFit: "synced" }));
+      setTimeout(() => {
+        setSyncStatuses(s => ({ ...s, googleFit: "idle" }));
+      }, 3000);
+      mutateProfile();
+    } catch (e: any) {
+      alert(e.message || "Failed to sync Google Fit data.");
+      setSyncStatuses(s => ({ ...s, googleFit: "idle" }));
+    }
   };
 
   const handlePwSubmit = () => {
@@ -883,19 +909,25 @@ export default function ProfilePage() {
                     { key:"health",  icon:HeartPulse, label:"Apple Health", color:"#ef4444" },
                     { key:"finance", icon:Wallet,     label:"Bank Account",  color:"#10b981" },
                     { key:"coursera",icon:BookOpen,   label:"Coursera",      color:"#0066FF" },
-                  ].map(s=>(
-                    <div key={s.key} className="sync-card"
-                      style={{ borderColor:syncStatuses[s.key]==="synced"?"#10b981":"#E4E9F4" }}
-                      onClick={()=>handleSync(s.key)}>
-                      <div className="sync-icon" style={{ background:`${s.color}12` }}><s.icon size={16} color={s.color}/></div>
-                      <div className="sync-label" style={{ color:s.color }}>{s.label}</div>
-                      <div className="sync-status" style={{ color:syncStatuses[s.key]==="synced"?"#10b981":s.color }}>
-                        {syncStatuses[s.key]==="idle"&&<><RefreshCw size={10}/> Sync</>}
-                        {syncStatuses[s.key]==="syncing"&&<><RefreshCw size={10} style={{animation:"spin 0.8s linear infinite"}}/> Syncing…</>}
-                        {syncStatuses[s.key]==="synced"&&<><Check size={10}/> Synced</>}
+                    { key:"googleFit",icon:Activity,  label:"Google Fit",    color:"#7c3aed" },
+                  ].map(s=>{
+                    const isGfit = s.key === "googleFit";
+                    const isConnected = isGfit ? !!profileRes?.user?.googleFit?.syncActive : false;
+                    const statusText = isGfit && !isConnected ? "Link" : syncStatuses[s.key]==="synced" ? "Synced" : syncStatuses[s.key]==="syncing" ? "Syncing…" : "Sync";
+                    return (
+                      <div key={s.key} className="sync-card"
+                        style={{ borderColor:syncStatuses[s.key]==="synced"||(isGfit&&isConnected&&syncStatuses.googleFit==="idle")?"#10b981":"#E4E9F4" }}
+                        onClick={isGfit ? handleGoogleFitSync : () => handleSync(s.key)}>
+                        <div className="sync-icon" style={{ background:`${s.color}12` }}><s.icon size={16} color={s.color}/></div>
+                        <div className="sync-label" style={{ color:s.color }}>{s.label}</div>
+                        <div className="sync-status" style={{ color:syncStatuses[s.key]==="synced"?"#10b981":s.color }}>
+                          {syncStatuses[s.key]==="idle"&&<>{!isGfit || isConnected ? <RefreshCw size={10}/> : <Lock size={10}/>} {statusText}</>}
+                          {syncStatuses[s.key]==="syncing"&&<><RefreshCw size={10} style={{animation:"spin 0.8s linear infinite"}}/> {statusText}</>}
+                          {syncStatuses[s.key]==="synced"&&<><Check size={10}/> {statusText}</>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

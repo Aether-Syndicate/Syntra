@@ -7,14 +7,23 @@ import Log from "@/models/Log";
 import { buildTwinContext } from "@/lib/aiContextBuilder";
 import { calculateConfidence } from "@/lib/confidenceScore";
 import { generateaitwinReflection } from "@/lib/prompts/aitwinReflection";
-import { parseGemini } from "@/lib/parseGemini"; 
-import { preComputeWealthGoals } from "@/lib/financeMath"; 
+import { parseGemini } from "@/lib/parseGemini";
+import { preComputeWealthGoals } from "@/lib/financeMath";
+import { rl } from "@/lib/rateLimit";
 
 export async function GET(req: Request) {
   try {
     const session = await getSession();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized neural link." }, { status: 401 });
+    }
+
+    const limit = rl.aiRecommend(session.user.id ?? session.user.email);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit reached. Retry in ${limit.retryAfterSec}s.` },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
+      );
     }
 
     await connectDB();

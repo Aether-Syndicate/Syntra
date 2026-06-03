@@ -60,6 +60,13 @@ export interface IUser extends Document {
     dailyReflection: any;
     lastGeneratedAt: Date | null;
   };
+  googleFit?: {
+    accessToken: string;
+    refreshToken: string;
+    expiryDate: Date;
+    syncActive: boolean;
+    lastSyncedAt?: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -138,6 +145,13 @@ const UserSchema = new Schema<IUser>(
     aiSnapshot: {
       dailyReflection: { type: Object, default: null }, // Stores the parsed JSON
       lastGeneratedAt: { type: Date, default: null },   // Timestamp of last run
+    },
+    googleFit: {
+      accessToken: { type: String },
+      refreshToken: { type: String },
+      expiryDate: { type: Date },
+      syncActive: { type: Boolean, default: false },
+      lastSyncedAt: { type: Date },
     },
   },
   { timestamps: true }

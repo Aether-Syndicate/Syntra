@@ -30,6 +30,36 @@
 // ================================================================
 
 import { callGemini } from "../gemini";
+import { sanitizeForPrompt } from "../sanitize";
+import { z } from "zod";
+
+// ── Lightweight output schemas — enforce shape, not every field ──
+const DomainBaseSchema = z.object({
+  title:       z.string().min(1),
+  insight:     z.string().min(10),
+  recommendation: z.string().min(10),
+  confidence:  z.number().int().min(0).max(100),
+  reasoning:   z.string().min(10),
+  supportingTrends: z.array(z.string()).min(1),
+});
+
+const SimulatorResponseSchema = z.object({
+  scenarioTitle: z.string().min(1),
+  primaryOutcome: z.string().min(10),
+  tradeOffs: z.array(z.object({
+    domain: z.enum(["health", "finance", "career"]),
+    impact: z.enum(["positive", "negative", "neutral"]),
+    magnitude: z.number(),
+    explanation: z.string().min(1),
+  })),
+  timelineProjection: z.array(z.object({
+    week: z.string(),
+    projection: z.string(),
+  })),
+  riskLevel: z.enum(["low", "medium", "high", "critical"]),
+  recommendedPath: z.string().min(1),
+  confidence: z.number().int().min(0).max(100),
+});
 
 // ================================================================
 // SHARED UTILITIES
@@ -359,10 +389,15 @@ RETURN ONLY THIS JSON - NO TEXT OUTSIDE THE BRACES:
 }
 
 export async function generateHealthAnalysis(input: HealthDomainInput): Promise<HealthDomainResponse> {
-  return callGemini<HealthDomainResponse>(buildHealthPrompt(input), {
+  const raw = await callGemini<unknown>(buildHealthPrompt(input), {
     temperature: 0.3,
-    maxTokens: 8000,
+    maxTokens: 2500,
   });
+  const check = DomainBaseSchema.safeParse(raw);
+  if (!check.success) {
+    console.warn("[Health] Zod failed:", check.error.issues.map(e => `${e.path}: ${e.message}`).join("; "));
+  }
+  return raw as HealthDomainResponse;
 }
 
 // ================================================================
@@ -734,10 +769,23 @@ RETURN ONLY THIS JSON:
 }
 
 export async function generateFinanceAnalysis(input: FinanceDomainInput): Promise<FinanceDomainResponse> {
-  return callGemini<FinanceDomainResponse>(buildFinancePrompt(input), {
+  // Sanitize user-controlled goal labels before they enter the prompt
+  const safeInput: FinanceDomainInput = {
+    ...input,
+    wealthGoals: input.wealthGoals?.map(g => ({
+      ...g,
+      goalLabel: sanitizeForPrompt(g.goalLabel, 60),
+    })),
+  };
+  const raw = await callGemini<unknown>(buildFinancePrompt(safeInput), {
     temperature: 0.25,
-    maxTokens: 8000,
+    maxTokens: 2500,
   });
+  const check = DomainBaseSchema.safeParse(raw);
+  if (!check.success) {
+    console.warn("[Finance] Zod failed:", check.error.issues.map(e => `${e.path}: ${e.message}`).join("; "));
+  }
+  return raw as FinanceDomainResponse;
 }
 
 // ================================================================
@@ -989,8 +1037,21 @@ RETURN ONLY THIS JSON:
 }
 
 export async function generateCareerAnalysis(input: CareerDomainInput): Promise<CareerDomainResponse> {
-  return callGemini<CareerDomainResponse>(buildCareerPrompt(input), {
+  // Sanitize user-controlled text fields before they enter the prompt
+  const safeInput: CareerDomainInput = {
+    ...input,
+    currentRole:    sanitizeForPrompt(input.currentRole, 80),
+    careerGoals:    input.careerGoals.map(g => sanitizeForPrompt(g, 80)),
+    targetSkills:   input.targetSkills.map(s => sanitizeForPrompt(s, 60)),
+    currentCourses: input.currentCourses.map(c => sanitizeForPrompt(c, 60)),
+  };
+  const raw = await callGemini<unknown>(buildCareerPrompt(safeInput), {
     temperature: 0.35,
-    maxTokens: 8000,
+    maxTokens: 2500,
   });
+  const check = DomainBaseSchema.safeParse(raw);
+  if (!check.success) {
+    console.warn("[Career] Zod failed:", check.error.issues.map(e => `${e.path}: ${e.message}`).join("; "));
+  }
+  return raw as CareerDomainResponse;
 }

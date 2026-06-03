@@ -3,6 +3,28 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import { z } from "zod";
+
+const ProfileUpdateSchema = z.object({
+  name:               z.string().min(1).max(100).optional(),
+  age:                z.number().int().min(10).max(120).optional(),
+  avatarId:           z.number().int().min(1).max(20).optional(),
+  optimizationVector: z.string().max(100).optional(),
+  personalMission:    z.string().max(300).optional(),
+  healthConstraints:  z.string().max(300).optional(),
+  gender:             z.enum(["male", "female", "other"]).optional(),
+  height:             z.number().min(50).max(300).optional(),
+  weight:             z.number().min(20).max(500).optional(),
+  averageSleep:       z.number().min(0).max(24).optional(),
+  workoutFrequency:   z.number().int().min(0).max(14).optional(),
+  activityLevel:      z.string().max(50).optional(),
+  monthlyIncome:      z.number().min(0).optional(),
+  currentSavings:     z.number().min(0).optional(),
+  spendingStyle:      z.number().min(1).max(5).optional(),
+  hoursStudied:       z.number().min(0).max(24).optional(),
+  learningProfile:    z.string().max(100).optional(),
+  archetype:          z.string().max(100).optional(),
+});
 
 export async function GET() {
   try {
@@ -29,6 +51,10 @@ export async function GET() {
         healthConstraints: user.healthConstraints,
         profile: user.profile,
         scores: user.scores,
+        googleFit: user.googleFit ? {
+          syncActive: user.googleFit.syncActive,
+          lastSyncedAt: user.googleFit.lastSyncedAt
+        } : undefined
       }
     });
   } catch (error: any) {
@@ -44,27 +70,15 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
+    const parsed = ProfileUpdateSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
     const {
-      name,
-      age,
-      avatarId,
-      optimizationVector,
-      personalMission,
-      healthConstraints,
-      gender,
-      height,
-      weight,
-      averageSleep,
-      workoutFrequency,
-      activityLevel,
-      monthlyIncome,
-      currentSavings,
-      spendingStyle,
-      hoursStudied,
-      learningProfile,
-      archetype,
-    } = body;
+      name, age, avatarId, optimizationVector, personalMission, healthConstraints,
+      gender, height, weight, averageSleep, workoutFrequency, activityLevel,
+      monthlyIncome, currentSavings, spendingStyle, hoursStudied, learningProfile, archetype,
+    } = parsed.data;
 
     await connectDB();
     const user = await User.findOne({ email: session.user.email });
@@ -150,6 +164,10 @@ export async function PUT(req: Request) {
         healthConstraints: user.healthConstraints,
         profile: user.profile,
         scores: user.scores,
+        googleFit: user.googleFit ? {
+          syncActive: user.googleFit.syncActive,
+          lastSyncedAt: user.googleFit.lastSyncedAt
+        } : undefined
       }
     });
 

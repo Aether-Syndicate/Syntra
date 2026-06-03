@@ -43,7 +43,7 @@ export async function callGemini<T = any>(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set in .env");
 
-  const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
 
   let lastError: any;
 
@@ -51,30 +51,41 @@ export async function callGemini<T = any>(
     try {
       const res = await fetch(ENDPOINT, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json", 
+        headers: {
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { 
-            temperature, 
+          generationConfig: {
+            temperature,
             responseMimeType: "application/json",
             ...(maxTokens ? { maxOutputTokens: maxTokens } : {})
           }
         })
       });
-      
+
       if (!res.ok) {
         const errText = await res.text();
         throw new Error(`API Error ${res.status}: ${errText}`);
       }
       const raw = await res.json();
+
+      // Log token usage from Gemini metadata for cost monitoring
+      const usage = raw?.usageMetadata;
+      if (usage) {
+        console.info(
+          `[Gemini tokens] prompt=${usage.promptTokenCount ?? "?"} ` +
+          `output=${usage.candidatesTokenCount ?? "?"} ` +
+          `total=${usage.totalTokenCount ?? "?"}`
+        );
+      }
+
       const text = raw?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      
+
       if (!text) throw new Error("Empty response returned from Gemini API.");
 
       const cleaned = text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
-      
+
       try {
         return JSON.parse(cleaned) as T;
       } catch {
@@ -90,7 +101,7 @@ export async function callGemini<T = any>(
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
+
   throw new Error(`Gemini call failed: ${lastError?.message || "Unknown error"}`);
 }
 

@@ -9,7 +9,19 @@ import { buildTwinContext } from "@/lib/aiContextBuilder";
 import { calculateConfidence } from "@/lib/confidenceScore";
 import { generateSimulatorInsight } from "@/lib/prompts/aisimulatorPrompt";
 import { preComputeWealthGoals } from "@/lib/financeMath";
+import { rl } from "@/lib/rateLimit";
 import mongoose from "mongoose";
+import { z } from "zod";
+
+const ScenarioSchema = z.object({
+  domain: z.enum(["health", "finance", "career"]),
+  // Legacy absolute-percent payload
+  percentageChange: z.number().optional(),
+  // Modern absolute-value payload
+  variable:       z.string().max(60).optional(),
+  currentValue:   z.number().optional(),
+  simulatedValue: z.number().optional(),
+});
 
 // GET handler to fetch and compute baseline values for the simulator UI
 export async function GET(req: Request) {
@@ -75,12 +87,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized neural link." }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { scenario } = body;
-
-    if (!scenario || !scenario.domain) {
-      return NextResponse.json({ error: "Invalid scenario payload. Domain is missing." }, { status: 400 });
+    const limit = rl.simulate(session.user.id ?? session.user.email!);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit reached. Retry in ${limit.retryAfterSec}s.` },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
+      );
     }
+
+    const body = await req.json();
+    const scenarioParsed = ScenarioSchema.safeParse(body?.scenario);
+    if (!scenarioParsed.success) {
+      return NextResponse.json({ error: "Invalid scenario payload." }, { status: 400 });
+    }
+    const scenario = scenarioParsed.data;
 
     await connectDB();
     const user = await User.findOne({ email: session.user.email });
@@ -104,13 +124,18 @@ export async function POST(req: Request) {
       currentValue = user.scores[scenario.domain as keyof typeof user.scores] || 50;
       simulatedValue = Math.min(100, Math.round(currentValue * (1 + percentageChange)));
     } else {
+      // Modern absolute value payload
+      if (scenario.variable === undefined) {
+        return NextResponse.json({ error: "Invalid scenario payload." }, { status: 400 });
+      }
       variable = scenario.variable;
       currentValue = Number(scenario.currentValue);
       simulatedValue = Number(scenario.simulatedValue);
 
-      if (typeof variable === "undefined" || isNaN(currentValue) || isNaN(simulatedValue)) {
+      if (isNaN(currentValue) || isNaN(simulatedValue)) {
         return NextResponse.json({ error: "Invalid scenario payload." }, { status: 400 });
       }
+
       percentageChange = currentValue !== 0 ? (simulatedValue - currentValue) / currentValue : 0;
     }
 

@@ -7,6 +7,12 @@ import {
   Activity, BrainCircuit, Clock, ChevronRight,
   RefreshCw, TrendingUp, Zap, Target, Sparkles,
 } from "lucide-react";
+import {
+  getAverageHealthMetrics,
+  calculateRecoveryScore,
+  calculateFatigueIndex,
+  calculateBiologicalAge
+} from "@/lib/healthMath";
 
 /* ─── TYPES ─────────────────────────────────────────────────────── */
 type LogType = { domain: string; date: string; domainData?: any };
@@ -149,6 +155,7 @@ export default function DashboardPage() {
     { href: "/goals", label: "Goals" },
     { href: "/simulator", label: "Simulator" },
     { href: "/insights", label: "Insights" },
+    { href: "/assets-liabilities", label: "Net Worth" },
     { href: "/profile", label: "Profile" },
   ];
 
@@ -185,6 +192,12 @@ export default function DashboardPage() {
   const streak = data.gamification?.currentStreak ?? 0;
   const totalPoints = data.gamification?.totalPoints ?? 0;
   const logs = data.timeline || [];
+
+  const chronoAge = data.user?.age || 25.0;
+  const avgHealthMetrics = getAverageHealthMetrics(logs);
+  const recoveryScore = calculateRecoveryScore(avgHealthMetrics);
+  const fatigueIndex = calculateFatigueIndex(avgHealthMetrics);
+  const { biologicalAge: bioAge, reasons: bioReasons } = calculateBiologicalAge(chronoAge, avgHealthMetrics);
 
   const latestHealthLog = logs.find(l => l.domain === "health")?.domainData || {};
   const currentSleep = latestHealthLog.sleepHours || 6.1;
@@ -543,7 +556,7 @@ export default function DashboardPage() {
         /* ── comparison grid ── */
         .cvf-compare {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(3, 1fr);
           gap: 20px;
           padding: 24px 40px 28px;
         }
@@ -900,6 +913,52 @@ export default function DashboardPage() {
                     <span className="cvf-row-val" style={{ color: "#22c55e" }}>{m.future}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* ANATOMICAL TWIN DIAGNOSTICS */}
+            <div className="cvf-self-card" style={{ borderColor: bioAge > chronoAge ? "#ef4444" : "#22c55e" }}>
+              <div className="cvf-self-card-head">
+                <div className="cvf-self-dot" style={{ background: bioAge > chronoAge ? "#ef4444" : "#22c55e", boxShadow: `0 0 6px ${bioAge > chronoAge ? "rgba(239,68,68,0.5)" : "rgba(34,197,94,0.5)"}` }} />
+                <span className="cvf-self-title">Anatomical Twin</span>
+                <span className="cvf-self-badge" style={{ background: bioAge > chronoAge ? "#fee2e2" : "#f0fdf4", color: bioAge > chronoAge ? "#b91c1c" : "#15803d" }}>
+                  {bioAge > chronoAge ? "Aging Accelerated" : "Optimal Speed"}
+                </span>
+              </div>
+              <div className="cvf-self-metrics" style={{ padding: "18px 20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: "#9ca3af", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Chronological Age</div>
+                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#111" }}>{chronoAge.toFixed(1)} <span style={{ fontSize: 11, color: "#9ca3af", fontWeight: 500 }}>yrs</span></div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 9, color: "#9ca3af", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>Biological Age</div>
+                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: bioAge > chronoAge ? "#ef4444" : "#22c55e" }}>{bioAge.toFixed(1)} <span style={{ fontSize: 11, color: "#9ca3af", fontWeight: 500 }}>yrs</span></div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+                  <div style={{ flex: 1, background: "#f8fafc", padding: "10px", borderRadius: 12, border: "1px solid #e8ebf4" }}>
+                    <div style={{ fontSize: 9, color: "#9ca3af", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.04em" }}>Recovery Score</div>
+                    <div style={{ fontSize: "1.1rem", fontWeight: 800, color: recoveryScore > 70 ? "#22c55e" : "#f59e0b" }}>{recoveryScore}%</div>
+                  </div>
+                  <div style={{ flex: 1, background: "#f8fafc", padding: "10px", borderRadius: 12, border: "1px solid #e8ebf4" }}>
+                    <div style={{ fontSize: 9, color: "#9ca3af", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.04em" }}>Fatigue Index</div>
+                    <div style={{ fontSize: "1.1rem", fontWeight: 800, color: fatigueIndex > 60 ? "#ef4444" : "#22c55e" }}>{fatigueIndex}%</div>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: "1px solid #f0f2f8", paddingTop: 12 }}>
+                  <div style={{ fontSize: 9, color: "#9ca3af", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 6 }}>Telemetry Drivers:</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {bioReasons.slice(0, 3).map((r, i) => (
+                      <div key={i} style={{ fontSize: "0.74rem", color: bioAge > chronoAge ? "#b91c1c" : "#15803d", display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
+                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: bioAge > chronoAge ? "#ef4444" : "#22c55e", flexShrink: 0 }} />
+                        {r}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 

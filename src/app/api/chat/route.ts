@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateObject} from 'ai'; // using generateObject directly from the Vercel AI SDK
-import { google } from '@ai-sdk/google';
+import { generateObject } from 'ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { z } from 'zod';
 import { CHAT_BOT_SYSTEM_PROMPT } from '@/lib/prompts/chatPrompt';
+import { connectDB } from '@/lib/mongodb';
+import { getSession } from '@/lib/auth';
+import { getUserById } from '@/services/terminalService';
+import Log from '@/models/Log';
+import mongoose from 'mongoose';
+import { buildTwinContext } from '@/lib/aiContextBuilder';
+
+// Initialize custom Google AI provider using GEMINI_API_KEY
+const googleProvider = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
 
 // Ensure standard edge execution environment or modern node runtime
 export const maxDuration = 30;
@@ -10,7 +21,7 @@ export const maxDuration = 30;
 // Enforce Zod validation for runtime type safety
 const ChatResponseSchema = z.object({
   intent: z.enum(['DATA_ENTRY', 'QUERY_RESPONSE', 'SIMULATION']),
-  message: z.string().describe('The natural conversational response or acknowledgement to show to the user.'),
+  message: z.string().describe('The natural conversational response or acknowledgement as ARIA to show to the Operator.'),
   uiAction: z.object({
     shouldNavigate: z.boolean().describe('Set to true ONLY if intent is SIMULATION.'),
     targetRoute: z.string().describe('The destination URL path (e.g., "/simulator"). Empty string if no navigation.'),
@@ -40,27 +51,79 @@ function checkHeuristicOverride(prompt: string): boolean {
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Session and payload validation (stub out real auth verification as per project spec)
+    // 1. Session and payload validation
+    const session = await getSession();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized Operator neural link.' }, { status: 401 });
+    }
+
     const { message } = await req.json();
-    
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'A valid chat message string is required.' }, { status: 400 });
     }
 
-    // 2. Invoke Gemini using Structured Outputs
-    // Leveraging gemini-2.5-flash or gemini-2.0-flash-001 for low latency JSON schemas
+    // 2. Fetch User & Log Context from DB
+    await connectDB();
+    const [user, recentLogs] = await Promise.all([
+      getUserById(session.user.id),
+      Log.find({ userId: new mongoose.Types.ObjectId(session.user.id) })
+        .sort({ date: -1 })
+        .limit(21)
+        .lean()
+    ]);
+
+    // 3. Build Operator Context
+    let contextString = "No digital twin data available yet.";
+    if (user) {
+      const activeFlags: string[] = [];
+      const twinContext = buildTwinContext(recentLogs || []);
+      if (twinContext) {
+        if (twinContext.behaviorFlags.stressSpendingCorrelation) activeFlags.push("stress_linked_spending");
+        if (twinContext.behaviorFlags.sleepCareerCorrelation) activeFlags.push("chronic_sleep_deprivation");
+        if (twinContext.behaviorFlags.workoutMoodCorrelation) activeFlags.push("workout_mood_correlation");
+        if (twinContext.behaviorFlags.lateNightSpending) activeFlags.push("late_night_spending");
+        if (twinContext.behaviorFlags.weekendDropoff) activeFlags.push("weekend_dropoff");
+      }
+
+      contextString = JSON.stringify({
+        operatorName: user.name,
+        currentScores: {
+          health: user.scores?.health ?? 50,
+          finance: user.scores?.finance ?? 50,
+          career: user.scores?.career ?? 50,
+          globalSyncIndex: Math.round(((user.scores?.health ?? 50) + (user.scores?.finance ?? 50) + (user.scores?.career ?? 50)) / 3)
+        },
+        gamification: {
+          streak: user.gamification?.currentStreak ?? 0,
+          points: user.gamification?.totalPoints ?? 0,
+          badges: user.badges || []
+        },
+        behaviorFlags: activeFlags,
+        weeklyAverages: twinContext ? {
+          sleepHours: twinContext.weeklyAverages.sleep,
+          workoutFrequency: twinContext.weeklyAverages.workout,
+          studyHours: twinContext.weeklyAverages.studyHours,
+          savingsRate: twinContext.weeklyAverages.savingsRate,
+          stressLevel: twinContext.weeklyAverages.stressLevel,
+          moodScore: twinContext.weeklyAverages.moodScore
+        } : null
+      }, null, 2);
+    }
+
+    const systemPrompt = CHAT_BOT_SYSTEM_PROMPT.replace('{{OPERATOR_CONTEXT}}', contextString);
+
+    // 4. Invoke Gemini using Structured Outputs
     const { object } = await generateObject({
-      model: google('gemini-2.5-flash'),
-      system: CHAT_BOT_SYSTEM_PROMPT,
+      model: googleProvider('gemini-2.5-flash'),
+      system: systemPrompt,
       prompt: message,
       schema: ChatResponseSchema,
-      temperature: 0.1, // Low temperature ensures highly deterministic intent matching
+      temperature: 0.15, // Low temperature ensures highly deterministic intent matching
     });
 
-    // 3. Post-processing/Heuristic alignment verification
+    // 5. Post-processing/Heuristic alignment verification
     let finalizedPayload = { ...object };
     if (checkHeuristicOverride(message) && finalizedPayload.intent !== 'SIMULATION') {
-      // Force correction if heuristic rules detect a clear missing link
       finalizedPayload.intent = 'SIMULATION';
       if (finalizedPayload.uiAction) {
         finalizedPayload.uiAction.shouldNavigate = true;
@@ -68,7 +131,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Return type-safe structural layout back to ChatWidget.tsx
+    // 6. Return type-safe structural layout back to ChatWidget.tsx
     return NextResponse.json(finalizedPayload, { status: 200 });
 
   } catch (error: any) {

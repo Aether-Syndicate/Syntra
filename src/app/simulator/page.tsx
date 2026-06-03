@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Activity,
   AlertTriangle,
@@ -162,7 +163,7 @@ function ChartTooltip({ active, payload }: any) {
 }
 
 /* ─── MAIN PAGE ──────────────────────────────────────────────────── */
-export default function SimulatorPage() {
+function SimulatorPage() {
   const [mounted, setMounted]       = useState(false);
   const [domain, setDomain]         = useState<Domain>("career");
   const [activeVar, setActiveVar]   = useState("study_hours");
@@ -184,6 +185,8 @@ export default function SimulatorPage() {
   const [result, setResult]         = useState<SimulationResponse | null>(null);
   const [checkedActions, setCheckedActions] = useState<string[]>([]);
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     setMounted(true);
     fetch("/api/simulate", { credentials: "include" })
@@ -193,16 +196,73 @@ export default function SimulatorPage() {
           setBaselines(data.baselines);
           setUserScores(data.scores);
           setUserGoals(data.goals || []);
-          setSleepHours(data.baselines.sleep_hours || 7.5);
-          setWorkoutFreq(data.baselines.workout_frequency || 3);
-          setStudyHours(data.baselines.study_hours || 4);
-          setFocusRating(data.baselines.focus_rating || 7);
-          setSavingsRate(data.baselines.savings_rate || 20);
+
+          // Defaults from baselines
+          const initialSleep = data.baselines.sleep_hours || 7.5;
+          const initialWorkout = data.baselines.workout_frequency || 3;
+          const initialStudy = data.baselines.study_hours || 4;
+          const initialFocus = data.baselines.focus_rating || 7;
+          const initialSavings = data.baselines.savings_rate || 20;
+
+          // Parse params if available
+          let finalDomain = domain;
+          let finalActiveVar = activeVar;
+          let finalSleep = initialSleep;
+          let finalWorkout = initialWorkout;
+          let finalStudy = initialStudy;
+          let finalFocus = initialFocus;
+          let finalSavings = initialSavings;
+
+          const paramDomain = searchParams.get("domain") as Domain | null;
+          const paramVariable = searchParams.get("variable");
+          const paramVal = searchParams.get("val");
+
+          if (paramDomain && ["career", "health", "finance"].includes(paramDomain)) {
+            finalDomain = paramDomain;
+            if (paramVariable) {
+              finalActiveVar = paramVariable;
+              const numericVal = paramVal ? parseFloat(paramVal) : null;
+              if (numericVal !== null && !isNaN(numericVal)) {
+                if (paramVariable === "sleep_hours") finalSleep = numericVal;
+                else if (paramVariable === "workout_frequency") finalWorkout = numericVal;
+                else if (paramVariable === "study_hours") finalStudy = numericVal;
+                else if (paramVariable === "focus_rating") finalFocus = numericVal;
+                else if (paramVariable === "savings_rate") finalSavings = numericVal;
+              }
+            } else {
+              if (paramDomain === "health") finalActiveVar = "sleep_hours";
+              else if (paramDomain === "finance") finalActiveVar = "savings_rate";
+              else if (paramDomain === "career") finalActiveVar = "study_hours";
+            }
+          }
+
+          setDomain(finalDomain);
+          setActiveVar(finalActiveVar);
+          setSleepHours(finalSleep);
+          setWorkoutFreq(finalWorkout);
+          setStudyHours(finalStudy);
+          setFocusRating(finalFocus);
+          setSavingsRate(finalSavings);
+
+          if (paramDomain) {
+            setTimeout(() => {
+              runSimulation({
+                domain: finalDomain,
+                variable: finalActiveVar,
+                sleepHours: finalSleep,
+                workoutFreq: finalWorkout,
+                studyHours: finalStudy,
+                focusRating: finalFocus,
+                savingsRate: finalSavings,
+                baselines: data.baselines
+              });
+            }, 200);
+          }
         }
       })
       .catch(console.error)
       .finally(() => setBaseLoading(false));
-  }, []);
+  }, [searchParams]);
 
   const pctChange = useMemo(() => {
     let cur = 1, sim = 1;
@@ -238,23 +298,42 @@ export default function SimulatorPage() {
     if (d === "career")   setActiveVar("study_hours");
   };
 
-  const runSimulation = async () => {
+  const runSimulation = async (override?: {
+    domain: Domain;
+    variable: string;
+    sleepHours: number;
+    workoutFreq: number;
+    studyHours: number;
+    focusRating: number;
+    savingsRate: number;
+    baselines: any;
+  }) => {
     setLoading(true); setMessage("");
     try {
+      const activeDomain = override ? override.domain : domain;
+      const activeVarKey = override ? override.variable : activeVar;
+      const activeBaselines = override ? override.baselines : baselines;
+      
       let curVal = 1, simVal = 1;
-      if (domain === "health") {
-        curVal = activeVar === "sleep_hours" ? (baselines?.sleep_hours || 7.5) : (baselines?.workout_frequency || 3);
-        simVal = activeVar === "sleep_hours" ? sleepHours : workoutFreq;
-      } else if (domain === "finance") {
-        curVal = activeVar === "savings_rate" ? (baselines?.savings_rate || 20) : (baselines?.monthly_budget || 40000);
-        simVal = activeVar === "savings_rate" ? savingsRate : Math.round(curVal * (spendStyle / 3));
+      if (activeDomain === "health") {
+        curVal = activeVarKey === "sleep_hours" ? (activeBaselines?.sleep_hours || 7.5) : (activeBaselines?.workout_frequency || 3);
+        simVal = activeVarKey === "sleep_hours" 
+          ? (override ? override.sleepHours : sleepHours) 
+          : (override ? override.workoutFreq : workoutFreq);
+      } else if (activeDomain === "finance") {
+        curVal = activeVarKey === "savings_rate" ? (activeBaselines?.savings_rate || 20) : (activeBaselines?.monthly_budget || 40000);
+        simVal = activeVarKey === "savings_rate" 
+          ? (override ? override.savingsRate : savingsRate) 
+          : Math.round(curVal * (spendStyle / 3));
       } else {
-        curVal = activeVar === "study_hours" ? (baselines?.study_hours || 4) : (baselines?.focus_rating || 7);
-        simVal = activeVar === "study_hours" ? studyHours : focusRating;
+        curVal = activeVarKey === "study_hours" ? (activeBaselines?.study_hours || 4) : (activeBaselines?.focus_rating || 7);
+        simVal = activeVarKey === "study_hours" 
+          ? (override ? override.studyHours : studyHours) 
+          : (override ? override.focusRating : focusRating);
       }
       const res = await fetch("/api/simulate", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ scenario: { domain, variable: activeVar, currentValue: curVal, simulatedValue: simVal } }),
+        body: JSON.stringify({ scenario: { domain: activeDomain, variable: activeVarKey, currentValue: curVal, simulatedValue: simVal } }),
       });
       const data = await res.json();
       if (data.success) { setResult(data); setCheckedActions([]); }
@@ -900,7 +979,7 @@ export default function SimulatorPage() {
               </div>
 
               {/* Run button */}
-              <button className="run-btn" onClick={runSimulation} disabled={loading || baseLoading}>
+              <button className="run-btn" onClick={() => runSimulation()} disabled={loading || baseLoading}>
                 {loading
                   ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }}/> Running simulation…</>
                   : <><Play size={15}/> Run Simulation</>}
@@ -1145,5 +1224,17 @@ export default function SimulatorPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function SimulatorPageWrapper() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "#F4F6FB" }}>
+        <Loader2 size={36} style={{ color: "#0047D4", animation: "spin 1.1s linear infinite" }}/>
+      </div>
+    }>
+      <SimulatorPage />
+    </Suspense>
   );
 }

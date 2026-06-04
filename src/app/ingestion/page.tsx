@@ -2,13 +2,15 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  HeartPulse, Wallet, Briefcase, ArrowLeft, Zap,
+  HeartPulse, Wallet, Briefcase, Zap,
   Droplets, Moon, Dumbbell, Activity, TrendingUp,
   AlertTriangle, CheckCircle2, Send, Upload, MessageSquare,
-  Sparkles, Heart, Star,
+  Sparkles, Star, Bell, Settings, Search, LayoutDashboard,
+  LineChart, Target, History, Plug, Edit3, Heart,
+  Menu, X, ArrowLeft, ChevronRight, BarChart3,
 } from "lucide-react";
-import Uploader from "@/components/Uploader";
 
 /* ─── TYPES ─────────────────────────────────────────────────────── */
 interface HealthData {
@@ -32,7 +34,19 @@ interface LatestData {
   reflection: { data: any; date: string } | null;
 }
 
-/* ─── SCORE PREVIEW ──────────────────────────────────────────────── */
+type SidebarPanel = "manual" | "uploads" | "api";
+
+const NAV_LINKS = [
+  { href: "/dashboard",          label: "Dashboard" },
+  { href: "/ingestion",          label: "Ingestion" },
+  { href: "/goals",              label: "Goals" },
+  { href: "/simulator",          label: "Simulator" },
+  { href: "/insights",           label: "Insights" },
+  { href: "/assets-liabilities", label: "Net Worth" },
+  { href: "/profile",            label: "Profile" },
+];
+
+/* ─── SCORE HELPERS ──────────────────────────────────────────────── */
 function previewHealthScore(h: HealthData) {
   let s = 0;
   if (h.sleepHours >= 7 && h.sleepHours <= 9) s += 40;
@@ -70,30 +84,87 @@ const fmtDate = (d: string) => {
 };
 
 /* ─── TYPEWRITER ─────────────────────────────────────────────────── */
-function TypewriterTitle() {
-  const [text, setText] = useState("");
+function TypewriterTitle({ phrases }: { phrases: string[] }) {
+  const [display, setDisplay] = useState("");
   useEffect(() => {
-    const full = "Today's Check-in";
-    let i = 0; let del = false; let t: ReturnType<typeof setTimeout>;
+    let pi = 0, ci = 0, deleting = false;
+    let t: ReturnType<typeof setTimeout>;
     const tick = () => {
-      if (!del) {
-        setText(full.slice(0, i + 1)); i++;
-        if (i === full.length) { del = true; t = setTimeout(tick, 3500); }
-        else t = setTimeout(tick, 95);
+      const full = phrases[pi];
+      if (!deleting) {
+        setDisplay(full.slice(0, ci + 1)); ci++;
+        if (ci === full.length) { deleting = true; t = setTimeout(tick, 2600); }
+        else t = setTimeout(tick, 72);
       } else {
-        setText(full.slice(0, i - 1)); i--;
-        if (i === 0) { del = false; t = setTimeout(tick, 600); }
-        else t = setTimeout(tick, 42);
+        setDisplay(full.slice(0, ci - 1)); ci--;
+        if (ci === 0) { deleting = false; pi = (pi + 1) % phrases.length; t = setTimeout(tick, 380); }
+        else t = setTimeout(tick, 36);
       }
     };
-    t = setTimeout(tick, 400);
+    t = setTimeout(tick, 300);
     return () => clearTimeout(t);
   }, []);
   return (
-    <h1 className="page-title">
-      <span className="title-blue">{text}</span>
-      <span className="title-cursor" />
-    </h1>
+    <span>
+      {display}
+      <span style={{ display:"inline-block", width:"2px", height:"1em", background:"var(--brand)", marginLeft:"3px", verticalAlign:"text-bottom", borderRadius:"1px", animation:"cur-blink 1s step-end infinite" }}/>
+    </span>
+  );
+}
+
+/* ─── TOP NAVBAR ─────────────────────────────────────────────────── */
+function TopNav() {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return (
+    <div className={`top-nav${scrolled ? " top-nav-scrolled" : ""}`}>
+      <div className="top-nav-inner">
+        <Link href="/" className="top-nav-logo">syn<strong>tra</strong></Link>
+        <nav className="top-nav-links">
+          {NAV_LINKS.map(l => (
+            <Link key={l.href} href={l.href}
+              className={`top-nav-link${l.href === "/ingestion" ? " top-nav-link-active" : ""}`}>
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+        <button className="top-nav-hamburger" onClick={() => setMenuOpen(v => !v)} aria-label="Menu">
+          <span /><span /><span />
+        </button>
+      </div>
+      <div className={`top-nav-mobile-menu${menuOpen ? " open" : ""}`}>
+        {NAV_LINKS.map(l => (
+          <Link key={l.href} href={l.href}
+            className={`top-nav-mobile-link${l.href === "/ingestion" ? " active" : ""}`}
+            onClick={() => setMenuOpen(false)}>
+            {l.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── SIDEBAR NAV ITEM ───────────────────────────────────────────── */
+function NavItem({ icon, label, sub, active, onClick, badge }: {
+  icon: React.ReactNode; label: string; sub?: string; active: boolean;
+  onClick: () => void; badge?: string | number;
+}) {
+  return (
+    <button className={`nav-item${active ? " nav-item-active" : ""}`} onClick={onClick}>
+      <div className="nav-item-icon">{icon}</div>
+      <div className="nav-item-text">
+        <span className="nav-item-label">{label}</span>
+        {sub && <span className="nav-item-sub">{sub}</span>}
+      </div>
+      {badge !== undefined && <span className="nav-badge">{badge}</span>}
+      <ChevronRight size={13} className="nav-arrow" />
+    </button>
   );
 }
 
@@ -108,14 +179,14 @@ function Slider({ label, value, onChange, min, max, step, icon, unit, color, hin
     <div className="slider-box">
       <div className="slider-row-top">
         <div className="slider-label-group">
-          <span className="slider-icon-wrap" style={{ color }}>{icon}</span>
+          <span style={{ color, display:"flex", alignItems:"center" }}>{icon}</span>
           <span className="slider-label">{label}</span>
         </div>
         <span className="slider-badge" style={{ background: `${color}14`, color, border: `1px solid ${color}28` }}>
           {value}{unit}
         </span>
       </div>
-      <div className="slider-track-outer">
+      <div style={{ padding:"4px 0" }}>
         <input
           type="range" min={min} max={max} step={step} value={value}
           onChange={e => onChange(Number(e.target.value))}
@@ -125,7 +196,7 @@ function Slider({ label, value, onChange, min, max, step, icon, unit, color, hin
       </div>
       <div className="slider-ends">
         <span>{min}{unit}</span>
-        {hint && <span className="slider-hint">{hint}</span>}
+        {hint && <span style={{ fontSize:"0.66rem", color:"#94a3b8", fontStyle:"italic" }}>{hint}</span>}
         <span>{max}{unit}</span>
       </div>
     </div>
@@ -139,16 +210,16 @@ function Field({ label, req, opt, type = "text", value, onChange, placeholder, t
   textarea?: boolean; note?: string;
 }) {
   return (
-    <div className="field-box">
+    <div className="field-grp">
       <label className="field-label">
         {label}
-        {req && <span className="req-dot"> *</span>}
-        {opt && <span className="opt-txt"> — optional</span>}
+        {req && <span style={{ color:"var(--brand)" }}> *</span>}
+        {opt && <span style={{ fontSize:"0.67rem", fontWeight:400, color:"var(--text-muted)" }}> — optional</span>}
       </label>
-      {note && <span className="field-note">{note}</span>}
+      {note && <span style={{ fontSize:"0.7rem", color:"var(--text-muted)" }}>{note}</span>}
       {textarea
-        ? <textarea className="f-input f-textarea" placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} />
-        : <input type={type} className="f-input" placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} />
+        ? <textarea className="field-input f-textarea" placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} />
+        : <input type={type} className="field-input" placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} />
       }
     </div>
   );
@@ -166,213 +237,209 @@ function ProcessingScreen() {
     { icon: "🎯", text: "Your dashboard is ready!" },
   ];
   const pct = Math.round((step / (steps.length - 1)) * 100);
-
   useEffect(() => {
     const iv = setInterval(() => setStep(p => p < steps.length - 1 ? p + 1 : p), 650);
     return () => clearInterval(iv);
   }, []);
-
   return (
     <div className="proc-root">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-
-        .proc-root{
-          min-height:100vh;
-          background:#f0f2f8;
-          font-family:"Inter","DM Sans",sans-serif;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          padding:24px;
-        }
-
-        .proc-card{
-          background:#fff;
-          border:1px solid #e2e8f2;
-          border-radius:28px;
-          padding:48px 40px;
-          max-width:480px;
-          width:100%;
-          box-shadow:0 12px 48px rgba(0,68,221,0.1),0 2px 8px rgba(0,0,0,0.04);
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          text-align:center;
-        }
-
-        .proc-logo{
-          font-family:"DM Sans",sans-serif;
-          font-size:0.85rem;
-          font-weight:700;
-          color:#0044DD;
-          letter-spacing:0.15em;
-          text-transform:uppercase;
-          margin-bottom:36px;
-          display:flex;
-          align-items:center;
-          gap:7px;
-        }
-        .proc-logo-dot{
-          width:7px;height:7px;border-radius:50%;
-          background:#0044DD;
-          box-shadow:0 0 8px rgba(0,68,221,0.6);
-          animation:ldot 1.6s ease-in-out infinite;
-        }
-        @keyframes ldot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
-
-        .proc-emoji-wrap{
-          width:96px;height:96px;
-          background:linear-gradient(135deg,#eff4ff,#e0e7ff);
-          border:2px solid #dbeafe;
-          border-radius:50%;
-          display:flex;align-items:center;justify-content:center;
-          font-size:2.4rem;
-          margin-bottom:28px;
-          animation:emojiPop 0.4s cubic-bezier(0.16,1,0.3,1);
-          position:relative;
-        }
-        @keyframes emojiPop{from{transform:scale(0.7);opacity:0}to{transform:scale(1);opacity:1}}
-        .proc-emoji-ring{
-          position:absolute;inset:-6px;border-radius:50%;
-          border:2px solid rgba(0,68,221,0.15);
-          animation:ringPulse 2s ease-in-out infinite;
-        }
-        @keyframes ringPulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.06);opacity:1}}
-
-        .proc-step-text{
-          font-family:"DM Sans",sans-serif;
-          font-size:1.4rem;
-          font-weight:800;
-          color:#0d1117;
-          letter-spacing:-0.02em;
-          margin-bottom:8px;
-          animation:fadeUp 0.35s ease;
-          min-height:38px;
-        }
-        @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-
-        .proc-sub{
-          font-size:0.85rem;
-          color:#64748b;
-          line-height:1.6;
-          margin-bottom:36px;
-        }
-
-        .proc-bar-wrap{
-          width:100%;
-          background:#f0f2f8;
-          border-radius:9999px;
-          height:8px;
-          overflow:hidden;
-          margin-bottom:12px;
-        }
-        .proc-bar-fill{
-          height:100%;
-          border-radius:9999px;
-          background:linear-gradient(90deg,#0044DD,#0066FF);
-          transition:width 0.65s cubic-bezier(0.34,1.56,0.64,1);
-          box-shadow:0 0 12px rgba(0,68,221,0.3);
-        }
-        .proc-pct{
-          font-size:0.76rem;
-          font-weight:700;
-          color:#0044DD;
-          margin-bottom:28px;
-        }
-
-        .proc-steps-list{
-          width:100%;
-          display:flex;
-          flex-direction:column;
-          gap:8px;
-        }
-        .proc-step-row{
-          display:flex;
-          align-items:center;
-          gap:10px;
-          padding:10px 14px;
-          border-radius:12px;
-          font-size:0.82rem;
-          font-weight:500;
-          color:#94a3b8;
-          transition:all 0.3s;
-        }
-        .proc-step-row.done{
-          background:#f0fdf4;
-          border:1px solid #bbf7d0;
-          color:#15803d;
-          font-weight:600;
-        }
-        .proc-step-row.active{
-          background:#eff4ff;
-          border:1px solid #dbeafe;
-          color:#0044DD;
-          font-weight:700;
-        }
-        .proc-step-row.pending{
-          background:#f8fafc;
-          border:1px solid transparent;
-          color:#b0bac6;
-        }
-        .proc-step-icon{font-size:1rem;}
-        .proc-check{color:#22c55e;display:flex;}
-        .proc-dot-ind{width:7px;height:7px;border-radius:50%;background:#0044DD;animation:ldot 0.9s ease-in-out infinite;}
-
-        .proc-tip{
-          margin-top:28px;
-          padding:14px 18px;
-          background:#f8fafc;
-          border:1px solid #e2e8f2;
-          border-radius:14px;
-          font-size:0.78rem;
-          color:#64748b;
-          line-height:1.55;
-          font-style:italic;
-          max-width:360px;
-        }
-      `}</style>
-
       <div className="proc-card">
         <div className="proc-logo">
-          <div className="proc-logo-dot" />
-          Syntra
+          <div className="lp-logo-dot" />
+          <span>Syntra</span>
         </div>
-
         <div className="proc-emoji-wrap">
           <div className="proc-emoji-ring" />
-          <span key={step}>{steps[step].icon}</span>
+          <span key={step} style={{ fontSize:"2.4rem" }}>{steps[step].icon}</span>
         </div>
-
         <div className="proc-step-text" key={`text-${step}`}>{steps[step].text}</div>
-        <p className="proc-sub">
-          {pct < 100
-            ? "Hang tight — we're making sense of your day so you don't have to."
-            : "All done! Taking you to your dashboard now."}
+        <p style={{ fontSize:"0.84rem", color:"var(--text-secondary)", lineHeight:1.6, marginBottom:36 }}>
+          {pct < 100 ? "Hang tight — making sense of your day." : "All done! Taking you to your dashboard."}
         </p>
-
-        <div className="proc-bar-wrap">
-          <div className="proc-bar-fill" style={{ width: `${pct}%` }} />
+        <div style={{ width:"100%", background:"var(--bg)", borderRadius:9999, height:8, overflow:"hidden", marginBottom:12 }}>
+          <div style={{ height:"100%", borderRadius:9999, background:"linear-gradient(90deg,var(--brand),#0066FF)", width:`${pct}%`, transition:"width 0.65s cubic-bezier(0.34,1.56,0.64,1)" }} />
         </div>
-        <div className="proc-pct">{pct}% complete</div>
-
-        <div className="proc-steps-list">
+        <div style={{ fontSize:"0.75rem", fontWeight:700, color:"var(--brand)", marginBottom:28 }}>{pct}% complete</div>
+        <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:7 }}>
           {steps.map((s, i) => (
-            <div
-              key={i}
-              className={`proc-step-row ${i < step ? "done" : i === step ? "active" : "pending"}`}
-            >
-              <span className="proc-step-icon">{s.icon}</span>
-              <span style={{ flex: 1 }}>{s.text}</span>
-              {i < step && <span className="proc-check"><CheckCircle2 size={14} /></span>}
-              {i === step && <span className="proc-dot-ind" />}
+            <div key={i} className={`proc-step-row ${i < step ? "done" : i === step ? "active" : "pending"}`}>
+              <span>{s.icon}</span>
+              <span style={{ flex:1 }}>{s.text}</span>
+              {i < step && <CheckCircle2 size={14} style={{ color:"#22c55e" }} />}
+              {i === step && <div className="lp-logo-dot" />}
             </div>
           ))}
         </div>
+        <div style={{ marginTop:28, padding:"13px 17px", background:"var(--bg)", border:"1px solid var(--border)", borderRadius:13, fontSize:"0.77rem", color:"var(--text-secondary)", lineHeight:1.55, fontStyle:"italic", maxWidth:360, textAlign:"center" }}>
+          💡 The more consistently you log, the smarter your insights become.
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        <div className="proc-tip">
-          💡 Tip: The more consistently you log, the smarter your insights become over time.
+/* ─── API SYNC PANEL ─────────────────────────────────────────────── */
+function ApiSyncPanel() {
+  const [connected, setConnected] = useState({ apple: true, gfit: true, bank: false, coursera: false });
+  const integrations = [
+    { key: "apple", name: "Apple Health", desc: "Sync sleep, activity, heart rate and wellness metrics.", icon: "❤️", color: "#ff3b30", bg: "#fff0f0", lastSync: "18 min ago" },
+    { key: "gfit", name: "Google Fit", desc: "Sync steps, workouts, calories and health metrics.", icon: "🏃", color: "#ea580c", bg: "#fff7ed", lastSync: "1h ago" },
+    { key: "bank", name: "Bank Account", desc: "Sync transactions, savings and spending patterns via open banking.", icon: "🏦", color: "#16a34a", bg: "#f0fdf4", lastSync: null },
+    { key: "coursera", name: "Coursera", desc: "Sync completed courses, learning progress and certifications.", icon: "🎓", color: "var(--brand)", bg: "var(--brand-light)", lastSync: null },
+  ];
+  return (
+    <div>
+      <div className="page-top">
+        <div>
+          <div className="page-eyebrow"><div className="page-eyebrow-dot" /><span className="page-eyebrow-text">Check-in</span></div>
+          <h1 className="page-title"><TypewriterTitle phrases={["API Sync", "Connect Your Apps", "Auto-Import Data"]} /></h1>
+          <p className="page-subtitle">Connect your favourite apps to automatically import data into Syntra.</p>
+        </div>
+      </div>
+      <div className="body-pad">
+        <div className="section-hd">
+          <span className="section-hd-label"><Plug size={11} /> Connected integrations</span>
+          <div className="section-hd-rule" />
+          <span style={{ fontSize:"0.67rem", fontWeight:700, padding:"2px 8px", borderRadius:6, background:"#f0fdf4", color:"#15803d", border:"1px solid #bbf7d0", whiteSpace:"nowrap" }}>
+            {Object.values(connected).filter(Boolean).length} connected
+          </span>
+        </div>
+        <div className="integrations-grid">
+          {integrations.map(intg => {
+            const isConn = connected[intg.key as keyof typeof connected];
+            return (
+              <div key={intg.key} className="form-card" style={{ marginBottom:0 }}>
+                <div className="form-card-stripe" style={{ background: isConn ? `linear-gradient(90deg,${intg.color},${intg.color}99)` : "linear-gradient(90deg,#e2e8f2,#f0f4f8)" }} />
+                <div className="form-card-body" style={{ padding:"18px 20px" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:12, marginBottom:12 }}>
+                    <div style={{ width:46, height:46, borderRadius:13, background:intg.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.3rem", flexShrink:0 }}>{intg.icon}</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:"0.88rem", fontWeight:800, color:"var(--text-primary)", marginBottom:3 }}>{intg.name}</div>
+                      <div style={{ fontSize:"0.72rem", color:"var(--text-secondary)", lineHeight:1.45 }}>{intg.desc}</div>
+                    </div>
+                  </div>
+                  <span className={`int-badge ${isConn ? "badge-connected" : "badge-disconnected"}`}>
+                    <span className={`badge-dot ${isConn ? "dot-green" : "dot-gray"}`} />
+                    {isConn ? "Connected" : "Not connected"}
+                  </span>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingTop:13, borderTop:"1px solid var(--border)", marginTop:12 }}>
+                    <span style={{ fontSize:"0.68rem", color:"var(--text-muted)", fontWeight:500 }}>
+                      {intg.lastSync ? `Synced ${intg.lastSync}` : "Never synced"}
+                    </span>
+                    <button
+                      className={`btn-sm ${isConn ? "btn-sm-ghost" : "btn-sm-primary"}`}
+                      onClick={() => setConnected(p => ({ ...p, [intg.key]: !p[intg.key as keyof typeof connected] }))}
+                    >
+                      <Plug size={11} /> {isConn ? "Disconnect" : "Connect"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── UPLOADS PANEL ──────────────────────────────────────────────── */
+function UploadsPanel({ onSuccess }: { onSuccess: () => void }) {
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadDomain, setUploadDomain] = useState<"health" | "finance" | "career">("health");
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [activeType, setActiveType] = useState<"pdf" | "csv" | "excel">("pdf");
+
+  const handleUpload = async () => {
+    if (!uploadFile) { setUploadMsg({ text: "Select a file first.", ok: false }); return; }
+    setUploadLoading(true); setUploadMsg(null);
+    const fd = new FormData(); fd.append("file", uploadFile); fd.append("domain", uploadDomain);
+    try {
+      const res = await fetch(uploadFile.name.endsWith(".csv") ? "/api/upload/csv" : "/api/upload/excel", { method: "POST", body: fd, credentials: "include" });
+      const d = await res.json();
+      if (!res.ok || !d.success) throw new Error(d.message || "Upload failed.");
+      setUploadMsg({ text: d.message || "File uploaded successfully!", ok: true });
+      setUploadFile(null);
+      onSuccess();
+    } catch (err: any) { setUploadMsg({ text: err.message || "Upload failed.", ok: false }); }
+    finally { setUploadLoading(false); }
+  };
+
+  const uploadTypes = [
+    { key: "pdf", label: "PDF Upload", sub: "Reports, salary slips, receipts", icon: "📄", color: "#dc2626", bg: "#fef2f2" },
+    { key: "csv", label: "CSV Upload", sub: "Exported spreadsheets", icon: "📊", color: "#16a34a", bg: "#f0fdf4" },
+    { key: "excel", label: "Excel Upload", sub: "Health logs, expense trackers", icon: "📋", color: "var(--brand)", bg: "var(--brand-light)" },
+  ];
+  const current = uploadTypes.find(t => t.key === activeType)!;
+
+  return (
+    <div>
+      <div className="page-top">
+        <div>
+          <div className="page-eyebrow"><div className="page-eyebrow-dot" /><span className="page-eyebrow-text">Check-in</span></div>
+          <h1 className="page-title"><TypewriterTitle phrases={["Data Uploads", "Import Your Files", "Sync Your Records"]} /></h1>
+          <p className="page-subtitle">Import your data from documents, spreadsheets and reports.</p>
+        </div>
+      </div>
+      <div className="body-pad">
+        <div className="section-hd"><span className="section-hd-label">File Type</span><div className="section-hd-rule" /></div>
+        <div className="upload-type-grid">
+          {uploadTypes.map(t => (
+            <button key={t.key} className={`upload-type-card${activeType === t.key ? " selected" : ""}`}
+              style={activeType === t.key ? { borderColor: t.color, background: t.bg } : {}}
+              onClick={() => setActiveType(t.key as any)}>
+              <div style={{ width:46, height:46, borderRadius:13, background: activeType === t.key ? `${t.color}18` : "#f0f2f8", color:t.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.4rem" }}>{t.icon}</div>
+              <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:"0.82rem", fontWeight:700, color:"var(--text-primary)" }}>{t.label}</div>
+              <div style={{ fontSize:"0.69rem", color:"var(--text-muted)", lineHeight:1.4 }}>{t.sub}</div>
+            </button>
+          ))}
+        </div>
+
+        <div className="form-card">
+          <div className="form-card-stripe" style={{ background:"linear-gradient(90deg,#7c3aed,#9f6ef5)" }} />
+          <div className="form-card-head">
+            <div className="fch-icon" style={{ background:"#f5f3ff", color:"#7c3aed" }}><Upload size={19} /></div>
+            <div><div className="fch-title">{current.label}</div><div className="fch-sub">Intelligently parse and import your data</div></div>
+          </div>
+          <div className="form-card-body">
+            <div className="field-grp">
+              <label className="field-label">Which area is this file for?</label>
+              <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+                {(["health", "finance", "career"] as const).map(d => (
+                  <button key={d} className={`prio-btn${uploadDomain === d ? " on" : ""}`}
+                    style={uploadDomain === d ? { borderColor:"var(--brand)", background:"var(--brand-light)" } : {}}
+                    onClick={() => setUploadDomain(d)}>
+                    <span style={{ fontSize:"1rem" }}>{d === "health" ? "🟢" : d === "finance" ? "🔵" : "🟣"}</span>
+                    <span className="prio-label" style={uploadDomain === d ? { color:"var(--brand)" } : {}}>{d === "health" ? "Health" : d === "finance" ? "Money" : "Career"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="dropzone" onClick={() => document.getElementById("file-inp-up")?.click()}>
+              <input id="file-inp-up" type="file" accept={current.key === "pdf" ? ".pdf" : current.key === "csv" ? ".csv" : ".xlsx,.xls"} style={{ display:"none" }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) setUploadFile(f); }} />
+              <Upload size={24} style={{ color:"var(--brand)" }} />
+              <div style={{ fontSize:"0.84rem", color:"var(--text-secondary)", fontWeight:500, textAlign:"center" }}>
+                {uploadFile
+                  ? <strong style={{ color:"var(--text-primary)" }}>{uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)</strong>
+                  : <><span style={{ color:"var(--brand)", fontWeight:700 }}>Choose a file</span> or drag it here</>}
+              </div>
+              <div style={{ fontSize:"0.7rem", color:"var(--text-muted)" }}>Supports {current.key === "pdf" ? ".pdf" : current.key === "csv" ? ".csv" : ".xlsx, .xls"}</div>
+            </div>
+
+            {uploadMsg && (
+              <div className={`upload-msg${uploadMsg.ok ? " ok" : " err"}`}>
+                {uploadMsg.ok ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+                {uploadMsg.text}
+              </div>
+            )}
+
+            <button className="save-btn" onClick={handleUpload} disabled={!uploadFile || uploadLoading}>
+              {uploadLoading ? <><Activity size={15} /> Uploading...</> : <><Send size={14} /> Upload File</>}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -389,11 +456,9 @@ export default function IngestionPage() {
   const [todayLogged, setTodayLogged] = useState(false);
   const [latest, setLatest] = useState<LatestData | null>(null);
   const [currentScores, setCurrentScores] = useState({ health: 50, finance: 50, career: 50 });
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadDomain, setUploadDomain] = useState<"health" | "finance" | "career">("health");
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [uploadMsg, setUploadMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [dailyNote, setDailyNote] = useState("");
+  const [activePanel, setActivePanel] = useState<SidebarPanel>("manual");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [health, setHealth] = useState<HealthData>({
     sleepHours: 0, workoutMinutes: 0, stressLevel: 1, moodScore: 5,
@@ -413,6 +478,15 @@ export default function IngestionPage() {
   const pF = useMemo(() => previewFinanceScore(finance), [finance]);
   const pC = useMemo(() => previewCareerScore(career), [career]);
 
+  const refreshLatest = () => {
+    fetch("/api/log/latest", { credentials: "include" })
+      .then(r => r.json()).then(d => {
+        if (!d.success) return;
+        setLatest(d.latest);
+        if (d.scores) setCurrentScores(d.scores);
+      }).catch(() => {});
+  };
+
   useEffect(() => {
     setMounted(true);
     fetch("/api/log/latest", { credentials: "include" })
@@ -424,20 +498,7 @@ export default function IngestionPage() {
         if ((d.latest?.health && isT(d.latest.health.date)) ||
           (d.latest?.finance && isT(d.latest.finance.date)) ||
           (d.latest?.career && isT(d.latest.career.date))) setTodayLogged(true);
-        if (d.latest?.health && isT(d.latest.health.date)) {
-          const h = d.latest.health.data;
-          setHealth({ sleepHours: h.sleepHours ?? 0, workoutMinutes: h.workoutMinutes ?? 0, stressLevel: h.stressLevel ?? 1, moodScore: h.moodScore ?? 5, energyLevel: h.energyLevel ?? 5, waterGlasses: h.waterGlasses ?? 0, skippedMeals: h.skippedMeals ?? [], caloriesConsumed: h.caloriesConsumed != null ? String(h.caloriesConsumed) : "", calorieGoal: h.calorieGoal != null ? String(h.calorieGoal) : "", mealsEatenToday: h.mealsEatenToday ?? "" });
-        }
-        if (d.latest?.finance && isT(d.latest.finance.date)) {
-          const f = d.latest.finance.data;
-          setFinance({ amountSaved: f.amountSaved != null ? String(f.amountSaved) : "", discretionarySpent: f.discretionarySpent != null ? String(f.discretionarySpent) : "", spendingCategory: f.spendingCategory ?? "food", biggestExpenseToday: f.biggestExpenseToday ?? "", impulseSpend: f.impulseSpend ?? false });
-        }
-        if (d.latest?.career && isT(d.latest.career.date)) {
-          const c = d.latest.career.data;
-          setCareer({ hoursStudied: c.hoursStudied != null ? String(c.hoursStudied) : "", productivityRating: c.productivityRating ?? 5, sessionsCompleted: c.sessionsCompleted != null ? String(c.sessionsCompleted) : "", courseName: c.courseName ?? "", goalWorkedOn: c.goalWorkedOn ?? "", blockerToday: c.blockerToday ?? "" });
-        }
-        if (d.latest?.reflection && isT(d.latest.reflection.date)) setDailyNote(d.latest.reflection.data?.note ?? "");
-      }).catch(() => { });
+      }).catch(() => {});
   }, []);
 
   const toggleMeal = useCallback((m: string) =>
@@ -451,40 +512,14 @@ export default function IngestionPage() {
     try {
       const res = await fetch("/api/log/daily", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({
-          health: { sleepHours: health.sleepHours, workoutMinutes: health.workoutMinutes, stressLevel: health.stressLevel, moodScore: health.moodScore || undefined, energyLevel: health.energyLevel || undefined, waterGlasses: health.waterGlasses || undefined, skippedMeals: health.skippedMeals.length ? health.skippedMeals : undefined, caloriesConsumed: health.caloriesConsumed ? Number(health.caloriesConsumed) : undefined, calorieGoal: health.calorieGoal ? Number(health.calorieGoal) : undefined, mealsEatenToday: health.mealsEatenToday.trim() || undefined },
-          finance: { amountSaved: Number(finance.amountSaved), discretionarySpent: Number(finance.discretionarySpent), spendingCategory: finance.spendingCategory || undefined, biggestExpenseToday: finance.biggestExpenseToday || undefined, impulseSpend: finance.impulseSpend || undefined },
-          career: { hoursStudied: Number(career.hoursStudied), productivityRating: career.productivityRating, sessionsCompleted: career.sessionsCompleted ? Number(career.sessionsCompleted) : undefined, courseName: career.courseName || undefined, goalWorkedOn: career.goalWorkedOn || undefined, blockerToday: career.blockerToday || undefined },
-          dailyNote: dailyNote.trim() || undefined,
-        }),
+        body: JSON.stringify({ health, finance, career, dailyNote: dailyNote.trim() || undefined }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.message || "Submission failed.");
-      window.dispatchEvent(new Event("syntra-refresh"));
       setLoading(false); setProcessing(true);
       setTimeout(() => router.push("/dashboard"), 4200);
     } catch (err: any) { setMessage(err.message || "Submission failed."); setLoading(false); }
   };
-
-  const handleUpload = async () => {
-    if (!uploadFile) { setUploadMsg({ text: "Select a file first.", ok: false }); return; }
-    setUploadLoading(true); setUploadMsg(null);
-    const fd = new FormData(); fd.append("file", uploadFile); fd.append("domain", uploadDomain);
-    try {
-      const res = await fetch(uploadFile.name.endsWith(".csv") ? "/api/upload/csv" : "/api/upload/excel", { method: "POST", body: fd, credentials: "include" });
-      const d = await res.json();
-      if (!res.ok || !d.success) throw new Error(d.message || "Upload failed.");
-      setUploadMsg({ text: d.message || "File uploaded successfully!", ok: true });
-      setUploadFile(null);
-      const fi = document.getElementById("file-inp") as HTMLInputElement;
-      if (fi) fi.value = "";
-      window.dispatchEvent(new Event("syntra-refresh"));
-    } catch (err: any) { setUploadMsg({ text: err.message || "Upload failed.", ok: false }); }
-    finally { setUploadLoading(false); }
-  };
-
-  if (!mounted) return null;
-  if (processing) return <ProcessingScreen />;
 
   const PROMPTS = [
     "What was the best part of your day?",
@@ -495,459 +530,865 @@ export default function IngestionPage() {
   ];
   const prompt = PROMPTS[new Date().getDate() % PROMPTS.length];
 
+  const sidebarNav = [
+    { key: "manual" as const, label: "Manual Entry", sub: "Log your day", icon: <Edit3 size={15} />, badge: "3 sections" },
+    { key: "uploads" as const, label: "Data Uploads", sub: "Import files", icon: <Upload size={15} /> },
+    { key: "api" as const, label: "API Sync", sub: "2 connected", icon: <Plug size={15} />, badge: "2" },
+  ];
+
+  if (!mounted) return null;
+  if (processing) return <ProcessingScreen />;
+
   return (
     <div className="root">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-        body{background:#f0f2f8;font-family:"Inter","DM Sans",sans-serif;-webkit-font-smoothing:antialiased;}
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .root{min-height:100vh;background:#f0f2f8;padding-bottom:100px;}
+        :root {
+          --brand:         #0047D4;
+          --brand-light:   #EEF3FF;
+          --brand-mid:     #C7D7FA;
+          --surface:       #FFFFFF;
+          --bg:            #EDF0F7;
+          --bg-deep:       #E2E6F0;
+          --border:        #D6DCE8;
+          --border-hover:  #A8BADE;
+          --text-primary:  #0D1117;
+          --text-secondary:#52637A;
+          --text-muted:    #8A9BB5;
+          --shadow-sm:     0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+          --shadow-md:     0 4px 16px rgba(0,0,0,0.09), 0 2px 6px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+          --shadow-lg:     0 8px 28px rgba(0,71,212,0.13), 0 3px 10px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,71,212,0.06);
+          --shadow-hover:  0 16px 44px rgba(0,71,212,0.16), 0 4px 14px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,71,212,0.08);
+          --shadow-card:   0 2px 8px rgba(0,0,0,0.07), 0 6px 24px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+          --nav-h:         70px;
+          --mob-tab-h:     64px;
+          --sidebar-w:     272px;
+        }
 
-        /* ── BACK BTN ── */
-        .back-btn{display:inline-flex;align-items:center;gap:7px;font-size:0.82rem;font-weight:600;color:#64748b;cursor:pointer;padding:8px 16px;border-radius:9999px;border:1.5px solid #e2e8f2;background:#fff;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.05);text-decoration:none;}
-        .back-btn:hover{color:#0044DD;border-color:#c0d0f8;background:#eff4ff;transform:translateX(-2px);}
+        body { background: var(--bg-deep); font-family: "Inter", sans-serif; -webkit-font-smoothing: antialiased; color: var(--text-primary); }
 
-        /* ── PAGE HEADER ── */
-        .page-header{max-width:780px;margin:0 auto;padding:40px 24px 20px;}
-        .page-title{font-family:"DM Sans",sans-serif;font-size:clamp(1.9rem,4.5vw,2.5rem);font-weight:800;color:#0d1117;letter-spacing:-0.04em;margin-bottom:8px;display:flex;align-items:center;line-height:1.15;}
-        .title-blue{color:#0044DD;}
-        .title-cursor{display:inline-block;width:3px;height:2.1rem;background:#0044DD;margin-left:4px;vertical-align:middle;animation:blink 0.85s step-end infinite;}
-        @keyframes blink{50%{opacity:0}}
-        .page-sub{font-size:0.9rem;color:#64748b;line-height:1.65;font-weight:400;max-width:520px;}
+        @keyframes cur-blink  { 50% { opacity: 0; } }
+        @keyframes screen-in  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fade-up    { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes lp-pulse   { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.65; transform:scale(1.35); } }
+        @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
 
-        /* ── BANNER ── */
-        .banner-section{max-width:780px;margin:0 auto;padding:0 24px 16px;}
-        .today-banner{display:flex;align-items:center;gap:10px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:14px;padding:13px 18px;font-size:0.84rem;font-weight:600;color:#15803d;}
-        .today-banner-icon{width:30px;height:30px;background:#dcfce7;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#16a34a;}
+        /* ── TOP NAVBAR ── */
+        .top-nav {
+          position: fixed; top: 0; left: 0; width: 100%;
+          z-index: 500; height: var(--nav-h);
+          background: rgba(255,255,255,0.92);
+          backdrop-filter: blur(16px);
+          border-bottom: 1px solid rgba(214,220,232,0.6);
+          transition: background 0.28s, border-color 0.28s, box-shadow 0.28s;
+        }
+        .top-nav.top-nav-scrolled { background: #fff; border-color: #e2e6f0; box-shadow: 0 2px 20px rgba(0,0,0,0.08); }
+        .top-nav-inner {
+          max-width: 1600px; margin: 0 auto; height: 100%;
+          display: flex; align-items: center; justify-content: space-between; padding: 0 2.5rem;
+        }
+        .top-nav-logo {
+          font-family: 'DM Sans', sans-serif; font-size: 1.55rem; font-weight: 300;
+          color: var(--brand); text-decoration: none; letter-spacing: 0.2em; text-transform: uppercase; transition: opacity 0.2s;
+        }
+        .top-nav-logo:hover { opacity: 0.78; }
+        .top-nav-logo strong { font-weight: 800; letter-spacing: 0.1em; }
+        .top-nav-links { display: flex; align-items: center; gap: 4px; }
+        .top-nav-link {
+          font-family: 'Inter', sans-serif; font-size: 0.84rem; font-weight: 500;
+          color: #555; text-decoration: none; padding: 7px 14px; border-radius: 9999px; transition: all 0.2s;
+        }
+        .top-nav-link:hover { background: #f0f4ff; color: var(--brand); }
+        .top-nav-link-active { background: var(--brand) !important; color: #fff !important; font-weight: 600; }
+        .top-nav-hamburger {
+          display: none; flex-direction: column; gap: 5px; cursor: pointer;
+          padding: 8px; border: 1.5px solid #e0e0e0; border-radius: 10px; background: #f5f5f5; transition: all 0.2s;
+        }
+        .top-nav-hamburger:hover { border-color: var(--brand-mid); background: var(--brand-light); }
+        .top-nav-hamburger span { display: block; width: 20px; height: 2px; background: #333; border-radius: 2px; }
+        .top-nav-mobile-menu {
+          display: none; flex-direction: column; gap: 5px;
+          position: absolute; top: calc(var(--nav-h) + 4px); right: 20px;
+          width: 210px; padding: 12px; border-radius: 16px;
+          background: rgba(255,255,255,0.97); backdrop-filter: blur(20px);
+          border: 1px solid #e8ebf4; box-shadow: 0 12px 40px rgba(0,68,220,0.12); z-index: 600;
+        }
+        .top-nav-mobile-menu.open { display: flex; }
+        .top-nav-mobile-link {
+          font-size: 0.88rem; font-weight: 500; color: #333; text-decoration: none;
+          padding: 10px 14px; border-radius: 10px; transition: all 0.16s;
+        }
+        .top-nav-mobile-link:hover { background: #f0f4ff; color: var(--brand); }
+        .top-nav-mobile-link.active { background: var(--brand-light); color: var(--brand); font-weight: 700; }
 
-        /* ── SNAPSHOT ── */
-        .snap-section{max-width:780px;margin:0 auto;padding:0 24px 8px;}
-        .snap-label{font-size:0.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-        .snap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-        .snap-card{background:#fff;border:1px solid #e2e8f2;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.03);transition:all 0.2s;}
-        .snap-card:hover{box-shadow:0 4px 16px rgba(0,68,221,0.08);transform:translateY(-1px);}
-        .snap-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-        .snap-domain{font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;}
-        .snap-time{font-size:0.65rem;color:#94a3b8;font-weight:500;background:#f8fafc;padding:2px 7px;border-radius:6px;}
-        .snap-vals{display:flex;flex-direction:column;gap:4px;}
-        .snap-val{font-size:0.76rem;color:#64748b;font-weight:500;display:flex;justify-content:space-between;}
-        .snap-val strong{color:#111;font-weight:700;}
-        .snap-empty{font-size:0.74rem;color:#94a3b8;font-style:italic;}
+        /* ── LAYOUT ── */
+        .root { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg-deep); }
+        .page-body { display: flex; flex: 1; padding-top: var(--nav-h); }
 
-        /* ── FORM WRAPPER ── */
-        .form-wrap{max-width:780px;margin:0 auto;padding:0 24px;display:flex;flex-direction:column;gap:16px;}
+        /* ── SIDEBAR ── */
+        .left-panel {
+          width: var(--sidebar-w); flex-shrink: 0;
+          background: linear-gradient(160deg, #0036BB 0%, #0052E8 45%, #2A18E8 100%);
+          display: flex; flex-direction: column;
+          position: sticky; top: var(--nav-h);
+          height: calc(100vh - var(--nav-h)); overflow: hidden;
+          box-shadow: 4px 0 24px rgba(0,36,187,0.18), 0 -1px 0 rgba(255,255,255,0.08) inset;
+          z-index: 10;
+        }
+        .left-panel::before {
+          content:''; position:absolute; top:-90px; left:-70px;
+          width:260px; height:260px; border-radius:50%;
+          background:radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+          pointer-events:none;
+        }
+        .lp-grid {
+          position:absolute; inset:0; pointer-events:none;
+          background-image:
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+          background-size:44px 44px;
+        }
+        .left-panel-top-rule {
+          height: 3px; flex-shrink: 0; position: relative; z-index: 2;
+          background: linear-gradient(90deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06));
+        }
+        .lp-brand {
+          padding: 20px 20px 16px; position: relative; z-index: 2;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .lp-logo {
+          display: inline-flex; align-items: center; gap: 7px;
+          background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+          border-radius: 9999px; padding: 4px 12px;
+          font-size: 0.66rem; font-weight: 800; color: #fff;
+          letter-spacing: 0.13em; text-transform: uppercase; margin-bottom: 13px;
+        }
+        .lp-logo-dot {
+          width: 6px; height: 6px; border-radius: 50%;
+          background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,0.85);
+          animation: lp-pulse 2.2s infinite; flex-shrink: 0;
+        }
+        .lp-heading { font-family: "DM Sans",sans-serif; font-size: 1.2rem; font-weight: 800; color: #fff; letter-spacing: -0.03em; line-height: 1.2; }
+        .lp-sub { font-size: 0.72rem; color: rgba(255,255,255,0.55); margin-top: 4px; line-height: 1.55; }
+        .lp-stats { display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; z-index: 2; }
+        .lp-stat { flex: 1; padding: 12px 10px; text-align: center; border-right: 1px solid rgba(255,255,255,0.1); }
+        .lp-stat:last-child { border-right: none; }
+        .lp-stat-num { font-family: "DM Sans",sans-serif; font-size: 1.3rem; font-weight: 800; color: #fff; line-height: 1; }
+        .lp-stat-lbl { font-size: 0.57rem; font-weight: 700; color: rgba(255,255,255,0.48); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 3px; }
+        .lp-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; position: relative; z-index: 2; }
+        .lp-section-lbl {
+          font-size: 0.59rem; font-weight: 700; color: rgba(255,255,255,0.4);
+          text-transform: uppercase; letter-spacing: 0.11em; padding: 0 4px; margin: 10px 0 5px;
+        }
+        .nav-item {
+          width: 100%; display: flex; align-items: center; gap: 10px;
+          padding: 10px 12px; border-radius: 13px;
+          border: 1px solid transparent; background: transparent;
+          cursor: pointer; text-align: left;
+          transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
+        .nav-item-active { background: rgba(255,255,255,0.17) !important; border-color: rgba(255,255,255,0.28) !important; box-shadow: 0 4px 14px rgba(0,0,0,0.14); }
+        .nav-item-icon {
+          width: 34px; height: 34px; border-radius: 10px;
+          background: rgba(255,255,255,0.11); border: 1px solid rgba(255,255,255,0.16);
+          display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0;
+        }
+        .nav-item-active .nav-item-icon { background: rgba(255,255,255,0.24); border-color: rgba(255,255,255,0.38); }
+        .nav-item-text { flex: 1; min-width: 0; }
+        .nav-item-label { font-family: "DM Sans",sans-serif; font-size: 0.83rem; font-weight: 700; color: #fff; display: block; }
+        .nav-item-sub { font-size: 0.66rem; color: rgba(255,255,255,0.5); display: block; margin-top: 1px; }
+        .nav-badge { font-size: 0.63rem; font-weight: 800; background: rgba(255,255,255,0.18); color: #fff; padding: 2px 7px; border-radius: 9999px; flex-shrink: 0; }
+        .nav-item-active .nav-badge { background: rgba(255,255,255,0.32); }
+        .nav-arrow { color: rgba(255,255,255,0.35); flex-shrink: 0; transition: transform 0.2s, color 0.2s; }
+        .nav-item:hover .nav-arrow { transform: translateX(2px); color: rgba(255,255,255,0.65); }
+        .nav-item-active .nav-arrow { color: rgba(255,255,255,0.65); }
+        .lp-score-section { padding: 0 10px 16px; position: relative; z-index: 2; }
+        .lp-score-block {
+          background: rgba(0,0,0,0.18); border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.1); padding: 13px 12px;
+        }
+        .lp-score-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+        .lp-score-row:last-child { margin-bottom: 0; }
+        .lp-score-name { font-size: 0.72rem; font-weight: 600; color: rgba(255,255,255,0.7); display: flex; align-items: center; gap: 6px; }
+        .lp-score-num { font-family: "JetBrains Mono",monospace; font-size: 0.86rem; font-weight: 800; color: #fff; }
+        .lp-back { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.1); position: relative; z-index: 2; }
+        .lp-back-btn {
+          display: inline-flex; align-items: center; gap: 7px;
+          font-size: 0.74rem; font-weight: 600; color: rgba(255,255,255,0.55);
+          cursor: pointer; background: none; border: none; transition: color 0.18s; font-family: "Inter",sans-serif;
+        }
+        .lp-back-btn:hover { color: #fff; }
 
-        /* ── SECTION CARD ── */
-        .sec-card{background:#fff;border:1px solid #e2e8f2;border-radius:22px;overflow:hidden;box-shadow:0 4px 20px rgba(0,68,221,0.06),0 1px 4px rgba(0,0,0,0.04);transition:box-shadow 0.25s;}
-        .sec-card:hover{box-shadow:0 8px 32px rgba(0,68,221,0.09),0 2px 8px rgba(0,0,0,0.05);}
-        .sec-stripe{height:3px;}
-        .sec-head{padding:20px 24px 16px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #f4f6fb;}
-        .sec-icon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-        .sec-title{font-family:"DM Sans",sans-serif;font-size:1rem;font-weight:800;color:#0d1117;letter-spacing:-0.01em;}
-        .sec-sub{font-size:0.74rem;color:#94a3b8;font-weight:500;margin-top:2px;}
-        .sec-body{padding:22px 24px;display:flex;flex-direction:column;gap:20px;}
+        /* ── MOBILE TOPBAR ── */
+        .mob-topbar {
+          display: none; position: sticky; top: var(--nav-h); z-index: 200;
+          height: 52px; background: linear-gradient(135deg, #0036BB, #0052E8);
+          align-items: center; padding: 0 16px; gap: 12px;
+          box-shadow: 0 2px 12px rgba(0,36,187,0.25);
+        }
+        .mob-topbar-menu {
+          width: 36px; height: 36px; border-radius: 10px;
+          background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22);
+          display: flex; align-items: center; justify-content: center;
+          color: #fff; cursor: pointer; flex-shrink: 0;
+        }
+
+        /* ── MOBILE DRAWER ── */
+        .mob-drawer-overlay {
+          display: none; position: fixed; inset: 0; z-index: 700;
+          background: rgba(0,0,0,0.45); backdrop-filter: blur(2px);
+          animation: overlay-in 0.22s ease;
+        }
+        .mob-drawer-overlay.open { display: block; }
+        .mob-drawer {
+          position: fixed; top: 0; left: 0; bottom: 0;
+          width: min(300px, 88vw);
+          background: linear-gradient(160deg, #0036BB 0%, #0052E8 45%, #2A18E8 100%);
+          z-index: 800; display: flex; flex-direction: column;
+          overflow: hidden; box-shadow: 8px 0 40px rgba(0,0,0,0.3);
+          transform: translateX(-100%); transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+        }
+        .mob-drawer.open { transform: translateX(0); }
+        .mob-drawer-grid {
+          position: absolute; inset: 0; pointer-events: none;
+          background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+          background-size: 44px 44px;
+        }
+        .mob-drawer-head {
+          padding: 20px 18px 16px; position: relative; z-index: 2;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+          display: flex; align-items: center; gap: 12px;
+        }
+        .mob-drawer-close {
+          width: 32px; height: 32px; border-radius: 9px;
+          background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+          display: flex; align-items: center; justify-content: center;
+          color: #fff; cursor: pointer; margin-left: auto;
+        }
+        .mob-drawer-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; position: relative; z-index: 2; }
+        .mob-tabbar {
+          display: none; position: fixed; bottom: 0; left: 0; right: 0;
+          height: var(--mob-tab-h); background: var(--surface);
+          border-top: 1px solid var(--border); box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+          z-index: 150; padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+        .mob-tabbar-inner { display: flex; height: 100%; }
+        .mob-tab {
+          flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+          background: none; border: none; cursor: pointer; padding: 0;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .mob-tab-icon {
+          width: 40px; height: 32px; display: flex; align-items: center; justify-content: center;
+          border-radius: 12px; transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1); color: var(--text-muted);
+        }
+        .mob-tab.active .mob-tab-icon { background: var(--brand-light); color: var(--brand); transform: translateY(-2px); }
+        .mob-tab-label { font-size: 0.62rem; font-weight: 600; color: var(--text-muted); line-height: 1; }
+        .mob-tab.active .mob-tab-label { color: var(--brand); font-weight: 700; }
+
+        /* ── MAIN WRAPPER ── */
+        .main-wrapper {
+          flex: 1; min-height: calc(100vh - var(--nav-h));
+          overflow-y: auto; background: var(--bg-deep);
+          padding: 0 28px; display: flex; flex-direction: column;
+        }
+        .content-shell {
+          flex: 1; background: var(--bg); border-radius: 20px 20px 16px 16px;
+          margin: 22px 0 22px; overflow: hidden;
+          box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 4px 6px rgba(0,0,0,0.03), 0 12px 40px rgba(0,0,0,0.07);
+          min-height: calc(100vh - var(--nav-h) - 44px);
+        }
+        .screen { animation: screen-in 0.3s cubic-bezier(0.22,1,0.36,1); }
+
+        /* ── PAGE TOP HEADER ── */
+        .page-top {
+          padding: 36px 48px 30px; border-bottom: 1px solid var(--border);
+          background: var(--surface);
+          display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+        }
+        .page-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+        .page-eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 2px rgba(0,71,212,0.18); }
+        .page-eyebrow-text { font-size: 0.68rem; font-weight: 700; color: var(--brand); letter-spacing: 0.1em; text-transform: uppercase; }
+        .page-title {
+          font-family: "DM Sans",sans-serif; font-size: 2.1rem; font-weight: 900;
+          color: var(--brand); letter-spacing: -0.05em; line-height: 1.12; min-height: 2.5rem;
+        }
+        .page-subtitle { font-size: 0.84rem; color: var(--text-secondary); margin-top: 7px; font-weight: 400; line-height: 1.6; }
+
+        /* ── BODY PADDING ── */
+        .body-pad { padding: 32px 48px 80px; max-width: 860px; }
+        .section-hd { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+        .section-hd-label { font-size: 0.65rem; font-weight: 800; color: var(--brand); text-transform: uppercase; letter-spacing: 0.12em; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+        .section-hd-rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
+
+        /* ── FORM CARDS ── */
+        .form-card {
+          background: var(--surface); border: 1px solid rgba(0,0,0,0.07);
+          border-radius: 18px; overflow: hidden; box-shadow: var(--shadow-card);
+          transition: box-shadow 0.22s, transform 0.22s; margin-bottom: 16px;
+        }
+        .form-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+        .form-card-stripe { height: 4px; }
+        .form-card-head {
+          padding: 18px 22px 15px; display: flex; align-items: center; gap: 12px;
+          border-bottom: 1px solid #F0F3F9;
+        }
+        .fch-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .fch-title { font-family: "DM Sans",sans-serif; font-size: 0.92rem; font-weight: 800; color: var(--text-primary); }
+        .fch-sub { font-size: 0.69rem; color: var(--text-muted); margin-top: 2px; }
+        .form-card-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+
+        /* ── FIELDS ── */
+        .field-grp { display: flex; flex-direction: column; gap: 6px; }
+        .field-label { font-size: 0.78rem; font-weight: 600; color: #374151; }
+        .field-input {
+          font-family: "Inter",sans-serif; font-size: 0.84rem; padding: 11px 14px;
+          border-radius: 11px; border: 1.5px solid var(--border);
+          background: #F8FAFD; color: var(--text-primary); transition: all 0.18s; width: 100%;
+          -moz-appearance: textfield;
+        }
+        .field-input::-webkit-outer-spin-button, .field-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .field-input:focus { outline: none; border-color: var(--brand); background: var(--surface); box-shadow: 0 0 0 3px rgba(0,71,212,0.09); }
+        .field-input::placeholder { color: #B8C4D4; }
+        .f-textarea { min-height: 80px; resize: vertical; line-height: 1.55; }
+        .fg-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+        .sg-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .s-div { height: 1px; background: #EEF1F8; }
 
         /* ── SLIDER ── */
-        .slider-box{display:flex;flex-direction:column;gap:9px;}
-        .slider-row-top{display:flex;justify-content:space-between;align-items:center;}
-        .slider-label-group{display:flex;align-items:center;gap:8px;}
-        .slider-icon-wrap{display:flex;align-items:center;}
-        .slider-label{font-size:0.82rem;font-weight:600;color:#374151;}
-        .slider-badge{font-size:0.82rem;font-weight:800;padding:4px 12px;border-radius:9999px;font-family:"JetBrains Mono",monospace;}
-        .slider-track-outer{padding:4px 0;}
-        .range-inp{-webkit-appearance:none;appearance:none;width:100%;height:7px;border-radius:9999px;outline:none;cursor:pointer;background:linear-gradient(to right, var(--c) 0%, var(--c) var(--p), #e8edf5 var(--p), #e8edf5 100%);transition:background 0.1s;}
-        .range-inp::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:2.5px solid var(--c);box-shadow:0 2px 8px rgba(0,0,0,0.14),0 0 0 0 var(--c);cursor:grab;transition:all 0.15s;}
-        .range-inp::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(1.18);box-shadow:0 2px 12px rgba(0,0,0,0.18),0 0 0 4px color-mix(in srgb, var(--c) 20%, transparent);}
-        .range-inp::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:2.5px solid var(--c);box-shadow:0 2px 8px rgba(0,0,0,0.14);cursor:grab;}
-        .slider-ends{display:flex;justify-content:space-between;align-items:center;font-size:0.67rem;color:#b0bac6;font-weight:500;}
-        .slider-hint{font-size:0.67rem;color:#94a3b8;font-style:italic;}
-
-        /* ── SLIDER GRIDS ── */
-        .sg-2{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
-        .sg-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px;}
-
-        /* ── INPUT FIELD ── */
-        .fg-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-        .field-box{display:flex;flex-direction:column;gap:5px;}
-        .field-label{font-size:0.8rem;font-weight:600;color:#374151;}
-        .req-dot{color:#0044DD;}
-        .opt-txt{font-size:0.72rem;font-weight:400;color:#94a3b8;}
-        .field-note{font-size:0.72rem;color:#94a3b8;margin-bottom:1px;}
-        .f-input{font-family:"Inter",sans-serif;font-size:0.86rem;padding:11px 14px;border-radius:12px;border:1.5px solid #e2e8f2;background:#f8fafc;color:#111;transition:all 0.18s;width:100%;-moz-appearance:textfield;}
-        .f-input::-webkit-outer-spin-button,.f-input::-webkit-inner-spin-button{-webkit-appearance:none;}
-        .f-input:focus{outline:none;border-color:#0044DD;background:#fff;box-shadow:0 0 0 3px rgba(0,68,221,0.09);}
-        .f-input::placeholder{color:#b8c2d0;}
-        .f-textarea{min-height:76px;resize:vertical;line-height:1.55;}
-        select.f-input{cursor:pointer;height:44px;}
-
-        /* ── DIVIDER ── */
-        .s-div{height:1px;background:#f4f6fb;}
+        .slider-box { display: flex; flex-direction: column; gap: 8px; }
+        .slider-row-top { display: flex; justify-content: space-between; align-items: center; }
+        .slider-label-group { display: flex; align-items: center; gap: 7px; }
+        .slider-label { font-size: 0.79rem; font-weight: 600; color: #374151; }
+        .slider-badge { font-size: 0.79rem; font-weight: 800; padding: 3px 11px; border-radius: 9999px; font-family: "JetBrains Mono",monospace; }
+        .range-inp {
+          -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+          border-radius: 9999px; outline: none; cursor: pointer;
+          background: linear-gradient(to right, var(--c) 0%, var(--c) var(--p), #E8EDF5 var(--p), #E8EDF5 100%);
+        }
+        .range-inp::-webkit-slider-thumb {
+          -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+          background: #fff; border: 2.5px solid var(--c); box-shadow: 0 2px 6px rgba(0,0,0,0.13); cursor: grab;
+        }
+        .range-inp::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.18); }
+        .slider-ends { display: flex; justify-content: space-between; align-items: center; font-size: 0.66rem; color: #b0bac6; font-weight: 500; }
 
         /* ── PILLS ── */
-        .pill-wrap{display:flex;flex-direction:column;gap:8px;}
-        .pill-lbl{font-size:0.8rem;font-weight:600;color:#374151;}
-        .pill-row{display:flex;flex-wrap:wrap;gap:7px;}
-        .pill{padding:8px 16px;border-radius:9999px;border:1.5px solid #e2e8f2;background:#f8fafc;color:#64748b;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:"Inter",sans-serif;}
-        .pill:hover{border-color:#c0d0f8;background:#f0f4ff;}
-        .pill.on{border-color:transparent;color:#fff;}
+        .pill-wrap { display: flex; flex-direction: column; gap: 7px; }
+        .pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        .pill {
+          padding: 7px 15px; border-radius: 9999px; border: 1.5px solid var(--border);
+          background: #F8FAFD; color: var(--text-secondary); font-size: 0.77rem; font-weight: 600;
+          cursor: pointer; transition: all 0.18s; font-family: inherit;
+        }
+        .pill:hover { border-color: var(--border-hover); background: var(--brand-light); }
+        .pill.on { border-color: transparent; color: #fff; background: #ef4444; }
 
         /* ── TOGGLE ── */
-        .toggle-row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:13px;background:#f8fafc;border:1.5px solid #e2e8f2;cursor:pointer;transition:all 0.2s;user-select:none;}
-        .toggle-row:hover{border-color:#c0d0f8;}
-        .toggle-row.tw{background:#fef2f2;border-color:#fca5a5;}
-        .tsw{width:40px;height:22px;border-radius:9999px;background:#dde3ef;position:relative;flex-shrink:0;transition:background 0.22s;}
-        .tsw.on{background:#ef4444;}
-        .tknob{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:left 0.22s;}
-        .tsw.on .tknob{left:21px;}
-        .ttxt{font-size:0.82rem;font-weight:600;color:#475569;}
-        .toggle-row.tw .ttxt{color:#dc2626;}
+        .toggle-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 12px 14px; border-radius: 12px; background: #F8FAFD;
+          border: 1.5px solid var(--border); cursor: pointer; transition: all 0.2s; user-select: none;
+        }
+        .toggle-row.tw { background: #fef2f2; border-color: #fca5a5; }
+        .tsw { width: 38px; height: 21px; border-radius: 9999px; background: #dde3ef; position: relative; flex-shrink: 0; transition: background 0.22s; }
+        .tsw.on { background: #ef4444; }
+        .tknob { position: absolute; top: 3px; left: 3px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: left 0.22s; }
+        .tsw.on .tknob { left: 20px; }
+        .ttxt { font-size: 0.8rem; font-weight: 600; color: #475569; }
+        .toggle-row.tw .ttxt { color: #dc2626; }
 
-        /* ── DOMAIN PILLS ── */
-        .dp-row{display:flex;gap:8px;flex-wrap:wrap;}
-        .dp{padding:8px 18px;border-radius:9999px;border:1.5px solid #e2e8f2;background:#f8fafc;color:#64748b;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:"Inter",sans-serif;}
-        .dp:hover{border-color:#c0d0f8;}
-        .dp.on{background:#0044DD;border-color:#0044DD;color:#fff;}
-
-        /* ── DROPZONE ── */
-        .dropzone{border:2px dashed #dde3ef;border-radius:14px;padding:26px 16px;text-align:center;cursor:pointer;background:#f8fafc;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:7px;}
-        .dropzone:hover{border-color:#0044DD;background:#eff4ff;}
-        .dz-text{font-size:0.86rem;color:#64748b;font-weight:500;}
-        .dz-sub{font-size:0.72rem;color:#94a3b8;}
-        .upload-msg{display:flex;align-items:center;gap:8px;padding:11px 15px;border-radius:11px;font-size:0.8rem;font-weight:600;}
-        .upload-msg.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;}
-        .upload-msg.err{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;}
-        .upload-btn{width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;font-family:"Inter",sans-serif;font-size:0.86rem;font-weight:700;color:#fff;background:linear-gradient(135deg,#0044DD,#0066FF);display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;}
-        .upload-btn:hover:not(:disabled){filter:brightness(1.07);transform:translateY(-1px);}
-        .upload-btn:disabled{background:#94a3b8!important;cursor:not-allowed;transform:none;}
+        /* ── SNAPSHOT CARDS ── */
+        .snap-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+        .snap-card {
+          background: var(--surface); border: 1px solid var(--border); border-left-width: 3px;
+          border-radius: 13px; padding: 13px 14px; box-shadow: var(--shadow-sm);
+        }
+        .snap-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .snap-domain { font-size: 0.69rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; font-family: "DM Sans",sans-serif; }
+        .snap-time { font-size: 0.64rem; color: var(--text-muted); background: var(--bg); padding: 2px 6px; border-radius: 5px; }
+        .snap-val { font-size: 0.74rem; color: var(--text-secondary); display: flex; justify-content: space-between; margin-bottom: 3px; }
+        .snap-val strong { color: var(--text-primary); font-weight: 700; }
 
         /* ── SCORE PREVIEW ── */
-        .score-section{max-width:780px;margin:8px auto 0;padding:0 24px;}
-        .score-lbl{font-size:0.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-        .score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-        .score-card{background:#fff;border:1px solid #e2e8f2;border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.03);transition:all 0.2s;}
-        .score-card:hover{box-shadow:0 4px 16px rgba(0,68,221,0.08);}
-        .score-icon{display:flex;}
-        .score-info{display:flex;flex-direction:column;gap:2px;}
-        .score-name{font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;}
-        .score-nums{display:flex;align-items:center;gap:6px;}
-        .score-old{font-size:0.88rem;font-weight:600;color:#94a3b8;}
-        .score-arr{font-size:0.75rem;color:#c8d0dc;}
-        .score-new{font-size:1rem;font-weight:800;font-family:"JetBrains Mono",monospace;}
-        .score-diff{font-size:0.7rem;font-weight:700;padding:2px 7px;border-radius:6px;font-family:"JetBrains Mono",monospace;}
-        .d-up{background:#ecfdf5;color:#10b981;}
-        .d-dn{background:#fef2f2;color:#ef4444;}
+        .score-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 11px; margin-bottom: 24px; }
+        .score-card {
+          background: var(--surface); border: 1px solid rgba(0,0,0,0.07);
+          border-radius: 15px; padding: 14px 16px;
+          display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow-card);
+          transition: all 0.22s; cursor: default;
+        }
+        .score-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+        .score-name { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .score-nums { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+        .score-old { font-size: 0.84rem; font-weight: 600; color: var(--text-muted); }
+        .score-new { font-size: 0.94rem; font-weight: 800; font-family: "JetBrains Mono",monospace; }
+        .score-diff { font-size: 0.67rem; font-weight: 700; padding: 2px 6px; border-radius: 5px; font-family: "JetBrains Mono",monospace; }
+        .d-up { background: #ecfdf5; color: #10b981; }
+        .d-dn { background: #fef2f2; color: #ef4444; }
+
+        /* ── PRIORITY / DOMAIN BUTTONS (reused for upload domain) ── */
+        .prio-btn {
+          padding: 12px 7px; border-radius: 12px; border: 1.5px solid var(--border);
+          background: #F8FAFD; cursor: pointer; transition: all 0.2s;
+          display: flex; flex-direction: column; align-items: center; gap: 5px; font-family: "Inter",sans-serif;
+        }
+        .prio-btn:hover { border-color: var(--border-hover); }
+        .prio-btn.on { border-color: var(--brand); background: var(--brand-light); }
+        .prio-label { font-size: 0.73rem; font-weight: 700; color: #374151; }
 
         /* ── SUBMIT ── */
-        .submit-section{max-width:780px;margin:20px auto 0;padding:0 24px;}
-        .submit-btn{width:100%;padding:17px;border-radius:16px;border:none;cursor:pointer;font-family:"DM Sans",sans-serif;font-size:1rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#0044DD,#0066FF);box-shadow:0 6px 24px rgba(0,68,221,0.28);display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.22s;letter-spacing:-0.01em;}
-        .submit-btn:hover:not(:disabled){filter:brightness(1.06);transform:translateY(-2px);box-shadow:0 10px 32px rgba(0,68,221,0.35);}
-        .submit-btn:disabled{background:#94a3b8!important;box-shadow:none!important;cursor:not-allowed;transform:none;}
-        .submit-note{text-align:center;font-size:0.74rem;color:#94a3b8;margin-top:10px;font-weight:500;}
-        .err-wrap{max-width:780px;margin:12px auto 0;padding:0 24px;}
-        .err-box{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;font-size:0.84rem;font-weight:600;}
+        .save-btn {
+          width: 100%; padding: 14px; border-radius: 13px; border: none; cursor: pointer;
+          font-family: "DM Sans",sans-serif; font-size: 0.95rem; font-weight: 800; color: #fff;
+          background: linear-gradient(135deg, #0047D4, #0066FF);
+          box-shadow: 0 4px 20px rgba(0,71,212,0.30);
+          display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.22s;
+        }
+        .save-btn:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,71,212,0.36); }
+        .save-btn:disabled { background: #94A3B8 !important; box-shadow: none !important; cursor: not-allowed; transform: none; }
+        .save-hint { text-align: center; font-size: 0.72rem; color: var(--text-muted); margin-top: 9px; }
 
-        /* ── NOTE COUNTER ── */
-        .note-counter{text-align:right;font-size:0.68rem;color:#94a3b8;margin-top:4px;}
-        .note-prompt-text{font-size:0.8rem;color:#94a3b8;font-style:italic;margin-bottom:8px;}
+        /* ── ERROR BOX ── */
+        .err-box {
+          display: flex; align-items: center; gap: 9px;
+          padding: 11px 15px; border-radius: 11px;
+          background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626;
+          font-size: 0.82rem; font-weight: 600; margin-bottom: 12px;
+        }
 
-        @media(max-width:640px){
-          .sg-2,.sg-3,.fg-2,.snap-grid,.score-grid{grid-template-columns:1fr;}
-          .form-wrap,.page-header,.snap-section,.banner-section,.score-section,.submit-section,.err-wrap{padding-left:16px;padding-right:16px;}
+        /* ── TODAY BANNER ── */
+        .today-banner {
+          display: flex; align-items: center; gap: 10px;
+          background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 14px;
+          padding: 12px 16px; font-size: 0.82rem; font-weight: 600; color: #15803d;
+          margin-bottom: 20px;
+        }
+
+        /* ── INTEGRATION CARDS ── */
+        .integrations-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 0; }
+        .int-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.67rem; font-weight: 700; padding: 3px 9px; border-radius: 9999px; margin-bottom: 0; }
+        .badge-connected { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+        .badge-disconnected { background: #F8FAFD; color: var(--text-muted); border: 1px solid var(--border); }
+        .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .dot-green { background: #22c55e; }
+        .dot-gray { background: #cbd5e1; }
+
+        /* ── BUTTONS SM ── */
+        .btn-sm {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 6px 13px; border-radius: 9999px; font-size: 0.72rem; font-weight: 700;
+          cursor: pointer; font-family: inherit; transition: all 0.17s; border: none;
+        }
+        .btn-sm-primary { background: var(--brand-light); color: var(--brand); border: 1.5px solid var(--brand-mid); }
+        .btn-sm-primary:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
+        .btn-sm-ghost { background: #F8FAFD; color: var(--text-muted); border: 1.5px solid var(--border); }
+        .btn-sm-ghost:hover { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+
+        /* ── UPLOAD TYPE GRID ── */
+        .upload-type-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 13px; margin-bottom: 18px; }
+        .upload-type-card {
+          background: var(--surface); border: 1.5px solid var(--border); border-radius: 15px;
+          padding: 18px 14px; text-align: center; cursor: pointer; transition: all 0.2s;
+          display: flex; flex-direction: column; align-items: center; gap: 7px; box-shadow: var(--shadow-sm);
+        }
+        .upload-type-card:hover { border-color: var(--border-hover); background: var(--brand-light); transform: translateY(-1px); }
+        .upload-type-card.selected { box-shadow: var(--shadow-md); }
+
+        /* ── DROPZONE ── */
+        .dropzone {
+          border: 2px dashed var(--border-hover); border-radius: 13px; padding: 28px 16px;
+          text-align: center; cursor: pointer; background: #F8FAFD; transition: all 0.2s;
+          display: flex; flex-direction: column; align-items: center; gap: 7px;
+        }
+        .dropzone:hover { border-color: var(--brand); background: var(--brand-light); }
+        .upload-msg { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 11px; font-size: 0.79rem; font-weight: 600; }
+        .upload-msg.ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+        .upload-msg.err { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
+
+        /* ── PROCESSING ── */
+        .proc-root { min-height: 100vh; background: var(--bg-deep); display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .proc-card {
+          background: var(--surface); border: 1px solid var(--border); border-radius: 28px;
+          padding: 48px 40px; max-width: 480px; width: 100%;
+          box-shadow: 0 12px 48px rgba(0,71,212,0.1);
+          display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+        .proc-logo { font-family: "DM Sans",sans-serif; font-size: 0.82rem; font-weight: 800; color: var(--brand); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 36px; display: flex; align-items: center; gap: 7px; }
+        .proc-emoji-wrap {
+          width: 96px; height: 96px;
+          background: linear-gradient(135deg, var(--brand-light), #e0e7ff); border: 2px solid #dbeafe;
+          border-radius: 50%; display: flex; align-items: center; justify-content: center;
+          margin-bottom: 28px; position: relative;
+        }
+        .proc-emoji-ring {
+          position: absolute; inset: -6px; border-radius: 50%;
+          border: 2px solid rgba(0,71,212,0.15);
+          animation: lp-pulse 2s ease-in-out infinite;
+        }
+        .proc-step-text { font-family: "DM Sans",sans-serif; font-size: 1.35rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; margin-bottom: 8px; min-height: 36px; }
+        .proc-step-row {
+          display: flex; align-items: center; gap: 10px; padding: 9px 13px;
+          border-radius: 11px; font-size: 0.81rem; font-weight: 500; color: var(--text-muted); transition: all 0.3s;
+        }
+        .proc-step-row.done { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; font-weight: 600; }
+        .proc-step-row.active { background: var(--brand-light); border: 1px solid #dbeafe; color: var(--brand); font-weight: 700; }
+        .proc-step-row.pending { background: #F8FAFD; border: 1px solid transparent; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 960px) {
+          .left-panel { display: none; }
+          .mob-topbar { display: flex; }
+          .mob-tabbar { display: flex; }
+          .top-nav-links { display: none; }
+          .top-nav-hamburger { display: flex; }
+          .main-wrapper { padding: 0; }
+          .content-shell { margin: 0; border-radius: 0; box-shadow: none; }
+          .page-top { padding: 24px 22px 20px; }
+          .body-pad { padding: 22px 18px calc(var(--mob-tab-h) + 22px); }
+          .snap-grid, .score-grid, .integrations-grid, .upload-type-grid { grid-template-columns: 1fr; }
+          .sg-2, .fg-2 { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px) {
+          .page-top { padding: 20px 16px 16px; flex-direction: column; align-items: flex-start; gap: 13px; }
+          .body-pad { padding: 18px 14px calc(var(--mob-tab-h) + 18px); }
+          .form-card-head { padding: 14px 16px 11px; }
+          .form-card-body { padding: 16px 16px; gap: 13px; }
+          .top-nav-inner { padding: 0 14px; }
         }
       `}</style>
 
-      {/* ── PAGE HEADER ── */}
-      <div className="page-header">
-        <button className="back-btn" onClick={() => router.push("/dashboard")}>
-          <ArrowLeft size={14} /> Return to Dashboard
-        </button>
-        <div style={{ height: 20 }} />
-        <TypewriterTitle />
-        <p className="page-sub">Fill in what happened today — your health, money, and learning. The more you share, the better your insights.</p>
+      <TopNav />
+
+      {/* Mobile Drawer Overlay */}
+      <div className={`mob-drawer-overlay${drawerOpen ? " open" : ""}`} onClick={() => setDrawerOpen(false)} />
+      <div className={`mob-drawer${drawerOpen ? " open" : ""}`}>
+        <div className="mob-drawer-grid" />
+        <div className="mob-drawer-head">
+          <div style={{ flex:1 }}>
+            <div className="lp-logo"><div className="lp-logo-dot" /> Syntra</div>
+            <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:"1.1rem", fontWeight:800, color:"#fff" }}>Check-in</div>
+          </div>
+          <button className="mob-drawer-close" onClick={() => setDrawerOpen(false)}><X size={14} /></button>
+        </div>
+        <div className="mob-drawer-nav">
+          <div className="lp-section-lbl">Data Sources</div>
+          {sidebarNav.map(item => (
+            <NavItem key={item.key} icon={item.icon} label={item.label} sub={item.sub}
+              active={activePanel === item.key} badge={item.badge}
+              onClick={() => { setActivePanel(item.key); setDrawerOpen(false); }} />
+          ))}
+          <div className="lp-section-lbl">Navigate</div>
+          <NavItem icon={<LayoutDashboard size={15} />} label="Dashboard" active={false} onClick={() => router.push("/dashboard")} />
+          <NavItem icon={<Target size={15} />} label="Goals" active={false} onClick={() => router.push("/goals")} />
+          <NavItem icon={<LineChart size={15} />} label="Insights" active={false} onClick={() => {}} />
+          <NavItem icon={<History size={15} />} label="History" active={false} onClick={() => {}} />
+        </div>
+        <div className="lp-back">
+          <button className="lp-back-btn" onClick={() => router.push("/dashboard")}>
+            <ArrowLeft size={12} /> Return to Dashboard
+          </button>
+        </div>
       </div>
 
-      {/* ── TODAY BANNER ── */}
-      {todayLogged && (
-        <div className="banner-section">
-          <div className="today-banner">
-            <div className="today-banner-icon"><CheckCircle2 size={16} /></div>
-            <div>
-              <strong>Already logged today.</strong> Your earlier entries are pre-filled below — update anything and hit Save to overwrite.
-            </div>
+      <div className="page-body">
+        {/* Desktop Sidebar */}
+        <div className="left-panel">
+          <div className="left-panel-top-rule" />
+          <div className="lp-grid" />
+          <div className="lp-brand">
+            <div className="lp-logo"><div className="lp-logo-dot" /> Syntra</div>
+            <div className="lp-heading">Daily Check-in</div>
+            <div className="lp-sub">Log your health, finances and learning every day.</div>
           </div>
-        </div>
-      )}
-
-      {/* ── LAST LOG SNAPSHOT ── */}
-      {latest && (latest.health || latest.finance || latest.career) && (
-        <div className="snap-section">
-          <div className="snap-label">
-            {todayLogged ? <><CheckCircle2 size={11} /> Today's entries</> : <>📋 Last saved log</>}
-            {!todayLogged && <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#b0bac6", fontSize: "0.68rem" }}>— you haven't logged today yet</span>}
+          <div className="lp-stats">
+            <div className="lp-stat"><div className="lp-stat-num">{pH}</div><div className="lp-stat-lbl">Health</div></div>
+            <div className="lp-stat"><div className="lp-stat-num">{pF}</div><div className="lp-stat-lbl">Finance</div></div>
+            <div className="lp-stat"><div className="lp-stat-num">{pC}</div><div className="lp-stat-lbl">Career</div></div>
           </div>
-          <div className="snap-grid">
-            {[
-              { domain: "Health", color: "#0044DD", data: latest.health, vals: latest.health ? [{ k: "Sleep", v: `${latest.health.data.sleepHours}h` }, { k: "Workout", v: `${latest.health.data.workoutMinutes}m` }, { k: "Stress", v: `${latest.health.data.stressLevel}/10` }] : [] },
-              { domain: "Finance", color: "#0055EE", data: latest.finance, vals: latest.finance ? [{ k: "Saved", v: `₹${latest.finance.data.amountSaved}` }, { k: "Spent", v: `₹${latest.finance.data.discretionarySpent}` }] : [] },
-              { domain: "Career", color: "#3322EE", data: latest.career, vals: latest.career ? [{ k: "Study", v: `${latest.career.data.hoursStudied}h` }, { k: "Rating", v: `${latest.career.data.productivityRating}/10` }] : [] },
-            ].map(s => (
-              <div key={s.domain} className="snap-card" style={{ borderLeft: `3px solid ${s.color}` }}>
-                <div className="snap-head">
-                  <span className="snap-domain" style={{ color: s.color }}>{s.domain}</span>
-                  <span className="snap-time">{s.data ? fmtDate(s.data.date) : "—"}</span>
-                </div>
-                {s.vals.length
-                  ? <div className="snap-vals">{s.vals.map(v => <span key={v.k} className="snap-val"><span>{v.k}</span><strong>{v.v}</strong></span>)}</div>
-                  : <span className="snap-empty">No data yet</span>}
-              </div>
+          <div className="lp-nav">
+            <div className="lp-section-lbl">Data Sources</div>
+            {sidebarNav.map(item => (
+              <NavItem key={item.key} icon={item.icon} label={item.label} sub={item.sub}
+                active={activePanel === item.key} badge={item.badge}
+                onClick={() => setActivePanel(item.key)} />
             ))}
+            <div className="lp-section-lbl">Navigate</div>
+            <NavItem icon={<LayoutDashboard size={15} />} label="Dashboard" active={false} onClick={() => router.push("/dashboard")} />
+            <NavItem icon={<Target size={15} />} label="Goals" active={false} onClick={() => router.push("/goals")} />
+            <NavItem icon={<LineChart size={15} />} label="Insights" active={false} onClick={() => {}} />
+            <NavItem icon={<History size={15} />} label="History" active={false} onClick={() => {}} />
           </div>
-        </div>
-      )}
-
-      {/* ── FORM ── */}
-      <div className="form-wrap">
-
-        {/* ─── HEALTH ─── */}
-        <div className="sec-card">
-          <div className="sec-stripe" style={{ background: "linear-gradient(90deg,#0044DD,#0066FF)" }} />
-          <div className="sec-head">
-            <div className="sec-icon" style={{ background: "#dbeafe", color: "#0044DD" }}><HeartPulse size={22} /></div>
-            <div>
-              <div className="sec-title">Health</div>
-              <div className="sec-sub">Sleep, activity, stress & hydration</div>
-            </div>
-          </div>
-          <div className="sec-body">
-
-            <div className="sg-2">
-              <Slider label="How long did you sleep?" value={health.sleepHours} onChange={v => setHealth(p => ({ ...p, sleepHours: v }))} min={0} max={12} step={0.5} icon={<Moon size={15} />} unit="h" color="#0044DD" hint="Aim for 7–9h" />
-              <Slider label="Exercise time today" value={health.workoutMinutes} onChange={v => setHealth(p => ({ ...p, workoutMinutes: v }))} min={0} max={120} step={5} icon={<Dumbbell size={15} />} unit="m" color="#10b981" hint="Even a walk counts" />
-            </div>
-
-            <div className="sg-2">
-              <Slider label="Stress level today" value={health.stressLevel} onChange={v => setHealth(p => ({ ...p, stressLevel: v }))} min={1} max={10} step={1} icon={<Activity size={15} />} unit="/10" color="#ef4444" hint="1 = very calm" />
-              <Slider label="Glasses of water" value={health.waterGlasses} onChange={v => setHealth(p => ({ ...p, waterGlasses: v }))} min={0} max={15} step={1} icon={<Droplets size={15} />} unit=" gl" color="#06b6d4" hint="8 glasses = ideal" />
-            </div>
-
-            <div className="sg-2">
-              <Slider label="How's your mood?" value={health.moodScore} onChange={v => setHealth(p => ({ ...p, moodScore: v }))} min={1} max={10} step={1} icon={<Star size={15} />} unit="/10" color="#f59e0b" hint="1 = low, 10 = great" />
-              <Slider label="Energy level" value={health.energyLevel} onChange={v => setHealth(p => ({ ...p, energyLevel: v }))} min={1} max={10} step={1} icon={<Zap size={15} />} unit="/10" color="#8b5cf6" hint="How alert do you feel?" />
-            </div>
-
-            <div className="s-div" />
-
-            <div className="pill-wrap">
-              <span className="pill-lbl">Did you skip any meals today?</span>
-              <div className="pill-row">
-                {[{ v: "breakfast", l: "☕ Breakfast" }, { v: "lunch", l: "🍛 Lunch" }, { v: "dinner", l: "🍽️ Dinner" }].map(m => (
-                  <button key={m.v} className={`pill${health.skippedMeals.includes(m.v) ? " on" : ""}`}
-                    style={health.skippedMeals.includes(m.v) ? { background: "#ef4444", borderColor: "#ef4444" } : {}}
-                    onClick={() => toggleMeal(m.v)}>{m.l}</button>
-                ))}
-              </div>
-            </div>
-
-            <div className="fg-2">
-              <Field label="Calories eaten" opt type="number" value={health.caloriesConsumed} onChange={v => setHealth(p => ({ ...p, caloriesConsumed: v }))} placeholder="e.g. 2100" />
-              <Field label="Calorie target" opt type="number" value={health.calorieGoal} onChange={v => setHealth(p => ({ ...p, calorieGoal: v }))} placeholder="e.g. 2400" />
-            </div>
-
-            <Field label="What did you eat today?" opt value={health.mealsEatenToday} onChange={v => setHealth(p => ({ ...p, mealsEatenToday: v }))} placeholder="e.g. Oats with honey, brown rice with paneer curry and broccoli" textarea note="Helps personalise your nutrition suggestions" />
-
-          </div>
-        </div>
-
-        {/* ─── FINANCE ─── */}
-        <div className="sec-card">
-          <div className="sec-stripe" style={{ background: "linear-gradient(90deg,#0055EE,#3322EE)" }} />
-          <div className="sec-head">
-            <div className="sec-icon" style={{ background: "#e0e7ff", color: "#0055EE" }}><Wallet size={22} /></div>
-            <div>
-              <div className="sec-title">Money</div>
-              <div className="sec-sub">What you saved and spent today</div>
+          <div className="lp-score-section">
+            <div style={{ fontSize:"0.59rem", fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.11em", padding:"0 4px", marginBottom:7, fontFamily:"DM Sans,sans-serif" }}>Score Preview</div>
+            <div className="lp-score-block">
+              {[
+                { label:"Health", icon:<Heart size={11} />, score:pH },
+                { label:"Finance", icon:<Wallet size={11} />, score:pF },
+                { label:"Career", icon:<Briefcase size={11} />, score:pC },
+              ].map(s => (
+                <div key={s.label} className="lp-score-row">
+                  <span className="lp-score-name"><span style={{ opacity:0.55 }}>{s.icon}</span>{s.label}</span>
+                  <span className="lp-score-num">{s.score}</span>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="sec-body">
-            <div className="fg-2">
-              <Field label="Amount you saved today" req type="number" value={finance.amountSaved} onChange={v => setFinance(p => ({ ...p, amountSaved: v }))} placeholder="₹ e.g. 350" note="Enter 0 if nothing saved today" />
-              <Field label="What you spent on extras" req type="number" value={finance.discretionarySpent} onChange={v => setFinance(p => ({ ...p, discretionarySpent: v }))} placeholder="₹ e.g. 60" note="Non-essential spending" />
-            </div>
-            <div className="fg-2">
-              <Field label="Biggest purchase today" opt value={finance.biggestExpenseToday} onChange={v => setFinance(p => ({ ...p, biggestExpenseToday: v }))} placeholder="e.g. Swiggy order, Amazon" />
-              <div className="field-box">
-                <label className="field-label">What category was it?</label>
-                <select className="f-input" value={finance.spendingCategory} onChange={e => setFinance(p => ({ ...p, spendingCategory: e.target.value }))}>
-                  <option value="food">Food & Groceries</option>
-                  <option value="entertainment">Entertainment</option>
-                  <option value="shopping">Shopping</option>
-                  <option value="transport">Transport</option>
-                  <option value="other">Something else</option>
-                </select>
-              </div>
-            </div>
-            <div className={`toggle-row${finance.impulseSpend ? " tw" : ""}`} onClick={() => setFinance(p => ({ ...p, impulseSpend: !p.impulseSpend }))}>
-              <div className={`tsw${finance.impulseSpend ? " on" : ""}`}><div className="tknob" /></div>
-              <span className="ttxt">{finance.impulseSpend ? "⚠️ Yes, I made an unplanned purchase today" : "Did you buy something on impulse?"}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ─── CAREER ─── */}
-        <div className="sec-card">
-          <div className="sec-stripe" style={{ background: "linear-gradient(90deg,#3322EE,#0066FF)" }} />
-          <div className="sec-head">
-            <div className="sec-icon" style={{ background: "#e0e7ff", color: "#3322EE" }}><Briefcase size={22} /></div>
-            <div>
-              <div className="sec-title">Learning & Work</div>
-              <div className="sec-sub">Study time, focus and what you worked on</div>
-            </div>
-          </div>
-          <div className="sec-body">
-            <div className="fg-2">
-              <Field label="Hours you studied or worked" req type="number" value={career.hoursStudied} onChange={v => setCareer(p => ({ ...p, hoursStudied: v }))} placeholder="e.g. 3" note="Count deep focus time" />
-              <Field label="Study sessions completed" opt type="number" value={career.sessionsCompleted} onChange={v => setCareer(p => ({ ...p, sessionsCompleted: v }))} placeholder="e.g. 3" />
-            </div>
-            <Slider label="How productive were you today?" value={career.productivityRating} onChange={v => setCareer(p => ({ ...p, productivityRating: v }))} min={1} max={10} step={1} icon={<TrendingUp size={15} />} unit="/10" color="#3322EE" hint="Be honest — it helps!" />
-            <Field label="What course or skill did you work on?" opt value={career.courseName} onChange={v => setCareer(p => ({ ...p, courseName: v }))} placeholder="e.g. ML Fundamentals, DSA, System Design" />
-            <Field label="What goal did you move forward today?" opt value={career.goalWorkedOn} onChange={v => setCareer(p => ({ ...p, goalWorkedOn: v }))} placeholder="e.g. Solved 5 LeetCode problems for my interview prep" />
-            <Field label="What got in your way today?" opt value={career.blockerToday} onChange={v => setCareer(p => ({ ...p, blockerToday: v }))} placeholder="e.g. Felt tired after work, got distracted" />
-          </div>
-        </div>
-
-        {/* ─── REFLECTION ─── */}
-        <div className="sec-card">
-          <div className="sec-stripe" style={{ background: "linear-gradient(90deg,#f59e0b,#fbbf24)" }} />
-          <div className="sec-head">
-            <div className="sec-icon" style={{ background: "#fef3c7", color: "#f59e0b" }}><MessageSquare size={22} /></div>
-            <div>
-              <div className="sec-title">How are you feeling?</div>
-              <div className="sec-sub">A quick reflection helps your insights get personal</div>
-            </div>
-          </div>
-          <div className="sec-body">
-            <p className="note-prompt-text">💬 {prompt}</p>
-            <textarea className="f-input f-textarea" style={{ minHeight: 92 }} placeholder="Write anything — even a sentence is helpful..." value={dailyNote} onChange={e => setDailyNote(e.target.value)} maxLength={500} />
-            <div className="note-counter">{dailyNote.length} / 500</div>
-          </div>
-        </div>
-
-        {/* ─── DOCUMENT SYNC (PDF / IMAGE) ─── */}
-        <div className="sec-card">
-          <div className="sec-stripe" style={{ background: "linear-gradient(90deg,#7c3aed,#9f6ef5)" }} />
-          <div className="sec-head">
-            <div className="sec-icon" style={{ background: "#f5f3ff", color: "#7c3aed" }}><Upload size={22} /></div>
-            <div>
-              <div className="sec-title">Sync Document (PDF / Image)</div>
-              <div className="sec-sub">Intelligently parse reports, salary slips, resumes, and medical receipts</div>
-            </div>
-          </div>
-          <div className="sec-body">
-            <Uploader onUploadSuccess={() => {
-              // Update latest saved data and scores on successful sync
-              fetch("/api/log/latest", { credentials: "include" })
-                .then(r => r.json()).then(d => {
-                  if (!d.success) return;
-                  setLatest(d.latest);
-                  if (d.scores) setCurrentScores(d.scores);
-                });
-            }} />
-          </div>
-        </div>
-
-        {/* ─── FILE UPLOAD ─── */}
-        <div className="sec-card">
-          <div className="sec-stripe" style={{ background: "linear-gradient(90deg,#0066FF,#0044DD)" }} />
-          <div className="sec-head">
-            <div className="sec-icon" style={{ background: "#dbeafe", color: "#0044DD" }}><Upload size={22} /></div>
-            <div>
-              <div className="sec-title">Upload a Spreadsheet</div>
-              <div className="sec-sub">Optional — import data from a CSV or Excel file</div>
-            </div>
-          </div>
-          <div className="sec-body">
-            <div className="field-box">
-              <label className="field-label">Which area is this file for?</label>
-              <div className="dp-row">
-                {(["health", "finance", "career"] as const).map(d => (
-                  <button key={d} className={`dp${uploadDomain === d ? " on" : ""}`} onClick={() => setUploadDomain(d)}>
-                    {d === "health" ? "🟢 Health" : d === "finance" ? "🔵 Money" : "🟣 Career"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="dropzone" onClick={() => document.getElementById("file-inp")?.click()}>
-              <input id="file-inp" type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) setUploadFile(f); }} />
-              <Upload size={22} style={{ color: "#0044DD" }} />
-              <div className="dz-text">
-                {uploadFile
-                  ? <strong style={{ color: "#111" }}>{uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)</strong>
-                  : <><span style={{ color: "#0044DD", fontWeight: 700 }}>Choose a file</span> or drag it here</>}
-              </div>
-              <div className="dz-sub">Supports .csv, .xlsx, .xls</div>
-            </div>
-            {uploadMsg && (
-              <div className={`upload-msg${uploadMsg.ok ? " ok" : " err"}`}>
-                {uploadMsg.ok ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
-                {uploadMsg.text}
-              </div>
-            )}
-            <button className="upload-btn" onClick={handleUpload} disabled={!uploadFile || uploadLoading}>
-              {uploadLoading ? <><Activity size={15} /> Uploading...</> : <><Send size={14} /> Upload File</>}
+          <div className="lp-back">
+            <button className="lp-back-btn" onClick={() => router.push("/dashboard")}>
+              <ArrowLeft size={12} /> Return to Dashboard
             </button>
           </div>
         </div>
 
-      </div>
+        {/* Main Wrapper */}
+        <div className="main-wrapper">
+          <div className="mob-topbar">
+            <button className="mob-topbar-menu" onClick={() => setDrawerOpen(true)}><Menu size={16} /></button>
+            <div style={{ display:"flex", alignItems:"center", gap:8, flex:1 }}>
+              <div className="lp-logo-dot" />
+              <span style={{ fontSize:"0.72rem", fontWeight:800, color:"rgba(255,255,255,0.7)", letterSpacing:"0.13em", textTransform:"uppercase" }}>Syntra&nbsp;&nbsp;</span>
+              <span style={{ fontFamily:"DM Sans,sans-serif", fontSize:"0.96rem", fontWeight:800, color:"#fff" }}>
+                {activePanel === "manual" ? "Check-in" : activePanel === "uploads" ? "Uploads" : "API Sync"}
+              </span>
+            </div>
+          </div>
 
-      {/* ── SCORE PREVIEW ── */}
-      <div className="score-section">
-        <div className="score-lbl"><Sparkles size={12} style={{ color: "#0044DD" }} /> How today's log affects your scores</div>
-        <div className="score-grid">
-          {[
-            { label: "Health", old: currentScores.health, nw: pH, color: "#0044DD", icon: <HeartPulse size={18} /> },
-            { label: "Finance", old: currentScores.finance, nw: pF, color: "#0055EE", icon: <Wallet size={18} /> },
-            { label: "Career", old: currentScores.career, nw: pC, color: "#3322EE", icon: <Briefcase size={18} /> },
-          ].map(c => {
-            const diff = c.nw - c.old;
-            return (
-              <div key={c.label} className="score-card">
-                <span style={{ color: c.color }}>{c.icon}</span>
-                <div className="score-info">
-                  <span className="score-name">{c.label}</span>
-                  <div className="score-nums">
-                    <span className="score-old">{c.old}</span>
-                    <span className="score-arr">→</span>
-                    <span className="score-new" style={{ color: diff < 0 ? "#ef4444" : diff > 0 ? "#10b981" : c.color }}>{c.nw}</span>
-                    {diff !== 0 && <span className={`score-diff ${diff > 0 ? "d-up" : "d-dn"}`}>{diff > 0 ? "+" : ""}{diff}</span>}
+          <div className="content-shell">
+
+            {/* ── MANUAL ENTRY ── */}
+            {activePanel === "manual" && (
+              <div className="screen">
+                <div className="page-top">
+                  <div>
+                    <div className="page-eyebrow"><div className="page-eyebrow-dot" /><span className="page-eyebrow-text">Check-in</span></div>
+                    <h1 className="page-title">
+                      <TypewriterTitle phrases={["Today's Check-in", "Log Your Day", "How Did It Go?"]} />
+                    </h1>
+                    <p className="page-subtitle">Fill in what happened today — your health, money, and learning.</p>
                   </div>
                 </div>
+
+                <div className="body-pad">
+                  {todayLogged && (
+                    <div className="today-banner">
+                      <div style={{ width:28, height:28, background:"#dcfce7", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <CheckCircle2 size={15} color="#16a34a" />
+                      </div>
+                      <div><strong>Already logged today.</strong> Your earlier entries are pre-filled — update and save to overwrite.</div>
+                    </div>
+                  )}
+
+                  {/* Snapshot */}
+                  {latest && (latest.health || latest.finance || latest.career) && (
+                    <>
+                      <div className="section-hd"><span className="section-hd-label">Last Entry</span><div className="section-hd-rule" /></div>
+                      <div className="snap-grid" style={{ marginBottom:24 }}>
+                        {[
+                          { domain:"Health", color:"var(--brand)", data:latest.health, vals: latest.health ? [{ k:"Sleep", v:`${latest.health.data.sleepHours}h` },{ k:"Workout", v:`${latest.health.data.workoutMinutes}m` },{ k:"Stress", v:`${latest.health.data.stressLevel}/10` }] : [] },
+                          { domain:"Finance", color:"#0055EE", data:latest.finance, vals: latest.finance ? [{ k:"Saved", v:`₹${latest.finance.data.amountSaved}` },{ k:"Spent", v:`₹${latest.finance.data.discretionarySpent}` }] : [] },
+                          { domain:"Career", color:"#7c3aed", data:latest.career, vals: latest.career ? [{ k:"Study", v:`${latest.career.data.hoursStudied}h` },{ k:"Rating", v:`${latest.career.data.productivityRating}/10` }] : [] },
+                        ].map(s => (
+                          <div key={s.domain} className="snap-card" style={{ borderLeftColor:s.color }}>
+                            <div className="snap-head">
+                              <span className="snap-domain" style={{ color:s.color }}>{s.domain}</span>
+                              <span className="snap-time">{s.data ? fmtDate(s.data.date) : "—"}</span>
+                            </div>
+                            {s.vals.length
+                              ? s.vals.map(v => <div key={v.k} className="snap-val"><span>{v.k}</span><strong>{v.v}</strong></div>)
+                              : <span style={{ fontSize:"0.73rem", color:"var(--text-muted)", fontStyle:"italic" }}>No data yet</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Score Preview */}
+                  <div className="section-hd">
+                    <span className="section-hd-label"><Sparkles size={11} /> Live score preview</span>
+                    <div className="section-hd-rule" />
+                  </div>
+                  <div className="score-grid">
+                    {[
+                      { label:"Health", old:currentScores.health, nw:pH, color:"var(--brand)", icon:<HeartPulse size={17} /> },
+                      { label:"Finance", old:currentScores.finance, nw:pF, color:"#0055EE", icon:<Wallet size={17} /> },
+                      { label:"Career", old:currentScores.career, nw:pC, color:"#7c3aed", icon:<Briefcase size={17} /> },
+                    ].map(c => {
+                      const diff = c.nw - c.old;
+                      return (
+                        <div key={c.label} className="score-card">
+                          <span style={{ color:c.color }}>{c.icon}</span>
+                          <div>
+                            <div className="score-name">{c.label}</div>
+                            <div className="score-nums">
+                              <span className="score-old">{c.old}</span>
+                              <span style={{ fontSize:"0.72rem", color:"var(--text-muted)" }}>→</span>
+                              <span className="score-new" style={{ color: diff < 0 ? "#ef4444" : diff > 0 ? "#10b981" : c.color }}>{c.nw}</span>
+                              {diff !== 0 && <span className={`score-diff ${diff > 0 ? "d-up" : "d-dn"}`}>{diff > 0 ? "+" : ""}{diff}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Health Section */}
+                  <div className="section-hd"><span className="section-hd-label"><HeartPulse size={11} /> Health</span><div className="section-hd-rule" /></div>
+                  <div className="form-card">
+                    <div className="form-card-stripe" style={{ background:"linear-gradient(90deg,var(--brand),#0066FF)" }} />
+                    <div className="form-card-head">
+                      <div className="fch-icon" style={{ background:"#dbeafe", color:"var(--brand)" }}><HeartPulse size={19} /></div>
+                      <div><div className="fch-title">Health</div><div className="fch-sub">Sleep, activity, stress & hydration</div></div>
+                    </div>
+                    <div className="form-card-body">
+                      <div className="sg-2">
+                        <Slider label="Sleep hours" value={health.sleepHours} onChange={v => setHealth(p => ({ ...p, sleepHours:v }))} min={0} max={12} step={0.5} icon={<Moon size={14} />} unit="h" color="var(--brand)" hint="Aim for 7–9h" />
+                        <Slider label="Exercise time" value={health.workoutMinutes} onChange={v => setHealth(p => ({ ...p, workoutMinutes:v }))} min={0} max={120} step={5} icon={<Dumbbell size={14} />} unit="m" color="#10b981" hint="Even a walk counts" />
+                      </div>
+                      <div className="sg-2">
+                        <Slider label="Stress level" value={health.stressLevel} onChange={v => setHealth(p => ({ ...p, stressLevel:v }))} min={1} max={10} step={1} icon={<Activity size={14} />} unit="/10" color="#ef4444" hint="1 = very calm" />
+                        <Slider label="Water glasses" value={health.waterGlasses} onChange={v => setHealth(p => ({ ...p, waterGlasses:v }))} min={0} max={15} step={1} icon={<Droplets size={14} />} unit=" gl" color="#06b6d4" hint="8 = ideal" />
+                      </div>
+                      <div className="sg-2">
+                        <Slider label="Mood" value={health.moodScore} onChange={v => setHealth(p => ({ ...p, moodScore:v }))} min={1} max={10} step={1} icon={<Star size={14} />} unit="/10" color="#f59e0b" hint="1 = low, 10 = great" />
+                        <Slider label="Energy level" value={health.energyLevel} onChange={v => setHealth(p => ({ ...p, energyLevel:v }))} min={1} max={10} step={1} icon={<Zap size={14} />} unit="/10" color="#8b5cf6" hint="How alert?" />
+                      </div>
+                      <div className="s-div" />
+                      <div className="pill-wrap">
+                        <span className="field-label">Meals skipped today?</span>
+                        <div className="pill-row">
+                          {[{ v:"breakfast", l:"☕ Breakfast" },{ v:"lunch", l:"🍛 Lunch" },{ v:"dinner", l:"🍽️ Dinner" }].map(m => (
+                            <button key={m.v} className={`pill${health.skippedMeals.includes(m.v) ? " on" : ""}`} onClick={() => toggleMeal(m.v)}>{m.l}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="fg-2">
+                        <Field label="Calories eaten" opt type="number" value={health.caloriesConsumed} onChange={v => setHealth(p => ({ ...p, caloriesConsumed:v }))} placeholder="e.g. 2100" />
+                        <Field label="Calorie target" opt type="number" value={health.calorieGoal} onChange={v => setHealth(p => ({ ...p, calorieGoal:v }))} placeholder="e.g. 2400" />
+                      </div>
+                      <Field label="What did you eat today?" opt value={health.mealsEatenToday} onChange={v => setHealth(p => ({ ...p, mealsEatenToday:v }))} placeholder="e.g. Oats with honey, brown rice with paneer curry..." textarea note="Helps personalise your nutrition suggestions" />
+                    </div>
+                  </div>
+
+                  {/* Finance Section */}
+                  <div className="section-hd"><span className="section-hd-label"><Wallet size={11} /> Money</span><div className="section-hd-rule" /></div>
+                  <div className="form-card">
+                    <div className="form-card-stripe" style={{ background:"linear-gradient(90deg,#0055EE,#2A18E8)" }} />
+                    <div className="form-card-head">
+                      <div className="fch-icon" style={{ background:"#e0e7ff", color:"#0055EE" }}><Wallet size={19} /></div>
+                      <div><div className="fch-title">Money</div><div className="fch-sub">What you saved and spent today</div></div>
+                    </div>
+                    <div className="form-card-body">
+                      <div className="fg-2">
+                        <Field label="Amount saved today" req type="number" value={finance.amountSaved} onChange={v => setFinance(p => ({ ...p, amountSaved:v }))} placeholder="₹ e.g. 350" note="Enter 0 if nothing saved today" />
+                        <Field label="Discretionary spending" req type="number" value={finance.discretionarySpent} onChange={v => setFinance(p => ({ ...p, discretionarySpent:v }))} placeholder="₹ e.g. 60" note="Non-essential spending" />
+                      </div>
+                      <div className="fg-2">
+                        <Field label="Biggest purchase today" opt value={finance.biggestExpenseToday} onChange={v => setFinance(p => ({ ...p, biggestExpenseToday:v }))} placeholder="e.g. Swiggy order, Amazon" />
+                        <div className="field-grp">
+                          <label className="field-label">Spending category</label>
+                          <select className="field-input" value={finance.spendingCategory} onChange={e => setFinance(p => ({ ...p, spendingCategory:e.target.value }))}>
+                            <option value="food">Food & Groceries</option>
+                            <option value="entertainment">Entertainment</option>
+                            <option value="shopping">Shopping</option>
+                            <option value="transport">Transport</option>
+                            <option value="other">Something else</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className={`toggle-row${finance.impulseSpend ? " tw" : ""}`} onClick={() => setFinance(p => ({ ...p, impulseSpend:!p.impulseSpend }))}>
+                        <div className={`tsw${finance.impulseSpend ? " on" : ""}`}><div className="tknob" /></div>
+                        <span className="ttxt">{finance.impulseSpend ? "⚠️ Yes, I made an unplanned purchase today" : "Did you buy something on impulse?"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Career Section */}
+                  <div className="section-hd"><span className="section-hd-label"><Briefcase size={11} /> Learning & Work</span><div className="section-hd-rule" /></div>
+                  <div className="form-card">
+                    <div className="form-card-stripe" style={{ background:"linear-gradient(90deg,#7c3aed,#2A18E8)" }} />
+                    <div className="form-card-head">
+                      <div className="fch-icon" style={{ background:"#ede9fe", color:"#7c3aed" }}><Briefcase size={19} /></div>
+                      <div><div className="fch-title">Learning & Work</div><div className="fch-sub">Study time, focus and what you worked on</div></div>
+                    </div>
+                    <div className="form-card-body">
+                      <div className="fg-2">
+                        <Field label="Hours studied / worked" req type="number" value={career.hoursStudied} onChange={v => setCareer(p => ({ ...p, hoursStudied:v }))} placeholder="e.g. 3" note="Count deep focus time" />
+                        <Field label="Study sessions completed" opt type="number" value={career.sessionsCompleted} onChange={v => setCareer(p => ({ ...p, sessionsCompleted:v }))} placeholder="e.g. 3" />
+                      </div>
+                      <Slider label="How productive were you today?" value={career.productivityRating} onChange={v => setCareer(p => ({ ...p, productivityRating:v }))} min={1} max={10} step={1} icon={<TrendingUp size={14} />} unit="/10" color="#7c3aed" hint="Be honest — it helps!" />
+                      <Field label="Course / skill worked on" opt value={career.courseName} onChange={v => setCareer(p => ({ ...p, courseName:v }))} placeholder="e.g. ML Fundamentals, DSA, System Design" />
+                      <Field label="Goal you moved forward today" opt value={career.goalWorkedOn} onChange={v => setCareer(p => ({ ...p, goalWorkedOn:v }))} placeholder="e.g. Solved 5 LeetCode problems" />
+                      <Field label="What got in your way today?" opt value={career.blockerToday} onChange={v => setCareer(p => ({ ...p, blockerToday:v }))} placeholder="e.g. Felt tired after work, got distracted" />
+                    </div>
+                  </div>
+
+                  {/* Reflection */}
+                  <div className="section-hd"><span className="section-hd-label"><MessageSquare size={11} /> Reflection</span><div className="section-hd-rule" /></div>
+                  <div className="form-card">
+                    <div className="form-card-stripe" style={{ background:"linear-gradient(90deg,#f59e0b,#fbbf24)" }} />
+                    <div className="form-card-head">
+                      <div className="fch-icon" style={{ background:"#fef3c7", color:"#f59e0b" }}><MessageSquare size={19} /></div>
+                      <div><div className="fch-title">How are you feeling?</div><div className="fch-sub">A quick reflection helps your insights get personal</div></div>
+                    </div>
+                    <div className="form-card-body">
+                      <p style={{ fontSize:"0.79rem", color:"var(--text-muted)", fontStyle:"italic" }}>💬 {prompt}</p>
+                      <textarea className="field-input f-textarea" style={{ minHeight:88 }}
+                        placeholder="Write anything — even a sentence is helpful..."
+                        value={dailyNote} onChange={e => setDailyNote(e.target.value)} maxLength={500} />
+                      <div style={{ textAlign:"right", fontSize:"0.67rem", color:"var(--text-muted)" }}>{dailyNote.length} / 500</div>
+                    </div>
+                  </div>
+
+                  {message && <div className="err-box"><AlertTriangle size={15} /> {message}</div>}
+
+                  <button className="save-btn" onClick={handleSubmit} disabled={!canSubmit || loading}>
+                    {loading ? <><Activity size={17} /> Saving your day...</> : <><Send size={16} /> Save Today's Log</>}
+                  </button>
+                  {!canSubmit && <p className="save-hint">Fill in sleep hours, savings, spending, and study hours to save your log.</p>}
+                </div>
               </div>
-            );
-          })}
+            )}
+
+            {/* ── UPLOADS ── */}
+            {activePanel === "uploads" && (
+              <div className="screen">
+                <UploadsPanel onSuccess={refreshLatest} />
+              </div>
+            )}
+
+            {/* ── API SYNC ── */}
+            {activePanel === "api" && (
+              <div className="screen">
+                <ApiSyncPanel />
+              </div>
+            )}
+
+          </div>
         </div>
       </div>
 
-      {/* ── ERROR ── */}
-      {message && (
-        <div className="err-wrap">
-          <div className="err-box"><AlertTriangle size={15} /> {message}</div>
+      {/* Mobile Tab Bar */}
+      <nav className="mob-tabbar">
+        <div className="mob-tabbar-inner">
+          <button className={`mob-tab${activePanel === "manual" ? " active" : ""}`} onClick={() => setActivePanel("manual")}>
+            <div className="mob-tab-icon"><Edit3 size={19} /></div>
+            <span className="mob-tab-label">Check-in</span>
+          </button>
+          <button className={`mob-tab${activePanel === "uploads" ? " active" : ""}`} onClick={() => setActivePanel("uploads")}>
+            <div className="mob-tab-icon"><Upload size={19} /></div>
+            <span className="mob-tab-label">Uploads</span>
+          </button>
+          <button className={`mob-tab${activePanel === "api" ? " active" : ""}`} onClick={() => setActivePanel("api")}>
+            <div className="mob-tab-icon"><Plug size={19} /></div>
+            <span className="mob-tab-label">API Sync</span>
+          </button>
         </div>
-      )}
-
-      {/* ── SUBMIT ── */}
-      <div className="submit-section">
-        <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit || loading}>
-          {loading
-            ? <><Activity size={17} /> Saving your day...</>
-            : <><Send size={16} /> Save Today's Log</>}
-        </button>
-        {!canSubmit && (
-          <p className="submit-note">Fill in sleep hours, savings, spending, and study hours to save your log.</p>
-        )}
-      </div>
-
+      </nav>
     </div>
   );
 }

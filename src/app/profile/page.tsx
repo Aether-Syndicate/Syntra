@@ -1,7 +1,10 @@
+
+
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import {
@@ -9,12 +12,73 @@ import {
   ArrowLeft, CheckCircle2, User, Mail, Calendar, LogOut,
   Edit3, X, Save, Lock, Eye, EyeOff, Check, RefreshCw,
   BookOpen, Trophy, Star, Zap, Target, Flame, Award,
-  ChevronRight, Camera, BarChart3, Activity, Layers,
+  ChevronRight, Camera, BarChart3, Layers, Menu,
 } from "lucide-react";
 
 /* ─── TYPES ──────────────────────────────────────────────────────── */
 type SyncStatus = "idle" | "syncing" | "synced";
 type OptVector  = "career" | "health" | "finance";
+
+/* ─── NAV LINKS ──────────────────────────────────────────────────── */
+const NAV_LINKS = [
+  { href: "/dashboard",          label: "Dashboard" },
+  { href: "/ingestion",          label: "Ingestion" },
+  { href: "/goals",              label: "Goals" },
+  { href: "/simulator",          label: "Simulator" },
+  { href: "/insights",           label: "Insights" },
+  { href: "/assets-liabilities", label: "Net Worth" },
+  { href: "/profile",            label: "Profile" },
+];
+
+/* ─── TOP NAVBAR ─────────────────────────────────────────────────── */
+function TopNav() {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div className={`top-nav${scrolled ? " top-nav-scrolled" : ""}`}>
+      <div className="top-nav-inner">
+        <Link href="/" className="top-nav-logo">syn<strong>tra</strong></Link>
+        <nav className="top-nav-links">
+          {NAV_LINKS.map(l => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`top-nav-link${l.href === "/profile" ? " top-nav-link-active" : ""}`}
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+        <button
+          className="top-nav-hamburger"
+          onClick={() => setMenuOpen(v => !v)}
+          aria-label="Menu"
+        >
+          <span /><span /><span />
+        </button>
+      </div>
+      <div className={`top-nav-mobile-menu${menuOpen ? " open" : ""}`}>
+        {NAV_LINKS.map(l => (
+          <Link
+            key={l.href}
+            href={l.href}
+            className={`top-nav-mobile-link${l.href === "/profile" ? " active" : ""}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            {l.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /* ─── AVATARS — same as onboarding ──────────────────────────────── */
 const AVATARS = [
@@ -127,19 +191,9 @@ const AVATARS = [
 const getAvatarByNumId = (numId: string) =>
   AVATARS.find(a => a.numId === String(numId)) || AVATARS[0];
 
-/* ─── BADGES ─────────────────────────────────────────────────────── */
-const BADGES = [
-  { id:"week_warrior",    title:"Week Warrior",     desc:"7-day logging streak",                icon:Flame,  color:"#f59e0b", bg:"#fef3c7" },
-  { id:"neural_init",     title:"Neural Init",      desc:"First AI twin sync completed",        icon:Zap,    color:"#0044DD", bg:"#dbeafe" },
-  { id:"apex_optimizer",  title:"Apex Optimizer",   desc:"Top 10% on your optimisation vector", icon:Target, color:"#a855f7", bg:"#f3e8ff" },
-  { id:"data_sovereign",  title:"Data Sovereign",   desc:"All three layers synced at once",     icon:Star,   color:"#10b981", bg:"#d1fae5" },
-  { id:"grand_architect", title:"Grand Architect",  desc:"30-day continuous twin operation",    icon:Award,  color:"#ef4444", bg:"#fee2e2" },
-];
-
-/* ─── NAV SECTIONS ───────────────────────────────────────────────── */
+/* ─── NAV SECTIONS (updated — no neural sync) ───────────────────── */
 const NAV_SECTIONS = [
   { id:"sec-profile",      icon:User,      label:"Twin Profile",   sub:"Identity & settings"  },
-  { id:"sec-telemetry",    icon:Cpu,       label:"Neural Sync",    sub:"Health, finance, career" },
   { id:"sec-optimization", icon:BarChart3, label:"Optimisation",   sub:"Active vector"         },
   { id:"sec-data",         icon:Layers,    label:"Data Layers",    sub:"Connected sources"     },
 ];
@@ -259,31 +313,23 @@ export default function ProfilePage() {
 
   /* ── Section refs ── */
   const refProfile      = useRef<HTMLDivElement>(null);
-  const refTelemetry    = useRef<HTMLDivElement>(null);
   const refOptimization = useRef<HTMLDivElement>(null);
   const refData         = useRef<HTMLDivElement>(null);
   const scrollRef       = useRef<HTMLDivElement>(null);
 
-  /*
-   * isProgrammaticScroll — when true the scroll-spy observer is temporarily
-   * suppressed so a sidebar click doesn't fight the highlight we set instantly.
-   */
   const isProgrammaticScroll         = useRef(false);
   const programmaticScrollTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const sectionOrder = ["sec-profile", "sec-telemetry", "sec-optimization", "sec-data"] as const;
+  const sectionOrder = ["sec-profile", "sec-optimization", "sec-data"] as const;
 
   const sectionRefs: Record<string, React.RefObject<HTMLDivElement>> = {
     "sec-profile":      refProfile,
-    "sec-telemetry":    refTelemetry,
     "sec-optimization": refOptimization,
     "sec-data":         refData,
   };
 
   const { data: profileRes, mutate: mutateProfile } = useSWR<any>("/api/profile", fetcher);
   const { data: dashData }                           = useSWR<any>("/api/dashboard", fetcher, { dedupingInterval:60000, revalidateOnFocus:true });
-  const userBadges = dashData?.dashboard?.gamification?.badges || [];
-  const streak     = dashData?.dashboard?.gamification?.streak  || 0;
 
   const [profile, setProfile] = useState({
     name:"", email:"", age:"", avatarId:"1",
@@ -325,7 +371,6 @@ export default function ProfilePage() {
   const [showConPw,    setShowConPw]    = useState(false);
   const [pwError,      setPwError]      = useState("");
   const [pwSuccess,    setPwSuccess]    = useState(false);
-  const [syncStatuses, setSyncStatuses] = useState<Record<string,"idle"|"syncing"|"synced">>({ health:"idle", finance:"idle", coursera:"idle", googleFit:"idle" });
   const [vectorPulse,  setVectorPulse]  = useState(false);
 
   const twinText = useTypewriter("Twin Profile");
@@ -361,28 +406,11 @@ export default function ProfilePage() {
     }
   }, [profileRes, session]);
 
-  /* ══════════════════════════════════════════════════════════════════
-     SCROLL-SPY — measures visible height of each section inside the
-     scroll container and activates whichever occupies the most pixels.
-
-     Strategy:
-       On every scroll event, iterate over all four section elements.
-       For each, compute how many pixels of it are currently visible
-       inside the scroll container's viewport. The section with the
-       most visible pixels wins and becomes active.
-
-     Why this beats the "trigger line" approach:
-       - Twin Profile is much taller than the others, so even when the
-         user scrolls deep into it the bottom of it may still be in
-         view. Measuring actual visible area solves that naturally.
-       - At the very bottom of the page, Data Layers lights up even
-         though it may be shorter than the viewport.
-  ══════════════════════════════════════════════════════════════════ */
+  /* ── Scroll spy ── */
   const computeActiveSection = useCallback((): string => {
     const scrollEl = scrollRef.current;
     if (!scrollEl) return "sec-profile";
 
-    // Viewport bounds of the scroll container in client coordinates
     const containerTop    = scrollEl.getBoundingClientRect().top;
     const containerBottom = containerTop + scrollEl.clientHeight;
 
@@ -394,8 +422,6 @@ export default function ProfilePage() {
       if (!el) continue;
 
       const rect = el.getBoundingClientRect();
-
-      // Clamp the section rect to the container's visible area
       const visTop    = Math.max(rect.top,    containerTop);
       const visBottom = Math.min(rect.bottom, containerBottom);
       const visible   = Math.max(0, visBottom - visTop);
@@ -420,8 +446,6 @@ export default function ProfilePage() {
     if (!scrollEl) return;
 
     scrollEl.addEventListener("scroll", handleScroll, { passive: true });
-
-    // Set correct initial state once layout has settled
     const raf = requestAnimationFrame(() => setActiveSection(computeActiveSection()));
 
     return () => {
@@ -430,25 +454,16 @@ export default function ProfilePage() {
     };
   }, [mounted, handleScroll, computeActiveSection]);
 
-  /* ── scrollToSection ──────────────────────────────────────────────
-     Lock the spy while the smooth scroll animation plays, then
-     re-measure once it has finished so the final resting position
-     is always reflected correctly.
-  ─────────────────────────────────────────────────────────────────── */
   const scrollToSection = useCallback((id: string) => {
     const el = sectionRefs[id]?.current;
     if (!el) return;
 
-    // Suppress spy during animation
     isProgrammaticScroll.current = true;
     if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
 
-    // Highlight immediately on click — no wait
     setActiveSection(id);
-
     el.scrollIntoView({ behavior: "smooth", block: "start" });
 
-    // Re-enable spy after smooth-scroll completes (~700 ms is sufficient)
     programmaticScrollTimer.current = setTimeout(() => {
       isProgrammaticScroll.current = false;
       setActiveSection(computeActiveSection());
@@ -528,38 +543,6 @@ export default function ProfilePage() {
     } catch(e) { console.error(e); }
   };
 
-  const handleSync = (key:string) => {
-    if (syncStatuses[key]!=="idle") return;
-    setSyncStatuses(s=>({ ...s, [key]:"syncing" }));
-    setTimeout(()=>{ setSyncStatuses(s=>({ ...s, [key]:"synced" })); setTimeout(()=>setSyncStatuses(s=>({ ...s, [key]:"idle" })), 3000); }, 1800);
-  };
-
-  const handleGoogleFitSync = async () => {
-    const isConnected = !!profileRes?.user?.googleFit?.syncActive;
-    if (!isConnected) {
-      window.location.href = "/api/auth/google-fit/connect";
-      return;
-    }
-
-    if (syncStatuses.googleFit !== "idle") return;
-    setSyncStatuses(s => ({ ...s, googleFit: "syncing" }));
-    
-    try {
-      const res = await fetch("/api/telemetry/sync", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Sync failed");
-      
-      setSyncStatuses(s => ({ ...s, googleFit: "synced" }));
-      setTimeout(() => {
-        setSyncStatuses(s => ({ ...s, googleFit: "idle" }));
-      }, 3000);
-      mutateProfile();
-    } catch (e: any) {
-      alert(e.message || "Failed to sync Google Fit data.");
-      setSyncStatuses(s => ({ ...s, googleFit: "idle" }));
-    }
-  };
-
   const handlePwSubmit = () => {
     setPwError("");
     if (!currentPw) { setPwError("Enter your current password."); return; }
@@ -579,6 +562,9 @@ export default function ProfilePage() {
   return (
     <div className="pf-root">
       <style>{CSS}</style>
+
+      {/* ── TOP NAVBAR ── */}
+      <TopNav />
 
       {/* ── AVATAR MODAL ── */}
       {avatarModalOpen && <AvatarModal currentNumId={profile.avatarId} onSave={handleAvatarSave} onClose={()=>setAvatarModalOpen(false)}/>}
@@ -617,415 +603,355 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ═══════════════ SIDEBAR ═══════════════ */}
-      <div className="sidebar">
-        <div className="sb-grid"/>
+      {/* ═══════════════ PAGE BODY ═══════════════ */}
+      <div className="pf-body">
 
-        {/* Brand */}
-        <div className="sb-brand-block">
-          <div className="sb-logo"><div className="sb-logo-dot"/>Syntra</div>
-          <div className="sb-heading">Twin Profile</div>
-          <div className="sb-sub">Your digital identity and AI twin configuration.</div>
+        {/* ═══════════════ SIDEBAR ═══════════════ */}
+        <div className="sidebar">
+          <div className="sb-grid"/>
+          <div className="sidebar-top-rule"/>
+
+          {/* Brand */}
+          <div className="sb-brand-block">
+            <div className="sb-logo"><div className="sb-logo-dot"/>Syntra</div>
+            <div className="sb-heading">Twin Profile</div>
+            <div className="sb-sub">Your digital identity and AI twin configuration.</div>
+          </div>
+
+          {/* Scroll-anchor navigation */}
+          <div className="sb-sections">
+            {NAV_SECTIONS.map(item => {
+              const isActive = activeSection === item.id;
+              return (
+                <button
+                  key={item.id}
+                  className={`sb-section-item${isActive?" sb-section-active":""}`}
+                  onClick={() => scrollToSection(item.id)}
+                >
+                  <div className="sb-section-icon"><item.icon size={14}/></div>
+                  <div className="sb-section-text">
+                    <span className="sb-section-label">{item.label}</span>
+                    <span className="sb-section-sub">{item.sub}</span>
+                  </div>
+                  {isActive && <ChevronRight size={12} className="sb-section-arrow"/>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Status pill */}
+          <div className="sb-status">
+            <div className="sb-status-dot"/>
+            <div>
+              <div className="sb-status-label">Twin Status</div>
+              <div className="sb-status-val">Online & Syncing</div>
+            </div>
+          </div>
+
+          {/* Sign out */}
+          <button className="sb-signout" onClick={()=>signOut({ callbackUrl:"/" })}>
+            <LogOut size={13}/> Sign Out
+          </button>
         </div>
 
-        {/* Scroll-anchor navigation */}
-        <div className="sb-sections">
-          {NAV_SECTIONS.map(item => {
-            const isActive = activeSection === item.id;
-            return (
-              <button
-                key={item.id}
-                className={`sb-section-item${isActive?" sb-section-active":""}`}
-                onClick={() => scrollToSection(item.id)}
-              >
-                <div className="sb-section-icon"><item.icon size={14}/></div>
-                <div className="sb-section-text">
-                  <span className="sb-section-label">{item.label}</span>
-                  <span className="sb-section-sub">{item.sub}</span>
-                </div>
-                {isActive && <ChevronRight size={12} className="sb-section-arrow"/>}
+        {/* ═══════════════ SCROLLABLE CONTENT ═══════════════ */}
+        <div className="pf-right" ref={scrollRef}>
+          <div className="pf-inner">
+
+            {/* Back + page heading */}
+            <div className="pf-topbar">
+              <button className="back-btn" onClick={()=>history.back()}>
+                <ArrowLeft size={13}/> Return to Dashboard
               </button>
-            );
-          })}
-        </div>
+              {!editMode && (
+                <button className="edit-config-btn" onClick={handleEditStart}>
+                  <Edit3 size={13}/> Edit Configuration
+                </button>
+              )}
+            </div>
 
-        {/* Status pill */}
-        <div className="sb-status">
-          <div className="sb-status-dot"/>
-          <div>
-            <div className="sb-status-label">Twin Status</div>
-            <div className="sb-status-val">Online & Syncing</div>
-          </div>
-        </div>
+            <div className="pf-heading-block">
+              <h1 className="pf-title">
+                <span style={{ color:"#0047D4" }}>{twinText.slice(0,4)||""}</span>
+                <span style={{ color:"#0D1117" }}>{twinText.slice(4)||""}</span>
+                <span className="pf-cursor"/>
+              </h1>
+              <p className="pf-subtitle">Your digital identity, settings, and AI twin configuration — all in one place.</p>
+            </div>
 
-        {/* Sign out */}
-        <button className="sb-signout" onClick={()=>signOut({ callbackUrl:"/" })}>
-          <LogOut size={13}/> Sign Out
-        </button>
-      </div>
+            {/* ══════════════════════════════════════
+                SECTION 1 — TWIN PROFILE
+            ══════════════════════════════════════ */}
+            <div ref={refProfile} id="sec-profile" className="content-section">
+              <SectionHeading icon={User} title="Twin Profile" sub="Your personal information and identity settings" color="#0047D4"/>
 
-      {/* ═══════════════ SCROLLABLE CONTENT ═══════════════ */}
-      <div className="pf-right" ref={scrollRef}>
-        <div className="pf-inner">
-
-          {/* Back + page heading */}
-          <div className="pf-topbar">
-            <button className="back-btn" onClick={()=>history.back()}>
-              <ArrowLeft size={13}/> Return to Dashboard
-            </button>
-            {!editMode && (
-              <button className="edit-config-btn" onClick={handleEditStart}>
-                <Edit3 size={13}/> Edit Configuration
-              </button>
-            )}
-          </div>
-
-          <div className="pf-heading-block">
-            <h1 className="pf-title">
-              <span style={{ color:"#0047D4" }}>{twinText.slice(0,4)||""}</span>
-              <span style={{ color:"#0D1117" }}>{twinText.slice(4)||""}</span>
-              <span className="pf-cursor"/>
-            </h1>
-            <p className="pf-subtitle">Your digital identity, settings, and AI twin configuration — all in one place.</p>
-          </div>
-
-          {/* ══════════════════════════════════════
-              SECTION 1 — TWIN PROFILE
-          ══════════════════════════════════════ */}
-          <div ref={refProfile} id="sec-profile" className="content-section">
-            <SectionHeading icon={User} title="Twin Profile" sub="Your personal information and identity settings" color="#0047D4"/>
-
-            {/* Hero identity card */}
-            <div className="card mb-14">
-              <div className="hero-banner"/>
-              <div className="hero-body">
-                <div className="avatar-row">
-                  <div className="avatar-outer" onClick={()=>setAvatarModalOpen(true)} title="Click to change avatar">
-                    <div className="avatar-glow"/>
-                    <div className="avatar-ring" style={{ background:selectedAvatar.lightBg }}>
-                      <div style={{ width:80, height:80 }}>{selectedAvatar.svg}</div>
+              {/* Hero identity card */}
+              <div className="card mb-14">
+                <div className="hero-banner"/>
+                <div className="hero-body">
+                  <div className="avatar-row">
+                    <div className="avatar-outer" onClick={()=>setAvatarModalOpen(true)} title="Click to change avatar">
+                      <div className="avatar-glow"/>
+                      <div className="avatar-ring" style={{ background:selectedAvatar.lightBg }}>
+                        <div style={{ width:80, height:80 }}>{selectedAvatar.svg}</div>
+                      </div>
+                      <div className="avatar-edit-overlay"><Camera size={14} color="#fff"/></div>
                     </div>
-                    <div className="avatar-edit-overlay"><Camera size={14} color="#fff"/></div>
+                    <div className="avatar-meta">
+                      <div className="hero-name">{profile.name||"Your Name"}</div>
+                      <div className="twin-badge"><Sparkles size={9} style={{ color:"#0047D4" }}/> Syntra Twin — {selectedAvatar.name}</div>
+                      <div className="avatar-change-hint" onClick={()=>setAvatarModalOpen(true)}><Camera size={10}/> Change avatar</div>
+                    </div>
                   </div>
-                  <div className="avatar-meta">
-                    <div className="hero-name">{profile.name||"Your Name"}</div>
-                    <div className="twin-badge"><Sparkles size={9} style={{ color:"#0047D4" }}/> Syntra Twin — {selectedAvatar.name}</div>
-                    <div className="avatar-change-hint" onClick={()=>setAvatarModalOpen(true)}><Camera size={10}/> Change avatar</div>
+
+                  {editMode ? (
+                    <div className="edit-grid-single">
+                      {[
+                        { label:"Full Name",       val:editName,    set:setEditName,    type:"text",  ph:"Full name" },
+                        { label:"Email Address",   val:editEmail,   set:setEditEmail,   type:"email", ph:"Email address" },
+                        { label:"Age",             val:editAge,     set:setEditAge,     type:"number",ph:"Age" },
+                        { label:"Personal Mission",val:editMission, set:setEditMission, type:"text",  ph:"What you're working toward" },
+                      ].map(f=>(
+                        <div key={f.label} className="form-group">
+                          <label className="form-label">{f.label}</label>
+                          <input className="form-input" type={f.type} placeholder={f.ph} value={f.val} onChange={e=>f.set(e.target.value)}/>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="info-section">
+                      <InfoRow icon={User}     label="Full Name"        value={profile.name}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Mail}     label="Email Address"    value={profile.email}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Calendar} label="Age"              value={profile.age?`${profile.age} years`:""}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Target}   label="Personal Mission" value={profile.personalMission||"Achieve Personal Optimisation"}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Shield}   label="Access Level"     value="Authenticated Member" accent/>
+                      <button className="creds-btn" onClick={()=>setCredsOpen(true)}><Lock size={11}/> Update Password</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Telemetry card */}
+              <div className="card mb-0">
+                <div className="card-header">
+                  <div className="card-hicon" style={{ background:"rgba(0,68,221,0.07)" }}><Cpu size={17} color="#0044DD"/></div>
+                  <div>
+                    <div className="card-title">Twin Telemetry Settings</div>
+                    <div className="card-sub">Health, financial, and behavioural parameters from your onboarding</div>
                   </div>
                 </div>
+                <div className="card-body">
+                  {editMode ? (
+                    <div style={{ display:"flex",flexDirection:"column",gap:24 }}>
+                      {/* Health edit */}
+                      <div>
+                        <div className="section-divider-label" style={{ color:"#ef4444" }}><HeartPulse size={11}/> Health & Body</div>
+                        <div className="edit-grid">
+                          {[
+                            { label:"Gender", field:"sel", val:editGender, set:setEditGender, opts:[{v:"male",l:"Male"},{v:"female",l:"Female"},{v:"non-binary",l:"Non-Binary"}] },
+                            { label:"Height (cm)", field:"num", val:editHeight, set:setEditHeight, ph:"cm" },
+                            { label:"Weight (kg)", field:"num", val:editWeight, set:setEditWeight, ph:"kg" },
+                            { label:"Activity Level", field:"sel", val:editActivity, set:setEditActivity, opts:[
+                              {v:"sedentary",l:"Mostly sitting"},{v:"lightly_active",l:"Lightly active"},
+                              {v:"moderately_active",l:"Moderately active"},{v:"very_active",l:"Very active"},{v:"athlete",l:"Athlete"}
+                            ] },
+                          ].map(f=>(
+                            <div key={f.label} className="form-group">
+                              <label className="form-label">{f.label}</label>
+                              {f.field==="sel"
+                                ? <select className="form-select" value={f.val} onChange={e=>f.set(e.target.value)}>
+                                    {(f.opts||[]).map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                                  </select>
+                                : <input className="form-input" type="number" value={f.val} onChange={e=>f.set(e.target.value)} placeholder={(f as any).ph||""}/>
+                              }
+                            </div>
+                          ))}
+                        </div>
+                        <div className="edit-grid-single">
+                          {[
+                            { label:`Sleep per night — ${editSleep}h`,     val:editSleep,    set:setEditSleep,    min:"4",  max:"10", step:"0.5" },
+                            { label:`Workouts per week — ${editWorkouts}×`, val:editWorkouts, set:setEditWorkouts, min:"0",  max:"7",  step:"1"   },
+                          ].map(s=>(
+                            <div key={s.label} className="form-group">
+                              <label className="form-label">{s.label}</label>
+                              <input className="form-slider" type="range" min={s.min} max={s.max} step={s.step} value={s.val} onChange={e=>s.set(e.target.value)}/>
+                            </div>
+                          ))}
+                          <div className="form-group">
+                            <label className="form-label">Health Conditions</label>
+                            <select className="form-select" value={editConstraints} onChange={e=>setEditConstraints(e.target.value)}>
+                              <option value="none">None</option>
+                              <option value="diabetes">Diabetes</option>
+                              <option value="hypertension">High Blood Pressure</option>
+                              <option value="asthma">Asthma</option>
+                              <option value="custom">Other</option>
+                            </select>
+                          </div>
+                          {editConstraints==="custom"&&(
+                            <div className="form-group">
+                              <label className="form-label">Describe condition</label>
+                              <input className="form-input" value={editCustomConstraint} onChange={e=>setEditCustomConstraint(e.target.value)} placeholder="e.g. Thyroid, Migraines…"/>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Finance edit */}
+                      <div>
+                        <div className="section-divider-label" style={{ color:"#10b981" }}><Wallet size={11}/> Finances</div>
+                        <div className="edit-grid">
+                          <div className="form-group">
+                            <label className="form-label">Monthly Income (₹)</label>
+                            <input className="form-input" type="number" value={editIncome} onChange={e=>setEditIncome(e.target.value)} placeholder="Monthly income"/>
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Current Savings (₹)</label>
+                            <input className="form-input" type="number" value={editSavings} onChange={e=>setEditSavings(e.target.value)} placeholder="Total savings"/>
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Spending Style — {spendLabel(editSpending)}</label>
+                          <input className="form-slider" type="range" min="1" max="5" step="1" value={editSpending} onChange={e=>setEditSpending(e.target.value)}/>
+                        </div>
+                      </div>
+                      {/* Career edit */}
+                      <div>
+                        <div className="section-divider-label" style={{ color:"#0066FF" }}><Briefcase size={11}/> Career & Habits</div>
+                        <div className="edit-grid">
+                          <div className="form-group">
+                            <label className="form-label">Your Situation</label>
+                            <select className="form-select" value={editLearning} onChange={e=>setEditLearning(e.target.value)}>
+                              <option value="">Select…</option>
+                              <option value="student">Student — exams or placement</option>
+                              <option value="professional">Working professional</option>
+                              <option value="founder">Founder / builder</option>
+                              <option value="freelancer">Freelancer</option>
+                              <option value="job_seeker">Actively job seeking</option>
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Focus Archetype</label>
+                            <select className="form-select" value={editArchetype} onChange={e=>setEditArchetype(e.target.value)}>
+                              <option value="">Select…</option>
+                              <option value="chronos">Chronos — Learning & Growth</option>
+                              <option value="apex">Apex — Productivity & Discipline</option>
+                              <option value="nexus">Nexus — Wealth & Planning</option>
+                              <option value="titan">Titan — Fitness & Energy</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Daily Study / Work Hours — {editStudy}h</label>
+                          <input className="form-slider" type="range" min="0" max="14" step="0.5" value={editStudy} onChange={e=>setEditStudy(e.target.value)}/>
+                        </div>
+                      </div>
+                      <div className="edit-actions">
+                        <button className="btn-save" onClick={handleEditSave} disabled={loading}>
+                          {loading?<RefreshCw size={13} style={{animation:"spin 0.8s linear infinite"}}/>:<Save size={13}/>} Save All Changes
+                        </button>
+                        <button className="btn-cancel" onClick={()=>setEditMode(false)}><X size={13}/> Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="info-section">
+                      <div className="section-divider-label" style={{ color:"#ef4444",marginBottom:6 }}><HeartPulse size={11}/> Health & Body</div>
+                      <InfoRow icon={User}      label="Gender"         value={profile.gender==="non-binary"?"Non-Binary":(profile.gender?profile.gender.replace(/\b\w/g,c=>c.toUpperCase()):"")}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Calendar}  label="Height / Weight" value={profile.height&&profile.weight?`${profile.height} cm / ${profile.weight} kg`:""}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={HeartPulse}label="Activity Level"  value={activityLabel(profile.activityLevel)}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Zap}       label="Sleep per Night" value={profile.averageSleep?`${profile.averageSleep}h`:""}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Flame}     label="Workouts / Week" value={profile.workoutFrequency?`${profile.workoutFrequency}×`:""}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Shield}    label="Health Conditions" value={profile.healthConstraints==="none"?"None (Generally healthy)":profile.healthConstraints==="diabetes"?"Diabetes":profile.healthConstraints==="hypertension"?"High Blood Pressure":profile.healthConstraints==="asthma"?"Asthma":(profile.healthConstraints||"")}/>
+                      <div className="section-divider-label" style={{ color:"#10b981",marginTop:18,marginBottom:6 }}><Wallet size={11}/> Finances</div>
+                      <InfoRow icon={Wallet}    label="Monthly Income"   value={profile.monthlyIncome?`₹${Number(profile.monthlyIncome).toLocaleString("en-IN")}`:""} accent/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Trophy}    label="Current Savings"  value={profile.currentSavings?`₹${Number(profile.currentSavings).toLocaleString("en-IN")}`:""} accent/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Briefcase} label="Spending Style"   value={spendLabel(profile.spendingStyle)}/>
+                      <div className="section-divider-label" style={{ color:"#0066FF",marginTop:18,marginBottom:6 }}><Briefcase size={11}/> Career & Habits</div>
+                      <InfoRow icon={Zap}       label="Current Situation" value={learnLabel(profile.learningProfile)}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={BookOpen}  label="Focus Archetype"   value={profile.archetype==="chronos"?"Chronos — Learning & Growth":profile.archetype==="apex"?"Apex — Productivity & Discipline":profile.archetype==="nexus"?"Nexus — Wealth & Planning":profile.archetype==="titan"?"Titan — Fitness & Energy":(profile.archetype||"")}/>
+                      <div className="info-divider"/>
+                      <InfoRow icon={Target}    label="Daily Study Hours" value={profile.hoursStudied?`${profile.hoursStudied}h/day`:""}/>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
-                {editMode ? (
-                  <div className="edit-grid-single">
+            {/* ══════════════════════════════════════
+                SECTION 2 — OPTIMISATION
+            ══════════════════════════════════════ */}
+            <div ref={refOptimization} id="sec-optimization" className="content-section">
+              <SectionHeading icon={BarChart3} title="Optimisation" sub="Choose which area Syntra should prioritise in its recommendations" color={activeVector.color}/>
+              <div className="card mb-0">
+                <div className="card-body">
+                  <div className="vector-grid">
+                    {(["health","finance","career"] as OptVector[]).map(v=>{
+                      const m=vectorMeta[v], VIcon=m.icon, sel=profile.optimizationVector===v;
+                      return (
+                        <div key={v}
+                          className={`vector-card${sel?" vector-selected":""}${sel&&vectorPulse?" vector-pulse":""}`}
+                          style={{ background:m.bg, ["--vc" as any]:m.color }}
+                          onClick={()=>handleVectorSelect(v)}>
+                          <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+                            <div className="vector-icon" style={{ background:`${m.color}16` }}><VIcon size={17} color={m.color}/></div>
+                            {sel&&<div className="vector-active-chip" style={{ background:`${m.color}14`,color:m.color,border:`1px solid ${m.color}28` }}><CheckCircle2 size={9}/> Active</div>}
+                          </div>
+                          <div className="vector-name" style={{ color:m.color }}>{m.label}</div>
+                          <div className="vector-desc">{m.desc}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ══════════════════════════════════════
+                SECTION 3 — DATA LAYERS
+            ══════════════════════════════════════ */}
+            <div ref={refData} id="sec-data" className="content-section" style={{ paddingBottom:80 }}>
+              <SectionHeading icon={Layers} title="Data Layers" sub="Overview of all active data sources powering your twin" color="#7c3aed"/>
+              <div className="card mb-0">
+                <div className="card-body">
+                  <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
                     {[
-                      { label:"Full Name",       val:editName,    set:setEditName,    type:"text",  ph:"Full name" },
-                      { label:"Email Address",   val:editEmail,   set:setEditEmail,   type:"email", ph:"Email address" },
-                      { label:"Age",             val:editAge,     set:setEditAge,     type:"number",ph:"Age" },
-                      { label:"Personal Mission",val:editMission, set:setEditMission, type:"text",  ph:"What you're working toward" },
-                    ].map(f=>(
-                      <div key={f.label} className="form-group">
-                        <label className="form-label">{f.label}</label>
-                        <input className="form-input" type={f.type} placeholder={f.ph} value={f.val} onChange={e=>f.set(e.target.value)}/>
+                      { icon:HeartPulse, label:"Health Layer",      value:"Biometrics, sleep, workouts",  color:"#ef4444", status:"active" },
+                      { icon:Wallet,     label:"Finance Layer",     value:"Income, savings, spending",    color:"#10b981", status:"active" },
+                      { icon:Briefcase,  label:"Career Layer",      value:"Study hours, focus, archetype",color:"#0066FF", status:"active" },
+                      { icon:BarChart3,  label:"Behavioural Layer", value:"Daily logs, patterns",         color:"#7c3aed", status:"active" },
+                    ].map((layer,i)=>(
+                      <div key={i} className="data-layer-row">
+                        <div className="data-layer-icon" style={{ background:`${layer.color}12`, color:layer.color }}>
+                          <layer.icon size={15}/>
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <div className="data-layer-label">{layer.label}</div>
+                          <div className="data-layer-value">{layer.value}</div>
+                        </div>
+                        <div className="data-layer-status" style={{ color:"#10b981" }}>
+                          <div className="data-layer-dot" style={{ background:"#10b981" }}/>
+                          Active
+                        </div>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="info-section">
-                    <InfoRow icon={User}     label="Full Name"        value={profile.name}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Mail}     label="Email Address"    value={profile.email}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Calendar} label="Age"              value={profile.age?`${profile.age} years`:""}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Target}   label="Personal Mission" value={profile.personalMission||"Achieve Personal Optimisation"}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Shield}   label="Access Level"     value="Authenticated Member" accent/>
-                    <button className="creds-btn" onClick={()=>setCredsOpen(true)}><Lock size={11}/> Update Password</button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Telemetry card (inside profile section as twin params) */}
-            <div className="card mb-0">
-              <div className="card-header">
-                <div className="card-hicon" style={{ background:"rgba(0,68,221,0.07)" }}><Cpu size={17} color="#0044DD"/></div>
-                <div>
-                  <div className="card-title">Twin Telemetry Settings</div>
-                  <div className="card-sub">Health, financial, and behavioural parameters from your onboarding</div>
-                </div>
-              </div>
-              <div className="card-body">
-                {editMode ? (
-                  <div style={{ display:"flex",flexDirection:"column",gap:24 }}>
-                    {/* Health edit */}
-                    <div>
-                      <div className="section-divider-label" style={{ color:"#ef4444" }}><HeartPulse size={11}/> Health & Body</div>
-                      <div className="edit-grid">
-                        {[
-                          { label:"Gender", field:"sel", val:editGender, set:setEditGender, opts:[{v:"male",l:"Male"},{v:"female",l:"Female"},{v:"non-binary",l:"Non-Binary"}] },
-                          { label:"Height (cm)", field:"num", val:editHeight, set:setEditHeight, ph:"cm" },
-                          { label:"Weight (kg)", field:"num", val:editWeight, set:setEditWeight, ph:"kg" },
-                          { label:"Activity Level", field:"sel", val:editActivity, set:setEditActivity, opts:[
-                            {v:"sedentary",l:"Mostly sitting"},{v:"lightly_active",l:"Lightly active"},
-                            {v:"moderately_active",l:"Moderately active"},{v:"very_active",l:"Very active"},{v:"athlete",l:"Athlete"}
-                          ] },
-                        ].map(f=>(
-                          <div key={f.label} className="form-group">
-                            <label className="form-label">{f.label}</label>
-                            {f.field==="sel"
-                              ? <select className="form-select" value={f.val} onChange={e=>f.set(e.target.value)}>
-                                  {(f.opts||[]).map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-                                </select>
-                              : <input className="form-input" type="number" value={f.val} onChange={e=>f.set(e.target.value)} placeholder={(f as any).ph||""}/>
-                            }
-                          </div>
-                        ))}
-                      </div>
-                      <div className="edit-grid-single">
-                        {[
-                          { label:`Sleep per night — ${editSleep}h`,     val:editSleep,    set:setEditSleep,    min:"4",  max:"10", step:"0.5" },
-                          { label:`Workouts per week — ${editWorkouts}×`, val:editWorkouts, set:setEditWorkouts, min:"0",  max:"7",  step:"1"   },
-                        ].map(s=>(
-                          <div key={s.label} className="form-group">
-                            <label className="form-label">{s.label}</label>
-                            <input className="form-slider" type="range" min={s.min} max={s.max} step={s.step} value={s.val} onChange={e=>s.set(e.target.value)}/>
-                          </div>
-                        ))}
-                        <div className="form-group">
-                          <label className="form-label">Health Conditions</label>
-                          <select className="form-select" value={editConstraints} onChange={e=>setEditConstraints(e.target.value)}>
-                            <option value="none">None</option>
-                            <option value="diabetes">Diabetes</option>
-                            <option value="hypertension">High Blood Pressure</option>
-                            <option value="asthma">Asthma</option>
-                            <option value="custom">Other</option>
-                          </select>
-                        </div>
-                        {editConstraints==="custom"&&(
-                          <div className="form-group">
-                            <label className="form-label">Describe condition</label>
-                            <input className="form-input" value={editCustomConstraint} onChange={e=>setEditCustomConstraint(e.target.value)} placeholder="e.g. Thyroid, Migraines…"/>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* Finance edit */}
-                    <div>
-                      <div className="section-divider-label" style={{ color:"#10b981" }}><Wallet size={11}/> Finances</div>
-                      <div className="edit-grid">
-                        <div className="form-group">
-                          <label className="form-label">Monthly Income (₹)</label>
-                          <input className="form-input" type="number" value={editIncome} onChange={e=>setEditIncome(e.target.value)} placeholder="Monthly income"/>
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label">Current Savings (₹)</label>
-                          <input className="form-input" type="number" value={editSavings} onChange={e=>setEditSavings(e.target.value)} placeholder="Total savings"/>
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Spending Style — {spendLabel(editSpending)}</label>
-                        <input className="form-slider" type="range" min="1" max="5" step="1" value={editSpending} onChange={e=>setEditSpending(e.target.value)}/>
-                      </div>
-                    </div>
-                    {/* Career edit */}
-                    <div>
-                      <div className="section-divider-label" style={{ color:"#0066FF" }}><Briefcase size={11}/> Career & Habits</div>
-                      <div className="edit-grid">
-                        <div className="form-group">
-                          <label className="form-label">Your Situation</label>
-                          <select className="form-select" value={editLearning} onChange={e=>setEditLearning(e.target.value)}>
-                            <option value="">Select…</option>
-                            <option value="student">Student — exams or placement</option>
-                            <option value="professional">Working professional</option>
-                            <option value="founder">Founder / builder</option>
-                            <option value="freelancer">Freelancer</option>
-                            <option value="job_seeker">Actively job seeking</option>
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label">Focus Archetype</label>
-                          <select className="form-select" value={editArchetype} onChange={e=>setEditArchetype(e.target.value)}>
-                            <option value="">Select…</option>
-                            <option value="chronos">Chronos — Learning & Growth</option>
-                            <option value="apex">Apex — Productivity & Discipline</option>
-                            <option value="nexus">Nexus — Wealth & Planning</option>
-                            <option value="titan">Titan — Fitness & Energy</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Daily Study / Work Hours — {editStudy}h</label>
-                        <input className="form-slider" type="range" min="0" max="14" step="0.5" value={editStudy} onChange={e=>setEditStudy(e.target.value)}/>
-                      </div>
-                    </div>
-                    <div className="edit-actions">
-                      <button className="btn-save" onClick={handleEditSave} disabled={loading}>
-                        {loading?<RefreshCw size={13} style={{animation:"spin 0.8s linear infinite"}}/>:<Save size={13}/>} Save All Changes
-                      </button>
-                      <button className="btn-cancel" onClick={()=>setEditMode(false)}><X size={13}/> Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="info-section">
-                    <div className="section-divider-label" style={{ color:"#ef4444",marginBottom:6 }}><HeartPulse size={11}/> Health & Body</div>
-                    <InfoRow icon={User}      label="Gender"         value={profile.gender==="non-binary"?"Non-Binary":(profile.gender?profile.gender.replace(/\b\w/g,c=>c.toUpperCase()):"")}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Calendar}  label="Height / Weight" value={profile.height&&profile.weight?`${profile.height} cm / ${profile.weight} kg`:""}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={HeartPulse}label="Activity Level"  value={activityLabel(profile.activityLevel)}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Zap}       label="Sleep per Night" value={profile.averageSleep?`${profile.averageSleep}h`:""}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Flame}     label="Workouts / Week" value={profile.workoutFrequency?`${profile.workoutFrequency}×`:""}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Shield}    label="Health Conditions" value={profile.healthConstraints==="none"?"None (Generally healthy)":profile.healthConstraints==="diabetes"?"Diabetes":profile.healthConstraints==="hypertension"?"High Blood Pressure":profile.healthConstraints==="asthma"?"Asthma":(profile.healthConstraints||"")}/>
-                    <div className="section-divider-label" style={{ color:"#10b981",marginTop:18,marginBottom:6 }}><Wallet size={11}/> Finances</div>
-                    <InfoRow icon={Wallet}    label="Monthly Income"   value={profile.monthlyIncome?`₹${Number(profile.monthlyIncome).toLocaleString("en-IN")}`:""} accent/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Trophy}    label="Current Savings"  value={profile.currentSavings?`₹${Number(profile.currentSavings).toLocaleString("en-IN")}`:""} accent/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Briefcase} label="Spending Style"   value={spendLabel(profile.spendingStyle)}/>
-                    <div className="section-divider-label" style={{ color:"#0066FF",marginTop:18,marginBottom:6 }}><Briefcase size={11}/> Career & Habits</div>
-                    <InfoRow icon={Zap}       label="Current Situation" value={learnLabel(profile.learningProfile)}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={BookOpen}  label="Focus Archetype"   value={profile.archetype==="chronos"?"Chronos — Learning & Growth":profile.archetype==="apex"?"Apex — Productivity & Discipline":profile.archetype==="nexus"?"Nexus — Wealth & Planning":profile.archetype==="titan"?"Titan — Fitness & Energy":(profile.archetype||"")}/>
-                    <div className="info-divider"/>
-                    <InfoRow icon={Target}    label="Daily Study Hours" value={profile.hoursStudied?`${profile.hoursStudied}h/day`:""}/>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ══════════════════════════════════════
-              SECTION 2 — NEURAL SYNC
-          ══════════════════════════════════════ */}
-          <div ref={refTelemetry} id="sec-telemetry" className="content-section">
-            <SectionHeading icon={Cpu} title="Neural Sync" sub="Status of your connected data sources" color="#0044DD"/>
-            <div className="card mb-0">
-              <div className="card-body">
-                <div className="sync-grid">
-                  {[
-                    { key:"health",  icon:HeartPulse, label:"Apple Health", color:"#ef4444" },
-                    { key:"finance", icon:Wallet,     label:"Bank Account",  color:"#10b981" },
-                    { key:"coursera",icon:BookOpen,   label:"Coursera",      color:"#0066FF" },
-                    { key:"googleFit",icon:Activity,  label:"Google Fit",    color:"#7c3aed" },
-                  ].map(s=>{
-                    const isGfit = s.key === "googleFit";
-                    const isConnected = isGfit ? !!profileRes?.user?.googleFit?.syncActive : false;
-                    const statusText = isGfit && !isConnected ? "Link" : syncStatuses[s.key]==="synced" ? "Synced" : syncStatuses[s.key]==="syncing" ? "Syncing…" : "Sync";
-                    return (
-                      <div key={s.key} className="sync-card"
-                        style={{ borderColor:syncStatuses[s.key]==="synced"||(isGfit&&isConnected&&syncStatuses.googleFit==="idle")?"#10b981":"#E4E9F4" }}
-                        onClick={isGfit ? handleGoogleFitSync : () => handleSync(s.key)}>
-                        <div className="sync-icon" style={{ background:`${s.color}12` }}><s.icon size={16} color={s.color}/></div>
-                        <div className="sync-label" style={{ color:s.color }}>{s.label}</div>
-                        <div className="sync-status" style={{ color:syncStatuses[s.key]==="synced"?"#10b981":s.color }}>
-                          {syncStatuses[s.key]==="idle"&&<>{!isGfit || isConnected ? <RefreshCw size={10}/> : <Lock size={10}/>} {statusText}</>}
-                          {syncStatuses[s.key]==="syncing"&&<><RefreshCw size={10} style={{animation:"spin 0.8s linear infinite"}}/> {statusText}</>}
-                          {syncStatuses[s.key]==="synced"&&<><Check size={10}/> {statusText}</>}
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             </div>
 
-            {/* Badges */}
-            <div className="card mt-14 mb-0">
-              <div className="card-header">
-                <div className="card-hicon" style={{ background:"#fef3c7" }}><Trophy size={17} color="#f59e0b"/></div>
-                <div>
-                  <div className="card-title">Badges & Achievements</div>
-                  <div className="card-sub">Earned through your Syntra activity and twin milestones</div>
-                </div>
-              </div>
-              <div className="card-body">
-                <div className="badge-grid">
-                  {BADGES.map(badge=>{
-                    const BIcon=badge.icon;
-                    const unlocked=userBadges.some((ub:string)=>ub.toLowerCase()===badge.title.toLowerCase()||ub.toLowerCase()===badge.id.toLowerCase())||(badge.id==="week_warrior"&&streak>=7)||(badge.id==="neural_init"&&userBadges.length>0)||(badge.id==="apex_optimizer"&&(userBadges.includes("Rising Twin")||userBadges.includes("Apex Optimizer")))||(badge.id==="grand_architect"&&(userBadges.includes("Month Master")||userBadges.includes("Grand Architect")));
-                    return (
-                      <div key={badge.id} className={`badge-card${unlocked?" badge-unlocked":" badge-locked"}`}
-                        style={{ background:unlocked?badge.bg:"#F8FAFC", ["--bc" as any]:badge.color }}>
-                        <div className="badge-icon" style={{ background:unlocked?`${badge.color}20`:"#F1F5F9" }}>
-                          {unlocked?<BIcon size={20} color={badge.color}/>:<Lock size={16} color="#CBD5E1"/>}
-                        </div>
-                        <div className="badge-title" style={{ color:unlocked?badge.color:"#94A3B8" }}>{badge.title}</div>
-                        {unlocked?<div className="badge-desc">{badge.desc}</div>:<div className="badge-lock"><Lock size={8}/> Locked</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ══════════════════════════════════════
-              SECTION 3 — OPTIMISATION
-          ══════════════════════════════════════ */}
-          <div ref={refOptimization} id="sec-optimization" className="content-section">
-            <SectionHeading icon={BarChart3} title="Optimisation" sub="Choose which area Syntra should prioritise in its recommendations" color={activeVector.color}/>
-            <div className="card mb-0">
-              <div className="card-body">
-                <div className="vector-grid">
-                  {(["health","finance","career"] as OptVector[]).map(v=>{
-                    const m=vectorMeta[v], VIcon=m.icon, sel=profile.optimizationVector===v;
-                    return (
-                      <div key={v}
-                        className={`vector-card${sel?" vector-selected":""}${sel&&vectorPulse?" vector-pulse":""}`}
-                        style={{ background:m.bg, ["--vc" as any]:m.color }}
-                        onClick={()=>handleVectorSelect(v)}>
-                        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-                          <div className="vector-icon" style={{ background:`${m.color}16` }}><VIcon size={17} color={m.color}/></div>
-                          {sel&&<div className="vector-active-chip" style={{ background:`${m.color}14`,color:m.color,border:`1px solid ${m.color}28` }}><CheckCircle2 size={9}/> Active</div>}
-                        </div>
-                        <div className="vector-name" style={{ color:m.color }}>{m.label}</div>
-                        <div className="vector-desc">{m.desc}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ══════════════════════════════════════
-              SECTION 4 — DATA LAYERS
-          ══════════════════════════════════════ */}
-          <div ref={refData} id="sec-data" className="content-section" style={{ paddingBottom:80 }}>
-            <SectionHeading icon={Layers} title="Data Layers" sub="Overview of all active data sources powering your twin" color="#7c3aed"/>
-            <div className="card mb-0">
-              <div className="card-body">
-                <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
-                  {[
-                    { icon:HeartPulse, label:"Health Layer",      value:"Biometrics, sleep, workouts",  color:"#ef4444", status:"active" },
-                    { icon:Wallet,     label:"Finance Layer",     value:"Income, savings, spending",    color:"#10b981", status:"active" },
-                    { icon:Briefcase,  label:"Career Layer",      value:"Study hours, focus, archetype",color:"#0066FF", status:"active" },
-                    { icon:Activity,   label:"Behavioural Layer", value:"Daily logs, patterns",         color:"#7c3aed", status:"active" },
-                  ].map((layer,i)=>(
-                    <div key={i} className="data-layer-row">
-                      <div className="data-layer-icon" style={{ background:`${layer.color}12`, color:layer.color }}>
-                        <layer.icon size={15}/>
-                      </div>
-                      <div style={{ flex:1 }}>
-                        <div className="data-layer-label">{layer.label}</div>
-                        <div className="data-layer-value">{layer.value}</div>
-                      </div>
-                      <div className="data-layer-status" style={{ color:"#10b981" }}>
-                        <div className="data-layer-dot" style={{ background:"#10b981" }}/>
-                        Active
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>{/* pf-inner */}
-      </div>{/* pf-right */}
+          </div>{/* pf-inner */}
+        </div>{/* pf-right */}
+      </div>{/* pf-body */}
     </div>
   );
 }
@@ -1043,6 +969,7 @@ const CSS = `
     --sh-md:0 4px 16px rgba(0,0,0,0.07),0 1px 4px rgba(0,0,0,0.04);
     --sh-lg:0 8px 32px rgba(0,71,212,0.10),0 2px 8px rgba(0,0,0,0.04);
     --r-md:12px; --r-lg:16px; --r-xl:20px; --r-2xl:24px;
+    --nav-h:70px;
   }
   body { background:var(--bg); font-family:"Inter",sans-serif; -webkit-font-smoothing:antialiased; color:var(--txt-1); }
 
@@ -1053,40 +980,60 @@ const CSS = `
   @keyframes curBlink { 0%,100%{opacity:.88;}48%,52%{opacity:0;} }
   @keyframes vPulse   { 0%{transform:scale(1.02);}50%{transform:scale(1.04);}100%{transform:scale(1.02);} }
 
+  /* ═══ TOP NAVBAR ═══ */
+  .top-nav {
+    position:fixed; top:0; left:0; width:100%;
+    z-index:500; height:var(--nav-h);
+    background:rgba(255,255,255,0.92);
+    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border-bottom:1px solid rgba(214,220,232,0.6);
+    transition:background 0.28s ease,border-color 0.28s ease,box-shadow 0.28s ease;
+  }
+  .top-nav.top-nav-scrolled { background:#ffffff; border-color:#e2e6f0; box-shadow:0 2px 20px rgba(0,0,0,0.08); }
+  .top-nav-inner { max-width:1600px; margin:0 auto; height:100%; display:flex; align-items:center; justify-content:space-between; padding:0 2.5rem; }
+  .top-nav-logo { font-family:"DM Sans",sans-serif; font-size:1.55rem; font-weight:300; color:var(--brand); text-decoration:none; letter-spacing:0.2em; text-transform:uppercase; transition:opacity 0.2s; }
+  .top-nav-logo:hover { opacity:0.78; }
+  .top-nav-logo strong { font-weight:800; letter-spacing:0.1em; }
+  .top-nav-links { display:flex; align-items:center; gap:4px; }
+  .top-nav-link { font-family:"Inter",sans-serif; font-size:0.84rem; font-weight:500; color:#555; text-decoration:none; padding:7px 14px; border-radius:9999px; transition:all 0.2s; letter-spacing:0.01em; }
+  .top-nav-link:hover { background:#f0f4ff; color:var(--brand); }
+  .top-nav-link-active { background:var(--brand) !important; color:#fff !important; font-weight:600; }
+  .top-nav-hamburger { display:none; flex-direction:column; gap:5px; cursor:pointer; padding:8px; border:1.5px solid #e0e0e0; border-radius:10px; background:#f5f5f5; transition:all 0.2s; }
+  .top-nav-hamburger:hover { border-color:var(--brand-mid); background:var(--brand-lt); }
+  .top-nav-hamburger span { display:block; width:20px; height:2px; background:#333; border-radius:2px; }
+  .top-nav-mobile-menu { display:none; flex-direction:column; gap:5px; position:absolute; top:calc(var(--nav-h) + 4px); right:20px; width:210px; padding:12px; border-radius:16px; background:rgba(255,255,255,0.97); backdrop-filter:blur(20px); border:1px solid #e8ebf4; box-shadow:0 12px 40px rgba(0,68,220,0.12); z-index:600; }
+  .top-nav-mobile-menu.open { display:flex; }
+  .top-nav-mobile-link { font-family:"Inter",sans-serif; font-size:0.88rem; font-weight:500; color:#333; text-decoration:none; padding:10px 14px; border-radius:10px; transition:all 0.16s; }
+  .top-nav-mobile-link:hover { background:#f0f4ff; color:var(--brand); }
+  .top-nav-mobile-link.active { background:var(--brand-lt); color:var(--brand); font-weight:700; }
+
   /* ═══ LAYOUT ═══ */
-  .pf-root { display:flex; min-height:100vh; background:var(--bg); }
+  .pf-root { display:flex; flex-direction:column; min-height:100vh; background:var(--bg); }
+  .pf-body { display:flex; flex:1; padding-top:var(--nav-h); }
 
   /* ═══ SIDEBAR ═══ */
   .sidebar {
     width:288px; flex-shrink:0;
     background:linear-gradient(160deg,#0036BB 0%,#0052E8 45%,#2A18E8 100%);
     display:flex; flex-direction:column;
-    position:sticky; top:0; height:100vh; overflow:hidden;
+    position:sticky; top:var(--nav-h); height:calc(100vh - var(--nav-h)); overflow:hidden;
     box-shadow:4px 0 24px rgba(0,36,187,0.18); z-index:10;
   }
   .sidebar::before { content:''; position:absolute; top:-90px; left:-70px; width:260px; height:260px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.12) 0%,transparent 70%); pointer-events:none; }
   .sidebar::after  { content:''; position:absolute; bottom:-60px; right:-50px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 70%); pointer-events:none; }
   .sb-grid { position:absolute; inset:0; pointer-events:none; background-image:linear-gradient(rgba(255,255,255,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.035) 1px,transparent 1px); background-size:44px 44px; }
+  .sidebar-top-rule { height:3px; background:linear-gradient(90deg,rgba(255,255,255,0.22),rgba(255,255,255,0.06)); flex-shrink:0; position:relative; z-index:2; }
 
-  .sb-brand-block { padding:28px 22px 20px; position:relative; z-index:2; border-bottom:1px solid rgba(255,255,255,0.1); }
+  .sb-brand-block { padding:20px 22px 16px; position:relative; z-index:2; border-bottom:1px solid rgba(255,255,255,0.1); }
   .sb-logo { display:inline-flex; align-items:center; gap:7px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); border-radius:9999px; padding:5px 14px; font-size:0.68rem; font-weight:800; color:#fff; letter-spacing:0.13em; text-transform:uppercase; margin-bottom:16px; font-family:"DM Sans",sans-serif; }
   .sb-logo-dot { width:6px; height:6px; border-radius:50%; background:#4ade80; box-shadow:0 0 8px rgba(74,222,128,0.85); animation:lp-pulse 2.2s infinite; flex-shrink:0; }
   .sb-heading { font-family:"DM Sans",sans-serif; font-size:1.35rem; font-weight:800; color:#fff; letter-spacing:-0.03em; line-height:1.2; }
   .sb-sub { font-size:0.76rem; color:rgba(255,255,255,0.58); margin-top:6px; line-height:1.58; }
 
   .sb-sections { padding:16px 12px; display:flex; flex-direction:column; gap:6px; flex:1; position:relative; z-index:2; overflow-y:auto; }
-  .sb-section-item {
-    width:100%; display:flex; align-items:center; gap:12px;
-    padding:12px 14px; border-radius:13px;
-    border:1px solid transparent; background:transparent;
-    cursor:pointer; text-align:left; transition:all 0.22s cubic-bezier(0.16,1,0.3,1);
-  }
+  .sb-section-item { width:100%; display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:13px; border:1px solid transparent; background:transparent; cursor:pointer; text-align:left; transition:all 0.22s cubic-bezier(0.16,1,0.3,1); }
   .sb-section-item:hover { background:rgba(255,255,255,0.09); border-color:rgba(255,255,255,0.12); }
-  .sb-section-active {
-    background:rgba(255,255,255,0.16) !important;
-    border-color:rgba(255,255,255,0.26) !important;
-    box-shadow:0 4px 14px rgba(0,0,0,0.12);
-  }
+  .sb-section-active { background:rgba(255,255,255,0.16) !important; border-color:rgba(255,255,255,0.26) !important; box-shadow:0 4px 14px rgba(0,0,0,0.12); }
   .sb-section-icon { width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.14); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.55); flex-shrink:0; transition:all 0.2s; }
   .sb-section-active .sb-section-icon { background:rgba(255,255,255,0.22); border-color:rgba(255,255,255,0.36); color:#fff; }
   .sb-section-text { display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
@@ -1103,19 +1050,9 @@ const CSS = `
   .sb-signout:hover { background:rgba(255,80,80,0.14); border-color:rgba(255,120,120,0.28); color:#fca5a5; }
 
   /* ═══ SCROLLABLE RIGHT ═══ */
-  .pf-right {
-    flex:1;
-    background:var(--bg);
-    overflow-y:auto;
-    overflow-x:hidden;
-    display:flex;
-    justify-content:center;
-    align-items:flex-start;
-    border-left:1px solid var(--border);
-  }
+  .pf-right { flex:1; background:var(--bg); overflow-y:auto; overflow-x:hidden; display:flex; justify-content:center; align-items:flex-start; border-left:1px solid var(--border); }
   .pf-right::-webkit-scrollbar { width:5px; }
   .pf-right::-webkit-scrollbar-thumb { background:rgba(0,71,212,0.14); border-radius:4px; }
-
   .pf-inner { max-width:760px; width:100%; padding:40px 48px 0; }
 
   /* ═══ TOP BAR ═══ */
@@ -1203,26 +1140,6 @@ const CSS = `
   .btn-cancel { display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 18px; color:var(--txt-2); font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.18s; font-family:"Inter",sans-serif; }
   .btn-cancel:hover { background:var(--border); }
 
-  /* ═══ SYNC ═══ */
-  .sync-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-  .sync-card { border-radius:14px; padding:16px 12px; display:flex; flex-direction:column; align-items:center; gap:8px; background:var(--bg); border:1.5px solid var(--border); cursor:pointer; transition:all 0.2s; text-align:center; }
-  .sync-card:hover { transform:translateY(-2px); box-shadow:var(--sh-sm); }
-  .sync-icon   { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
-  .sync-label  { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
-  .sync-status { font-size:0.7rem; font-weight:600; display:flex; align-items:center; gap:4px; }
-
-  /* ═══ BADGES ═══ */
-  .badge-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
-  .badge-card { border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; border:1.5px solid transparent; transition:all 0.2s; }
-  .badge-unlocked { border-color:color-mix(in srgb,var(--bc) 22%,transparent); }
-  .badge-unlocked:hover { transform:translateY(-2px); box-shadow:var(--sh-sm); }
-  .badge-locked { opacity:0.42; filter:grayscale(0.55); }
-  .badge-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
-  .badge-unlocked .badge-icon { box-shadow:0 0 0 3px color-mix(in srgb,var(--bc) 25%,transparent); }
-  .badge-title { font-size:0.65rem; font-weight:800; color:var(--txt-1); text-transform:uppercase; letter-spacing:0.03em; }
-  .badge-desc  { font-size:0.59rem; color:var(--txt-2); line-height:1.35; }
-  .badge-lock  { font-size:0.59rem; color:var(--txt-muted); display:flex; align-items:center; gap:3px; font-weight:600; }
-
   /* ═══ VECTOR ═══ */
   .vector-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
   .vector-card { border-radius:14px; padding:16px 14px; display:flex; flex-direction:column; gap:8px; border:2px solid transparent; cursor:pointer; transition:all 0.22s; }
@@ -1283,18 +1200,21 @@ const CSS = `
   /* ═══ RESPONSIVE ═══ */
   @media (max-width:960px) {
     .sidebar { display:none; }
+    .top-nav-links { display:none; }
+    .top-nav-hamburger { display:flex; }
     .pf-right { border-left:none; display:block; }
     .pf-inner { padding:24px 20px 0; max-width:100%; }
     .edit-grid { grid-template-columns:1fr; }
     .vector-grid { grid-template-columns:1fr 1fr; }
-    .badge-grid { grid-template-columns:repeat(3,1fr); }
   }
   @media (max-width:560px) {
+    :root { --nav-h:58px; }
+    .top-nav-logo { font-size:1.3rem; }
     .pf-inner { padding:20px 16px 0; }
-    .sync-grid { grid-template-columns:1fr 1fr; }
-    .badge-grid { grid-template-columns:repeat(3,1fr); }
     .modal-grid { grid-template-columns:1fr 1fr; }
     .pf-topbar { flex-direction:column; align-items:flex-start; gap:10px; }
     .edit-config-btn { align-self:stretch; justify-content:center; }
+    .top-nav-inner { padding:0 14px; }
   }
 `;
+

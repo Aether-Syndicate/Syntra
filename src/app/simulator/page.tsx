@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
@@ -64,7 +64,7 @@ type SimulationResponse = {
   goal?: { title: string; targetDate?: string; priority?: string } | null;
 };
 
-/* ─── COPY — plain english throughout ───────────────────────────── */
+/* ─── COPY ───────────────────────────────────────────────────────── */
 const TYPEWRITER_PHRASES = [
   "What Would Happen If…",
   "Explore Your Scenarios",
@@ -74,7 +74,7 @@ const TYPEWRITER_PHRASES = [
 
 const DOMAIN_COPY = {
   health:  { label: "Health",  color: "#16a34a", bg: "rgba(22,163,74,0.07)",  border: "rgba(22,163,74,0.18)",  chartColor: "#16a34a" },
-  finance: {  label: "Finance", color: "#f59e0b", bg: "rgba(245,158,11,0.07)", border: "rgba(245,158,11,0.18)", chartColor: "#f59e0b"},
+  finance: { label: "Finance", color: "#f59e0b", bg: "rgba(245,158,11,0.07)", border: "rgba(245,158,11,0.18)", chartColor: "#f59e0b" },
   career:  { label: "Career",  color: "#0047D4", bg: "rgba(0,71,212,0.07)",   border: "rgba(0,71,212,0.18)",   chartColor: "#0047D4" },
 };
 
@@ -86,6 +86,16 @@ const RISK_CONFIG = {
 } as const;
 
 const BRAND = "#0047D4";
+
+const NAV_LINKS = [
+  { href: "/dashboard",          label: "Dashboard" },
+  { href: "/ingestion",          label: "Ingestion" },
+  { href: "/goals",              label: "Goals" },
+  { href: "/simulator",          label: "Simulator" },
+  { href: "/insights",           label: "Insights" },
+  { href: "/assets-liabilities", label: "Net Worth" },
+  { href: "/profile",            label: "Profile" },
+];
 
 /* ─── ANIMATED COUNTER ───────────────────────────────────────────── */
 function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
@@ -158,6 +168,56 @@ function ChartTooltip({ active, payload }: any) {
           <span style={{ fontWeight: 800, color: "#0D1117" }}>{item.value}/100</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ─── TOP NAVBAR ─────────────────────────────────────────────────── */
+function TopNav() {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div className={`top-nav${scrolled ? " top-nav-scrolled" : ""}`}>
+      <div className="top-nav-inner">
+        <Link href="/" className="top-nav-logo">syn<strong>tra</strong></Link>
+        <nav className="top-nav-links">
+          {NAV_LINKS.map(l => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`top-nav-link${l.href === "/simulator" ? " top-nav-link-active" : ""}`}
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+        <button
+          className="top-nav-hamburger"
+          onClick={() => setMenuOpen(v => !v)}
+          aria-label="Menu"
+        >
+          <span /><span /><span />
+        </button>
+      </div>
+      <div className={`top-nav-mobile-menu${menuOpen ? " open" : ""}`}>
+        {NAV_LINKS.map(l => (
+          <Link
+            key={l.href}
+            href={l.href}
+            className={`top-nav-mobile-link${l.href === "/simulator" ? " active" : ""}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            {l.label}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
@@ -376,7 +436,6 @@ function SimulatorPage() {
   const hudBg    = pctChange === 0 ? "rgba(0,71,212,0.05)"   : isPositive ? "rgba(22,163,74,0.05)"   : "rgba(220,38,38,0.05)";
   const hudBorder= pctChange === 0 ? "rgba(0,71,212,0.2)"    : isPositive ? "rgba(22,163,74,0.2)"    : "rgba(220,38,38,0.2)";
 
-  // Slider helper
   const sliderStyle = (val: number, min: number, max: number, color: string) => ({
     flex: 1, color,
     background: `linear-gradient(to right, ${color} 0%, ${color} ${((val-min)/(max-min))*100}%, #E4E9F4 ${((val-min)/(max-min))*100}%, #E4E9F4 100%)`,
@@ -400,7 +459,7 @@ function SimulatorPage() {
           --txt-secondary:#52637A;
           --txt-muted:    #94A3B8;
           --health:       #16a34a;
-          --finance:     #f59e0b;
+          --finance:      #f59e0b;
           --career:       #0047D4;
           --danger:       #dc2626;
           --warn:         #d97706;
@@ -409,6 +468,7 @@ function SimulatorPage() {
           --sh-lg:   0 8px 32px rgba(0,71,212,0.09), 0 2px 8px rgba(0,0,0,0.04);
           --sh-hov:  0 12px 36px rgba(0,71,212,0.12), 0 2px 8px rgba(0,0,0,0.05);
           --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-2xl: 24px;
+          --nav-h: 70px;
         }
         body { background: var(--bg); font-family: "Inter", sans-serif; -webkit-font-smoothing: antialiased; color: var(--txt-primary); }
 
@@ -419,45 +479,129 @@ function SimulatorPage() {
         @keyframes spin       { to { transform: rotate(360deg); } }
         @keyframes pulse-dot  { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.6;transform:scale(1.4);} }
 
+        /* ═══ TOP NAVBAR ═══ */
+        .top-nav {
+          position: fixed;
+          top: 0; left: 0; width: 100%;
+          z-index: 500;
+          height: var(--nav-h);
+          background: rgba(255,255,255,0.92);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border-bottom: 1px solid rgba(228,233,244,0.6);
+          transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
+        }
+        .top-nav.top-nav-scrolled {
+          background: #ffffff;
+          border-color: #e4e9f4;
+          box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+        }
+        .top-nav-inner {
+          max-width: 1200px;
+          margin: 0 auto;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 32px;
+        }
+        .top-nav-logo {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 1.55rem;
+          font-weight: 300;
+          color: var(--brand);
+          text-decoration: none;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          transition: opacity 0.2s;
+        }
+        .top-nav-logo:hover { opacity: 0.78; }
+        .top-nav-logo strong { font-weight: 800; letter-spacing: 0.1em; }
+        .top-nav-links {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .top-nav-link {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.84rem;
+          font-weight: 500;
+          color: #555;
+          text-decoration: none;
+          padding: 7px 14px;
+          border-radius: 9999px;
+          transition: all 0.2s;
+          letter-spacing: 0.01em;
+        }
+        .top-nav-link:hover { background: #f0f4ff; color: var(--brand); }
+        .top-nav-link-active {
+          background: var(--brand) !important;
+          color: #fff !important;
+          font-weight: 600;
+        }
+        .top-nav-hamburger {
+          display: none;
+          flex-direction: column;
+          gap: 5px;
+          cursor: pointer;
+          padding: 8px;
+          border: 1.5px solid #e0e0e0;
+          border-radius: 10px;
+          background: #f5f5f5;
+          transition: all 0.2s;
+        }
+        .top-nav-hamburger:hover { border-color: var(--brand-mid); background: var(--brand-light); }
+        .top-nav-hamburger span { display: block; width: 20px; height: 2px; background: #333; border-radius: 2px; }
+        .top-nav-mobile-menu {
+          display: none;
+          flex-direction: column;
+          gap: 5px;
+          position: absolute;
+          top: calc(var(--nav-h) + 4px);
+          right: 20px;
+          width: 210px;
+          padding: 12px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.97);
+          backdrop-filter: blur(20px);
+          border: 1px solid #e8ebf4;
+          box-shadow: 0 12px 40px rgba(0,68,220,0.12);
+          z-index: 600;
+        }
+        .top-nav-mobile-menu.open { display: flex; }
+        .top-nav-mobile-link {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.88rem;
+          font-weight: 500;
+          color: #333;
+          text-decoration: none;
+          padding: 10px 14px;
+          border-radius: 10px;
+          transition: all 0.16s;
+        }
+        .top-nav-mobile-link:hover { background: #f0f4ff; color: var(--brand); }
+        .top-nav-mobile-link.active { background: var(--brand-light); color: var(--brand); font-weight: 700; }
+
         /* ═══ ROOT LAYOUT ═══ */
         .sim-root { min-height: 100vh; background: var(--bg); }
-        .sim-page { max-width: 1180px; margin: 0 auto; padding: 0 32px 80px; }
-
-        /* ═══ BACK BAR ═══ */
-        .back-bar {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 24px 0 0;
-          margin-bottom: 0;
+        .sim-page {
+          max-width: 1180px; margin: 0 auto; padding: 0 32px 80px;
+          padding-top: calc(var(--nav-h) + 0px);
         }
-        .back-btn {
-          display: inline-flex; align-items: center; gap: 8px;
-          font-size: 0.82rem; font-weight: 600; color: var(--txt-secondary);
-          background: var(--surface); border: 1px solid var(--border);
-          border-radius: 9999px; padding: 8px 18px;
-          cursor: pointer; text-decoration: none;
-          transition: all 0.2s; box-shadow: var(--sh-sm);
-        }
-        .back-btn:hover { color: var(--brand); border-color: var(--brand-mid); background: var(--brand-light); transform: translateX(-2px); }
-        .back-bar-brand {
-          font-family: "DM Sans", sans-serif;
-          font-size: 0.78rem; font-weight: 800;
-          color: var(--txt-muted); letter-spacing: 0.15em; text-transform: uppercase;
-        }
-        .back-bar-brand span { color: var(--brand); }
 
         /* ═══ PAGE HEADING ═══ */
         .page-heading-block { padding: 40px 0 36px; border-bottom: 1px solid var(--border); margin-bottom: 40px; }
         .page-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
         .eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 2px rgba(0,71,212,0.18); animation: pulse-dot 2.4s infinite; }
         .eyebrow-text { font-size: 0.7rem; font-weight: 700; color: var(--brand); letter-spacing: 0.12em; text-transform: uppercase; }
-       .page-title {
-  font-family: "DM Sans", sans-serif;
-  font-size: clamp(2.5rem, 5vw, 3.8rem);
-  font-weight: 900;
-  color: var(--brand);
-  letter-spacing: -0.045em;
-  line-height: 1.1;
-}
+        .page-title {
+          font-family: "DM Sans", sans-serif;
+          font-size: clamp(2.5rem, 5vw, 3.8rem);
+          font-weight: 900;
+          color: var(--brand);
+          letter-spacing: -0.045em;
+          line-height: 1.1;
+        }
         .page-subtitle { font-size: 0.9rem; color: var(--txt-secondary); line-height: 1.7; margin-top: 10px; max-width: 600px; }
 
         /* ═══ SECTION LABEL ═══ */
@@ -542,7 +686,7 @@ function SimulatorPage() {
         .slider-card:hover { border-color: var(--border-h); background: var(--surface); }
         .slider-card.s-active { background: var(--surface); }
         .slider-card.s-health  { border-color: rgba(22,163,74,0.2);  background: rgba(22,163,74,0.03); }
-        .slider-card.s-finance {   border-color: rgba(245,158,11,0.2); background: rgba(245,158,11,0.03); }
+        .slider-card.s-finance { border-color: rgba(245,158,11,0.2); background: rgba(245,158,11,0.03); }
         .slider-card.s-career  { border-color: rgba(0,71,212,0.2);   background: rgba(0,71,212,0.03); }
         .slider-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; }
         .slider-name { font-size: 0.81rem; font-weight: 700; color: var(--txt-secondary); }
@@ -684,19 +828,6 @@ function SimulatorPage() {
           margin-bottom: 20px;
         }
 
-        /* select */
-        .sim-select {
-          width: 100%; height: 44px; padding: 0 14px;
-          border-radius: var(--r-md); border: 1.5px solid var(--border);
-          background: var(--bg); color: var(--txt-primary);
-          font-family: "Inter", sans-serif; font-size: 0.86rem;
-          appearance: none; cursor: pointer; transition: all 0.18s;
-        }
-        .sim-select:focus { outline: none; border-color: var(--brand); background: var(--surface); box-shadow: 0 0 0 3px rgba(0,71,212,0.09); }
-
-        /* field label */
-        .f-lbl { font-size: 0.78rem; font-weight: 600; color: #374151; margin-bottom: 6px; display: block; }
-
         /* success notice */
         .success-notice {
           display: flex; align-items: center; gap: 9px;
@@ -708,21 +839,21 @@ function SimulatorPage() {
 
         /* responsive */
         @media (max-width: 768px) {
-          .sim-page { padding: 0 16px 60px; }
+          .sim-page { padding: 0 16px 60px; padding-top: calc(var(--nav-h) + 0px); }
           .preset-list { gap: 7px; }
           .domain-tabs { gap: 6px; }
+          .top-nav-links { display: none; }
+          .top-nav-hamburger { display: flex; }
+          :root { --nav-h: 58px; }
+          .top-nav-inner { padding: 0 16px; }
+          .top-nav-logo { font-size: 1.3rem; }
         }
       `}</style>
 
-      <div className="sim-page">
+      {/* ═══ TOP NAVBAR ═══ */}
+      <TopNav />
 
-        {/* ═══ BACK BAR ═══ */}
-        <div className="back-bar">
-          <a href="/dashboard" className="back-btn">
-            <ArrowLeft size={13}/> Return to Dashboard
-          </a>
-          <span className="back-bar-brand">SYN<span>TRA</span></span>
-        </div>
+      <div className="sim-page">
 
         {/* ═══ PAGE HEADING ═══ */}
         <div className="page-heading-block">
@@ -798,9 +929,9 @@ function SimulatorPage() {
               </div>
               <div className="preset-list">
                 {[
-                  { d: "career" as Domain, label: "Focus on Career Growth",  sub: "Increase daily study time and focus",        var: "study_hours",        trigger: () => { setStudyHours(8); setFocusRating(9); } },
-                  { d: "health" as Domain, label: "Work Out More Often",      sub: "Add two extra workouts per week",            var: "workout_frequency",  trigger: () => setWorkoutFreq(Math.min(7, (baselines?.workout_frequency||3)+2)) },
-                  { d: "finance" as Domain,label: "Cut Spending, Save More",  sub: "Switch to a more careful spending style",   var: "discretionary_spend",trigger: () => { setSpendStyle(1); setSavingsRate(Math.min(100,(baselines?.savings_rate||20)+15)); } },
+                  { d: "career" as Domain, label: "Focus on Career Growth",  sub: "Increase daily study time and focus",       var: "study_hours",         trigger: () => { setStudyHours(8); setFocusRating(9); } },
+                  { d: "health" as Domain, label: "Work Out More Often",      sub: "Add two extra workouts per week",           var: "workout_frequency",   trigger: () => setWorkoutFreq(Math.min(7, (baselines?.workout_frequency||3)+2)) },
+                  { d: "finance" as Domain,label: "Cut Spending, Save More",  sub: "Switch to a more careful spending style",  var: "discretionary_spend", trigger: () => { setSpendStyle(1); setSavingsRate(Math.min(100,(baselines?.savings_rate||20)+15)); } },
                 ].map(item => {
                   const ddc = DOMAIN_COPY[item.d];
                   const isActive = domain === item.d && activeVar === item.var;
@@ -831,11 +962,7 @@ function SimulatorPage() {
               <div className="slider-section-label">Fine-tune the numbers for {DOMAIN_COPY[domain].label}</div>
               <div className="slider-cards">
                 {domain === "health" && (<>
-                  {/* sleep */}
-                  <div
-                    className={`slider-card${activeVar==="sleep_hours"?" s-health":""}`}
-                    onClick={() => setActiveVar("sleep_hours")}
-                  >
+                  <div className={`slider-card${activeVar==="sleep_hours"?" s-health":""}`} onClick={() => setActiveVar("sleep_hours")}>
                     <div className="slider-header">
                       <span className="slider-name">Hours of Sleep Per Night</span>
                       <span className="slider-value" style={{ color: "#16a34a" }}>
@@ -851,11 +978,7 @@ function SimulatorPage() {
                       <span className="slider-edge">10h</span>
                     </div>
                   </div>
-                  {/* workouts */}
-                  <div
-                    className={`slider-card${activeVar==="workout_frequency"?" s-health":""}`}
-                    onClick={() => setActiveVar("workout_frequency")}
-                  >
+                  <div className={`slider-card${activeVar==="workout_frequency"?" s-health":""}`} onClick={() => setActiveVar("workout_frequency")}>
                     <div className="slider-header">
                       <span className="slider-name">Workouts Per Week</span>
                       <span className="slider-value" style={{ color: "#16a34a" }}>
@@ -874,11 +997,7 @@ function SimulatorPage() {
                 </>)}
 
                 {domain === "finance" && (<>
-                  {/* savings */}
-                  <div
-                    className={`slider-card${activeVar==="savings_rate"?" s-finance":""}`}
-                    onClick={() => setActiveVar("savings_rate")}
-                  >
+                  <div className={`slider-card${activeVar==="savings_rate"?" s-finance":""}`} onClick={() => setActiveVar("savings_rate")}>
                     <div className="slider-header">
                       <span className="slider-name">How Much of Your Income You Save</span>
                       <span className="slider-value" style={{ color: "#f59e0b" }}>
@@ -894,11 +1013,7 @@ function SimulatorPage() {
                       <span className="slider-edge">100%</span>
                     </div>
                   </div>
-                  {/* spend */}
-                  <div
-                    className={`slider-card${activeVar==="discretionary_spend"?" s-finance":""}`}
-                    onClick={() => setActiveVar("discretionary_spend")}
-                  >
+                  <div className={`slider-card${activeVar==="discretionary_spend"?" s-finance":""}`} onClick={() => setActiveVar("discretionary_spend")}>
                     <div className="slider-header">
                       <span className="slider-name">Your Spending Style</span>
                       <span className="slider-value" style={{ color: "#f59e0b", textTransform: "capitalize" }}>
@@ -916,11 +1031,7 @@ function SimulatorPage() {
                 </>)}
 
                 {domain === "career" && (<>
-                  {/* study */}
-                  <div
-                    className={`slider-card${activeVar==="study_hours"?" s-career":""}`}
-                    onClick={() => setActiveVar("study_hours")}
-                  >
+                  <div className={`slider-card${activeVar==="study_hours"?" s-career":""}`} onClick={() => setActiveVar("study_hours")}>
                     <div className="slider-header">
                       <span className="slider-name">Hours of Focused Work or Study Per Day</span>
                       <span className="slider-value" style={{ color: "var(--brand)" }}>
@@ -936,11 +1047,7 @@ function SimulatorPage() {
                       <span className="slider-edge">12h</span>
                     </div>
                   </div>
-                  {/* focus */}
-                  <div
-                    className={`slider-card${activeVar==="focus_rating"?" s-career":""}`}
-                    onClick={() => setActiveVar("focus_rating")}
-                  >
+                  <div className={`slider-card${activeVar==="focus_rating"?" s-career":""}`} onClick={() => setActiveVar("focus_rating")}>
                     <div className="slider-header">
                       <span className="slider-name">How Sharp Your Focus Feels (1–10)</span>
                       <span className="slider-value" style={{ color: "var(--brand)" }}>
@@ -1023,12 +1130,12 @@ function SimulatorPage() {
                 <ResponsiveContainer>
                   <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
                     <defs>
-                     {[["hg","#16a34a"],["fg","#f59e0b"],["cg","#0047D4"]].map(([id, c]) => (
-  <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-    <stop offset="5%" stopColor={c} stopOpacity={0.14}/>
-    <stop offset="95%" stopColor={c} stopOpacity={0}/>
-  </linearGradient>
-))}
+                      {[["hg","#16a34a"],["fg","#f59e0b"],["cg","#0047D4"]].map(([id, c]) => (
+                        <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={c} stopOpacity={0.14}/>
+                          <stop offset="95%" stopColor={c} stopOpacity={0}/>
+                        </linearGradient>
+                      ))}
                     </defs>
                     <CartesianGrid stroke="#F0F2F8" strokeDasharray="4 3"/>
                     <XAxis dataKey="month" stroke="#E4E9F4" tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 600 }}/>

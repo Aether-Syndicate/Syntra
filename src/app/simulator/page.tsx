@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Activity,
   AlertTriangle,
@@ -93,7 +94,6 @@ const NAV_LINKS = [
   { href: "/goals",              label: "Goals" },
   { href: "/simulator",          label: "Simulator" },
   { href: "/insights",           label: "Insights" },
-  { href: "/assets-liabilities", label: "Net Worth" },
   { href: "/profile",            label: "Profile" },
 ];
 
@@ -240,6 +240,21 @@ function SimulatorPage() {
   const [savingsRate, setSavingsRate]       = useState(20);
   const [spendStyle, setSpendStyle]         = useState(3);
 
+  // custom financial simulator states
+  const [diningRedirectionAmount, setDiningRedirectionAmount] = useState(5000);
+  const [diningCagr, setDiningCagr] = useState(12);
+  const [ccBalance, setCcBalance] = useState(48000);
+  const [ccApr, setCcApr] = useState(36);
+  const [ccAmortMonths, setCcAmortMonths] = useState(12);
+  const [sipDelayAmount, setSipDelayAmount] = useState(10000);
+  const [sipDelayYears, setSipDelayYears] = useState(2);
+  const [sipDelayTenure, setSipDelayTenure] = useState(15);
+  const [sipDelayCagr, setSipDelayCagr] = useState(12);
+  const [mortgageOutstanding, setMortgageOutstanding] = useState(4000000);
+  const [mortgageRate, setMortgageRate] = useState(8.5);
+  const [mortgageTenure, setMortgageTenure] = useState(20);
+  const [mortgagePrepayment, setMortgagePrepayment] = useState(200000);
+
   const [loading, setLoading]       = useState(false);
   const [message, setMessage]       = useState("");
   const [result, setResult]         = useState<SimulationResponse | null>(null);
@@ -375,25 +390,50 @@ function SimulatorPage() {
       const activeBaselines = override ? override.baselines : baselines;
       
       let curVal = 1, simVal = 1;
-      if (activeDomain === "health") {
-        curVal = activeVarKey === "sleep_hours" ? (activeBaselines?.sleep_hours || 7.5) : (activeBaselines?.workout_frequency || 3);
-        simVal = activeVarKey === "sleep_hours" 
-          ? (override ? override.sleepHours : sleepHours) 
-          : (override ? override.workoutFreq : workoutFreq);
-      } else if (activeDomain === "finance") {
-        curVal = activeVarKey === "savings_rate" ? (activeBaselines?.savings_rate || 20) : (activeBaselines?.monthly_budget || 40000);
-        simVal = activeVarKey === "savings_rate" 
-          ? (override ? override.savingsRate : savingsRate) 
-          : Math.round(curVal * (spendStyle / 3));
+      let customParams: any = {};
+      const customFinanceVars = ["dining_redirect", "credit_card_clearance", "education_sip_delay", "mortgage_prepayment"];
+
+      if (customFinanceVars.includes(activeVarKey)) {
+        curVal = 50;
+        simVal = 50;
+        if (activeVarKey === "dining_redirect") {
+          customParams = { redirectionAmount: diningRedirectionAmount, cagr: diningCagr };
+        } else if (activeVarKey === "credit_card_clearance") {
+          customParams = { balance: ccBalance, apr: ccApr, amortMonths: ccAmortMonths };
+        } else if (activeVarKey === "education_sip_delay") {
+          customParams = { sipAmount: sipDelayAmount, delayYears: sipDelayYears, tenureYears: sipDelayTenure, cagr: sipDelayCagr };
+        } else if (activeVarKey === "mortgage_prepayment") {
+          customParams = { outstanding: mortgageOutstanding, annualRate: mortgageRate, remainingYears: mortgageTenure, prepayment: mortgagePrepayment };
+        }
       } else {
-        curVal = activeVarKey === "study_hours" ? (activeBaselines?.study_hours || 4) : (activeBaselines?.focus_rating || 7);
-        simVal = activeVarKey === "study_hours" 
-          ? (override ? override.studyHours : studyHours) 
-          : (override ? override.focusRating : focusRating);
+        if (activeDomain === "health") {
+          curVal = activeVarKey === "sleep_hours" ? (activeBaselines?.sleep_hours || 7.5) : (activeBaselines?.workout_frequency || 3);
+          simVal = activeVarKey === "sleep_hours" 
+            ? (override ? override.sleepHours : sleepHours) 
+            : (override ? override.workoutFreq : workoutFreq);
+        } else if (activeDomain === "finance") {
+          curVal = activeVarKey === "savings_rate" ? (activeBaselines?.savings_rate || 20) : (activeBaselines?.monthly_budget || 40000);
+          simVal = activeVarKey === "savings_rate" 
+            ? (override ? override.savingsRate : savingsRate) 
+            : Math.round(curVal * (spendStyle / 3));
+        } else {
+          curVal = activeVarKey === "study_hours" ? (activeBaselines?.study_hours || 4) : (activeBaselines?.focus_rating || 7);
+          simVal = activeVarKey === "study_hours" 
+            ? (override ? override.studyHours : studyHours) 
+            : (override ? override.focusRating : focusRating);
+        }
       }
       const res = await fetch("/api/simulate", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ scenario: { domain: activeDomain, variable: activeVarKey, currentValue: curVal, simulatedValue: simVal } }),
+        body: JSON.stringify({ 
+          scenario: { 
+            domain: activeDomain, 
+            variable: activeVarKey, 
+            currentValue: curVal, 
+            simulatedValue: simVal,
+            customParams
+          } 
+        }),
       });
       const data = await res.json();
       if (data.success) { setResult(data); setCheckedActions([]); }
@@ -932,6 +972,10 @@ function SimulatorPage() {
                   { d: "career" as Domain, label: "Focus on Career Growth",  sub: "Increase daily study time and focus",       var: "study_hours",         trigger: () => { setStudyHours(8); setFocusRating(9); } },
                   { d: "health" as Domain, label: "Work Out More Often",      sub: "Add two extra workouts per week",           var: "workout_frequency",   trigger: () => setWorkoutFreq(Math.min(7, (baselines?.workout_frequency||3)+2)) },
                   { d: "finance" as Domain,label: "Cut Spending, Save More",  sub: "Switch to a more careful spending style",  var: "discretionary_spend", trigger: () => { setSpendStyle(1); setSavingsRate(Math.min(100,(baselines?.savings_rate||20)+15)); } },
+                  { d: "finance" as Domain,label: "Redirection: Dining to SIP",sub: "Move ₹5,000/mo to education SIP at 12% CAGR",var: "dining_redirect",   trigger: () => { setDiningRedirectionAmount(5000); setDiningCagr(12); } },
+                  { d: "finance" as Domain,label: "Debt Prepayment (Credit Card)",sub: "Prepay ₹48k balance immediately to save 36% APR",var: "credit_card_clearance",trigger: () => { setCcBalance(48000); setCcApr(36); setCcAmortMonths(12); } },
+                  { d: "finance" as Domain,label: "SIP Compounding Cost of Delay",sub: "Start education SIP today vs 2 years delay cost",var: "education_sip_delay",trigger: () => { setSipDelayAmount(10000); setSipDelayYears(2); setSipDelayTenure(15); setSipDelayCagr(12); } },
+                  { d: "finance" as Domain,label: "Home Loan Prepayment (₹2L)",sub: "Prepay ₹2L on ₹40L home loan to cut tenure",var: "mortgage_prepayment",trigger: () => { setMortgageOutstanding(4000000); setMortgageRate(8.5); setMortgageTenure(20); setMortgagePrepayment(200000); } },
                 ].map(item => {
                   const ddc = DOMAIN_COPY[item.d];
                   const isActive = domain === item.d && activeVar === item.var;
@@ -996,39 +1040,142 @@ function SimulatorPage() {
                   </div>
                 </>)}
 
-                {domain === "finance" && (<>
-                  <div className={`slider-card${activeVar==="savings_rate"?" s-finance":""}`} onClick={() => setActiveVar("savings_rate")}>
-                    <div className="slider-header">
-                      <span className="slider-name">How Much of Your Income You Save</span>
-                      <span className="slider-value" style={{ color: "#f59e0b" }}>
-                        {savingsRate}%
-                        <span className="slider-baseline">Current: {baselines?.savings_rate||20}%</span>
-                      </span>
+                {domain === "finance" && (
+                  !["dining_redirect", "credit_card_clearance", "education_sip_delay", "mortgage_prepayment"].includes(activeVar) ? (
+                    <>
+                      <div className={`slider-card${activeVar==="savings_rate"?" s-finance":""}`} onClick={() => setActiveVar("savings_rate")}>
+                        <div className="slider-header">
+                          <span className="slider-name">How Much of Your Income You Save</span>
+                          <span className="slider-value" style={{ color: "#f59e0b" }}>
+                            {savingsRate}%
+                            <span className="slider-baseline">Current: {baselines?.savings_rate||20}%</span>
+                          </span>
+                        </div>
+                        <div className="slider-row">
+                          <span className="slider-edge">0%</span>
+                          <input type="range" min={0} max={100} step={5} value={savingsRate}
+                            onChange={e=>{setSavingsRate(Number(e.target.value));setActiveVar("savings_rate");}}
+                            className="sim-slider" style={sliderStyle(savingsRate,0,100,"#f59e0b")}/>
+                          <span className="slider-edge">100%</span>
+                        </div>
+                      </div>
+                      <div className={`slider-card${activeVar==="discretionary_spend"?" s-finance":""}`} onClick={() => setActiveVar("discretionary_spend")}>
+                        <div className="slider-header">
+                          <span className="slider-name">Your Spending Style</span>
+                          <span className="slider-value" style={{ color: "#f59e0b", textTransform: "capitalize" }}>
+                            {["","Very Careful","Frugal","Balanced","Relaxed","Generous"][spendStyle]}
+                          </span>
+                        </div>
+                        <div className="slider-row">
+                          <span className="slider-edge">Very Careful</span>
+                          <input type="range" min={1} max={5} step={1} value={spendStyle}
+                            onChange={e=>{setSpendStyle(Number(e.target.value));setActiveVar("discretionary_spend");}}
+                            className="sim-slider" style={sliderStyle(spendStyle,1,5,"#f59e0b")}/>
+                          <span className="slider-edge">Generous</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                      {activeVar === "dining_redirect" && (
+                        <div className="slider-card s-finance" style={{ cursor: "default" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#f59e0b" }}>Dining Out Redirection Parameters</h4>
+                            
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Monthly Redirection Amount (₹)</label>
+                              <input type="number" value={diningRedirectionAmount} onChange={e => setDiningRedirectionAmount(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Expected CAGR (%)</label>
+                              <input type="number" value={diningCagr} onChange={e => setDiningCagr(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {activeVar === "credit_card_clearance" && (
+                        <div className="slider-card s-finance" style={{ cursor: "default" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#f59e0b" }}>Credit Card Clearance Parameters</h4>
+                            
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Credit Card Outstanding Balance (₹)</label>
+                              <input type="number" value={ccBalance} onChange={e => setCcBalance(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>APR Interest Rate (%)</label>
+                              <input type="number" value={ccApr} onChange={e => setCcApr(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Repayment Tenure if unpaid (Months)</label>
+                              <input type="number" value={ccAmortMonths} onChange={e => setCcAmortMonths(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {activeVar === "education_sip_delay" && (
+                        <div className="slider-card s-finance" style={{ cursor: "default" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#f59e0b" }}>SIP Cost of Delay Parameters</h4>
+                            
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Target Monthly SIP Amount (₹)</label>
+                              <input type="number" value={sipDelayAmount} onChange={e => setSipDelayAmount(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Delay Period (Years)</label>
+                              <input type="number" value={sipDelayYears} onChange={e => setSipDelayYears(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Total SIP Tenure (Years)</label>
+                              <input type="number" value={sipDelayTenure} onChange={e => setSipDelayTenure(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Expected CAGR (%)</label>
+                              <input type="number" value={sipDelayCagr} onChange={e => setSipDelayCagr(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {activeVar === "mortgage_prepayment" && (
+                        <div className="slider-card s-finance" style={{ cursor: "default" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#f59e0b" }}>Mortgage Prepayment Parameters</h4>
+                            
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Home Loan Outstanding (₹)</label>
+                              <input type="number" value={mortgageOutstanding} onChange={e => setMortgageOutstanding(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Loan Interest Rate (%)</label>
+                              <input type="number" value={mortgageRate} onChange={e => setMortgageRate(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Remaining Tenure (Years)</label>
+                              <input type="number" value={mortgageTenure} onChange={e => setMortgageTenure(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--txt-secondary)" }}>Partial Prepayment Amount (₹)</label>
+                              <input type="number" value={mortgagePrepayment} onChange={e => setMortgagePrepayment(Number(e.target.value))} style={{ background: "#fff", border: "1px solid #E4E9F4", padding: "8px 12px", borderRadius: 8, fontSize: "0.85rem", color: "var(--txt-primary)" }}/>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="slider-row">
-                      <span className="slider-edge">0%</span>
-                      <input type="range" min={0} max={100} step={5} value={savingsRate}
-                        onChange={e=>{setSavingsRate(Number(e.target.value));setActiveVar("savings_rate");}}
-                        className="sim-slider" style={sliderStyle(savingsRate,0,100,"#f59e0b")}/>
-                      <span className="slider-edge">100%</span>
-                    </div>
-                  </div>
-                  <div className={`slider-card${activeVar==="discretionary_spend"?" s-finance":""}`} onClick={() => setActiveVar("discretionary_spend")}>
-                    <div className="slider-header">
-                      <span className="slider-name">Your Spending Style</span>
-                      <span className="slider-value" style={{ color: "#f59e0b", textTransform: "capitalize" }}>
-                        {["","Very Careful","Frugal","Balanced","Relaxed","Generous"][spendStyle]}
-                      </span>
-                    </div>
-                    <div className="slider-row">
-                      <span className="slider-edge">Very Careful</span>
-                      <input type="range" min={1} max={5} step={1} value={spendStyle}
-                        onChange={e=>{setSpendStyle(Number(e.target.value));setActiveVar("discretionary_spend");}}
-                        className="sim-slider" style={sliderStyle(spendStyle,1,5,"#f59e0b")}/>
-                      <span className="slider-edge">Generous</span>
-                    </div>
-                  </div>
-                </>)}
+                  )
+                )}
 
                 {domain === "career" && (<>
                   <div className={`slider-card${activeVar==="study_hours"?" s-career":""}`} onClick={() => setActiveVar("study_hours")}>
@@ -1183,6 +1330,104 @@ function SimulatorPage() {
         {/* ═══ RESULTS ═══ */}
         {result ? (
           <div className="results-grid" style={{ animation: "scr-in 0.35s ease" }}>
+
+            {/* Simulated Financial Math Details Card */}
+            {(result as any).customMath && (
+              <div className="card" style={{ gridColumn: "span 2", marginBottom: 8 }}>
+                <div className="card-stripe" style={{ background: "linear-gradient(90deg, #10b981, #2563eb)" }}/>
+                <div className="card-body">
+                  <div className="card-head" style={{ marginBottom: 16 }}>
+                    <div className="card-head-left">
+                      <div className="card-head-icon" style={{ background: "rgba(16,185,129,0.08)", color: "#10b981" }}>
+                        <TrendingUp size={18}/>
+                      </div>
+                      <div>
+                        <div className="card-head-title">Simulated Financial Math Details</div>
+                        <div className="card-head-sub">Deterministic projections and interest calculations</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {activeVar === "dining_redirect" && (result as any).customMath && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
+                      <div style={{ background: "#f8fafc", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0" }}>
+                        <h4 style={{ color: "#475569", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>5-Year SIP Goal (12% CAGR)</h4>
+                        <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#10b981" }}>₹{(result as any).customMath.fv5?.toLocaleString("en-IN")}</div>
+                        <p style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 8, lineHeight: 1.5 }}>
+                          Total Invested: <strong>₹{(result as any).customMath.invested5?.toLocaleString("en-IN")}</strong><br/>
+                          Interest Gained: <strong>₹{(result as any).customMath.interestGained5?.toLocaleString("en-IN")}</strong>
+                        </p>
+                      </div>
+                      <div style={{ background: "#f8fafc", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0" }}>
+                        <h4 style={{ color: "#475569", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>15-Year SIP Goal (12% CAGR)</h4>
+                        <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#0047D4" }}>₹{(result as any).customMath.fv15?.toLocaleString("en-IN")}</div>
+                        <p style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 8, lineHeight: 1.5 }}>
+                          Total Invested: <strong>₹{(result as any).customMath.invested15?.toLocaleString("en-IN")}</strong><br/>
+                          Interest Gained: <strong>₹{(result as any).customMath.interestGained15?.toLocaleString("en-IN")}</strong>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeVar === "credit_card_clearance" && (result as any).customMath && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
+                      <div style={{ background: "#fef2f2", padding: 20, borderRadius: 16, border: "1px solid #fecaca" }}>
+                        <h4 style={{ color: "#991b1b", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>Interest Saved</h4>
+                        <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#dc2626" }}>₹{(result as any).customMath.interestSaved?.toLocaleString("en-IN")}</div>
+                        <p style={{ fontSize: "0.82rem", color: "#b91c1c", marginTop: 8, lineHeight: 1.5 }}>
+                          Saved over a <strong>{(result as any).customMath.amortMonths}-month</strong> standard repayment schedule (EMI: ₹{(result as any).customMath.monthlyPayment?.toLocaleString("en-IN")}/mo).
+                        </p>
+                      </div>
+                      <div style={{ background: "#f8fafc", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0" }}>
+                        <h4 style={{ color: "#475569", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>Compounded Charges Prevented</h4>
+                        <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#52637a" }}>₹{(result as any).customMath.annualInterestCompounded?.toLocaleString("en-IN")}/yr</div>
+                        <p style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 8, lineHeight: 1.5 }}>
+                          Avoided annual credit card finance charges at a standard <strong>{(result as any).customMath.apr}% APR</strong>.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeVar === "education_sip_delay" && (result as any).customMath && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
+                      <div style={{ background: "#fffbeb", padding: 20, borderRadius: 16, border: "1px solid #fde68a" }}>
+                        <h4 style={{ color: "#92400e", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>Cost of Delay (Lost Wealth)</h4>
+                        <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#d97706" }}>₹{(result as any).customMath.costOfDelay?.toLocaleString("en-IN")}</div>
+                        <p style={{ fontSize: "0.82rem", color: "#b45309", marginTop: 8, lineHeight: 1.5 }}>
+                          Difference in wealth by starting the ₹{(result as any).customMath.sipAmount?.toLocaleString("en-IN")}/mo SIP <strong>{(result as any).customMath.delayYears} years</strong> later.
+                        </p>
+                      </div>
+                      <div style={{ background: "#f8fafc", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0" }}>
+                        <h4 style={{ color: "#475569", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>Compensating SIP Increase</h4>
+                        <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#0047D4" }}>+₹{(result as any).customMath.extraSIPMonthly?.toLocaleString("en-IN")}/mo</div>
+                        <p style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 8, lineHeight: 1.5 }}>
+                          Must increase monthly SIP to <strong>₹{(result as any).customMath.requiredSIPDelayed?.toLocaleString("en-IN")}/mo</strong> (a +{Math.round((result as any).customMath.extraSIPMonthly / (result as any).customMath.sipAmount * 100)}% jump) to hit same corpus target.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeVar === "mortgage_prepayment" && (result as any).customMath && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
+                      <div style={{ background: "#ecfdf5", padding: 20, borderRadius: 16, border: "1px solid #a7f3d0" }}>
+                        <h4 style={{ color: "#065f46", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>Lifetime Interest Saved</h4>
+                        <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#10b981" }}>₹{(result as any).customMath.interestSaved?.toLocaleString("en-IN")}</div>
+                        <p style={{ fontSize: "0.82rem", color: "#047857", marginTop: 8, lineHeight: 1.5 }}>
+                          Lifetime interest saved by making a partial prepayment of ₹{(result as any).customMath.prepayment?.toLocaleString("en-IN")} on a ₹{(result as any).customMath.outstanding?.toLocaleString("en-IN")} home loan.
+                        </p>
+                      </div>
+                      <div style={{ background: "#f8fafc", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0" }}>
+                        <h4 style={{ color: "#475569", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>Tenure Reduced</h4>
+                        <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#0047D4" }}>{Math.floor((result as any).customMath.tenureReductionMonths / 12)} Years, {(result as any).customMath.tenureReductionMonths % 12} Months</div>
+                        <p style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 8, lineHeight: 1.5 }}>
+                          Loan outstanding drops immediately, shaving off <strong>{(result as any).customMath.tenureReductionMonths} months</strong> while keeping EMI same at ₹{(result as any).customMath.emi?.toLocaleString("en-IN")}/mo.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Trade-offs + Timeline */}
             <div className="card">

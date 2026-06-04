@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import Log from "@/models/Log";
+import AssetLiability from "@/models/AssetLiability";
 import { buildTwinContext } from "@/lib/aiContextBuilder";
 import { calculateConfidence } from "@/lib/confidenceScore";
 import { analyzeBehavioralDrift } from "@/lib/driftEngine";
@@ -33,9 +34,17 @@ export async function generateAndStoreSnapshot(
       .limit(42)
       .lean();
 
+    // Dynamically look up the AssetLiability model to get familyOutflows
+    const AssetLiabilityModel = mongoose.models.AssetLiability || mongoose.model("AssetLiability");
+    const portfolio = await AssetLiabilityModel.findOne({ userId: user._id }).lean();
+    const familyOutflows = (portfolio as any)?.familyOutflows || null;
+
     const twinContext = buildTwinContext(recentLogs, {
       monthlyIncome: user.profile?.monthlyIncome,
       monthlyBudget: user.profile?.monthlyBudget,
+      relations: user.relations || null,
+      supportNetwork: user.supportNetwork || [],
+      familyOutflows: familyOutflows,
     });
 
     const confidence = calculateConfidence(twinContext.logCount);
@@ -92,7 +101,10 @@ export async function generateAndStoreSnapshot(
       user.gamification?.currentStreak || 0,
       confidence,
       user.personalMission || "Achieve Personal Optimization",
-      user.healthConstraints || "none"
+      user.healthConstraints || "none",
+      user.relations,
+      user.supportNetwork,
+      familyOutflows
     );
 
     // 3. Cache the validated Gemini reflection in the User Document

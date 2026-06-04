@@ -93,7 +93,8 @@ export function buildSimulatorPrompt(
   scenario: SimulatorScenario,
   currentContext: TwinContext,
   currentScores: DomainScores,
-  confidence: number
+  confidence: number,
+  customScenarioDetails?: string
 ): string {
   const direction = scenario.percentChange > 0 ? "increase" : "decrease";
   const magnitude = Math.abs(scenario.percentChange);
@@ -121,7 +122,7 @@ Variable: ${scenario.variable}
 Current value: ${scenario.currentValue}
 Simulated value: ${scenario.simulatedValue}
 Change: ${direction} of ${magnitude}% (${scenario.currentValue} → ${scenario.simulatedValue})
-
+${customScenarioDetails ? `\n━━━ EXACT MATHEMATICAL CALCULATIONS (USE THESE EXACT NUMBERS IN YOUR RESPONSES) ━━━\n${customScenarioDetails}\n` : ""}
 ━━━ CURRENT USER BASELINE ━━━
 Health Score: ${currentScores.health}/100 | Trend: ${currentContext.trends.health}
 Finance Score: ${currentScores.finance}/100 | Trend: ${currentContext.trends.finance}
@@ -177,9 +178,10 @@ export async function generateSimulatorInsight(
   scenario: SimulatorScenario,
   currentContext: TwinContext,
   currentScores: DomainScores,
-  confidence: number
+  confidence: number,
+  customScenarioDetails?: string
 ): Promise<SimulatorResponse> {
-  const prompt = buildSimulatorPrompt(scenario, currentContext, currentScores, confidence);
+  const prompt = buildSimulatorPrompt(scenario, currentContext, currentScores, confidence, customScenarioDetails);
   const raw = await callGemini<unknown>(prompt, {
     temperature: 0.35,
     maxTokens: 2500,

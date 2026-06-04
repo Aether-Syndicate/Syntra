@@ -4,7 +4,13 @@ import { memoize } from "@/lib/memoize";
 
 function calculateTwinContext(
   logs: any[],
-  userProfile?: { monthlyIncome?: number; monthlyBudget?: number }
+  userProfile?: { 
+    monthlyIncome?: number; 
+    monthlyBudget?: number;
+    relations?: any;
+    supportNetwork?: any[];
+    familyOutflows?: any;
+  }
 ): TwinContext {
   const healthLogs = logs.filter(l => l.domain === "health");
   const financeLogs = logs.filter(l => l.domain === "finance");
@@ -61,6 +67,15 @@ function calculateTwinContext(
   // Water intake (hydration tracking)
   const waterValues = healthLogs
     .map(l => l.domainData?.waterGlasses)
+    .filter((v): v is number => typeof v === "number");
+
+  // Social count & Relationship quality values
+  const socialCountValues = healthLogs
+    .map(l => l.domainData?.socialCount)
+    .filter((v): v is number => typeof v === "number");
+
+  const relationshipQualityValues = healthLogs
+    .map(l => l.domainData?.relationshipQuality)
     .filter((v): v is number => typeof v === "number");
 
   // Meal consistency — count days with no skipped meals
@@ -271,6 +286,8 @@ function calculateTwinContext(
       spendingVsBudget,
       waterIntake: avg(waterValues),
       mealConsistency,
+      socialCount: avg(socialCountValues),
+      relationshipQuality: avg(relationshipQualityValues),
     },
     trends: {
       sleep: getTrend(sleepValues),
@@ -301,6 +318,9 @@ function calculateTwinContext(
     },
     logCount: logs.length,
     daysActive: Math.min(Math.floor(logs.length / 3), 14),
+    relations: userProfile?.relations || null,
+    supportNetwork: userProfile?.supportNetwork || [],
+    familyOutflows: userProfile?.familyOutflows || null,
   };
 }
 

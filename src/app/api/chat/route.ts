@@ -62,21 +62,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'A valid chat message string is required.' }, { status: 400 });
     }
 
-    // 2. Fetch User & Log Context from DB
+    // 2. Fetch User, Log Context & Portfolio from DB
     await connectDB();
-    const [user, recentLogs] = await Promise.all([
+    const AssetLiabilityModel = mongoose.models.AssetLiability || mongoose.model("AssetLiability");
+    const [user, recentLogs, portfolio] = await Promise.all([
       getUserById(session.user.id),
       Log.find({ userId: new mongoose.Types.ObjectId(session.user.id) })
         .sort({ date: -1 })
         .limit(21)
-        .lean()
+        .lean(),
+      AssetLiabilityModel.findOne({ userId: new mongoose.Types.ObjectId(session.user.id) }).lean()
     ]);
 
     // 3. Build Operator Context
     let contextString = "No digital twin data available yet.";
     if (user) {
       const activeFlags: string[] = [];
-      const twinContext = buildTwinContext(recentLogs || []);
+      const familyOutflows = (portfolio as any)?.familyOutflows || null;
+      const twinContext = buildTwinContext(recentLogs || [], {
+        monthlyIncome: user.profile?.monthlyIncome,
+        monthlyBudget: user.profile?.monthlyBudget,
+        relations: user.relations || null,
+        supportNetwork: user.supportNetwork || [],
+        familyOutflows: familyOutflows,
+      });
+
       if (twinContext) {
         if (twinContext.behaviorFlags.stressSpendingCorrelation) activeFlags.push("stress_linked_spending");
         if (twinContext.behaviorFlags.sleepCareerCorrelation) activeFlags.push("chronic_sleep_deprivation");
@@ -99,13 +109,18 @@ export async function POST(req: NextRequest) {
           badges: user.badges || []
         },
         behaviorFlags: activeFlags,
+        relations: user.relations || null,
+        supportNetwork: user.supportNetwork || [],
+        familyOutflows: familyOutflows,
         weeklyAverages: twinContext ? {
           sleepHours: twinContext.weeklyAverages.sleep,
           workoutFrequency: twinContext.weeklyAverages.workout,
           studyHours: twinContext.weeklyAverages.studyHours,
           savingsRate: twinContext.weeklyAverages.savingsRate,
           stressLevel: twinContext.weeklyAverages.stressLevel,
-          moodScore: twinContext.weeklyAverages.moodScore
+          moodScore: twinContext.weeklyAverages.moodScore,
+          socialCount: twinContext.weeklyAverages.socialCount,
+          relationshipQuality: twinContext.weeklyAverages.relationshipQuality
         } : null
       }, null, 2);
     }

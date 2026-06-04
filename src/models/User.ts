@@ -55,6 +55,16 @@ export interface IUser extends Document {
     lastLogDate: Date;
   };
   badges: string[]; // NEW: Gamification Badges
+  relations?: {
+    relationshipStatus: "Single" | "Partnered" | "Married" | "Separated";
+    householdMembers: Array<{ relationshipType: "partner" | "child" | "parent" | "sibling" }>;
+    dependents: Array<{ type: "child" | "elderly_parent"; age: number }>;
+  };
+  supportNetwork?: Array<{
+    name: string;
+    relationshipType: string;
+    tag: "venting" | "advice" | "distraction" | "motivation";
+  }>;
   goals: IGoal[];
   aiSnapshot?: {
     dailyReflection: any;
@@ -119,6 +129,22 @@ const UserSchema = new Schema<IUser>(
 
     // Gamification Badges Array (NEW)
     badges: { type: [String], default: [] }, 
+
+    relations: {
+      relationshipStatus: { type: String, enum: ["Single", "Partnered", "Married", "Separated"], default: "Single" },
+      householdMembers: [{
+        relationshipType: { type: String, enum: ["partner", "child", "parent", "sibling"] }
+      }],
+      dependents: [{
+        type: { type: String, enum: ["child", "elderly_parent"] },
+        age: { type: Number }
+      }]
+    },
+    supportNetwork: [{
+      name: { type: String, required: true },
+      relationshipType: { type: String },
+      tag: { type: String, enum: ["venting", "advice", "distraction", "motivation"] }
+    }],
 
     // Goals Array
     goals: [GoalSchema],

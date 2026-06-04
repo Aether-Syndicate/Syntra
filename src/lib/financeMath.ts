@@ -88,3 +88,115 @@ export function preComputeWealthGoals(
       };
     });
 }
+
+// ── NEW: SCENARIO SPECIFIC CALCULATIONS ──
+
+export function calculateSIPFutureValue(monthlyAmount: number, annualRate: number, years: number): number {
+  const months = years * 12;
+  const monthlyRate = (annualRate / 100) / 12;
+  if (monthlyRate === 0) return monthlyAmount * months;
+  return monthlyAmount * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate);
+}
+
+export function calculateCreditCardSavings(
+  balance: number,
+  apr: number,
+  amortMonths: number = 12
+): { interestSaved: number; monthlyPayment: number; totalPayment: number; annualInterestCompounded: number } {
+  const monthlyRate = (apr / 100) / 12;
+  const annualInterestCompounded = balance * (apr / 100);
+  
+  if (monthlyRate === 0) {
+    return {
+      interestSaved: 0,
+      monthlyPayment: balance / amortMonths,
+      totalPayment: balance,
+      annualInterestCompounded: 0,
+    };
+  }
+  
+  const emi = balance * (monthlyRate * Math.pow(1 + monthlyRate, amortMonths)) / (Math.pow(1 + monthlyRate, amortMonths) - 1);
+  const totalPayment = emi * amortMonths;
+  const interestSaved = totalPayment - balance;
+  
+  return {
+    interestSaved,
+    monthlyPayment: emi,
+    totalPayment,
+    annualInterestCompounded,
+  };
+}
+
+export function calculateSIPDelayCost(
+  sipAmount: number,
+  delayYears: number,
+  tenureYears: number,
+  annualRate: number
+): { fvToday: number; fvDelayed: number; costOfDelay: number; requiredSIPDelayed: number; extraSIPMonthly: number } {
+  const fvToday = calculateSIPFutureValue(sipAmount, annualRate, tenureYears);
+  const fvDelayed = calculateSIPFutureValue(sipAmount, annualRate, Math.max(0, tenureYears - delayYears));
+  const costOfDelay = Math.max(0, fvToday - fvDelayed);
+  
+  const delayedMonths = Math.max(0, tenureYears - delayYears) * 12;
+  const monthlyRate = (annualRate / 100) / 12;
+  let requiredSIPDelayed = sipAmount;
+  if (monthlyRate > 0 && delayedMonths > 0) {
+    requiredSIPDelayed = fvToday / (((Math.pow(1 + monthlyRate, delayedMonths) - 1) / monthlyRate) * (1 + monthlyRate));
+  }
+  
+  const extraSIPMonthly = Math.max(0, requiredSIPDelayed - sipAmount);
+  
+  return {
+    fvToday,
+    fvDelayed,
+    costOfDelay,
+    requiredSIPDelayed,
+    extraSIPMonthly,
+  };
+}
+
+export function calculateMortgagePrepayment(
+  outstanding: number,
+  annualRate: number,
+  remainingYears: number,
+  prepayment: number
+): { emi: number; tenureReductionMonths: number; interestSaved: number; totalWithoutPrepayment: number; totalWithPrepayment: number } {
+  const months = remainingYears * 12;
+  const monthlyRate = (annualRate / 100) / 12;
+  
+  if (monthlyRate === 0) {
+    return {
+      emi: outstanding / months,
+      tenureReductionMonths: Math.round(prepayment / (outstanding / months)),
+      interestSaved: 0,
+      totalWithoutPrepayment: outstanding,
+      totalWithPrepayment: outstanding,
+    };
+  }
+  
+  const emi = outstanding * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+  const totalWithoutPrepayment = emi * months;
+  
+  const newOutstanding = Math.max(0, outstanding - prepayment);
+  
+  let newMonths = 0;
+  const term = 1 - (newOutstanding * monthlyRate / emi);
+  if (term > 0) {
+    newMonths = -Math.log(term) / Math.log(1 + monthlyRate);
+  } else {
+    newMonths = 0;
+  }
+  
+  const tenureReductionMonths = Math.max(0, Math.round(months - newMonths));
+  const totalWithPrepayment = (emi * newMonths) + prepayment;
+  const interestSaved = Math.max(0, totalWithoutPrepayment - totalWithPrepayment);
+  
+  return {
+    emi,
+    tenureReductionMonths,
+    interestSaved,
+    totalWithoutPrepayment,
+    totalWithPrepayment,
+  };
+}
+

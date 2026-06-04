@@ -50,6 +50,7 @@ export async function getDashboardData(userId: string, email: string) {
       email: user.email,
       avatarId: user.avatarId,
       age: user.age,
+      profile: user.profile,
     },
     // The main Hero widget metric
     syntraCore: syntraCoreScore, 

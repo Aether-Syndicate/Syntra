@@ -17,6 +17,8 @@ export interface TwinContext {
     spendingVsBudget: number; // % over/under budget
     waterIntake: number;    // avg glasses/day
     mealConsistency: number; // % of days with no skipped meals
+    socialCount?: number;   // avg social meetings per week
+    relationshipQuality?: number; // 1-5 rating of close relationships
   };
   trends: {
     sleep: "improving" | "declining" | "stable";
@@ -44,6 +46,9 @@ export interface TwinContext {
   };
   logCount: number; // total data points — drives confidence ceiling
   daysActive: number;
+  relations?: any;
+  supportNetwork?: any[];
+  familyOutflows?: any;
 }
 
 export interface DomainScores {

@@ -265,6 +265,24 @@ export interface IAssetLiability extends Document {
       maturityDate?: Date;
     }>;
   };
+  familyOutflows?: {
+    children: Array<{
+      id: string;
+      yearOfBirth: number;
+      schoolFeesAnnual: number;
+      schoolType: "government" | "private" | "international";
+      tuitionMonthly: number;
+      extracurricularMonthly: number;
+      childcareMonthly: number;
+    }>;
+    caregiving: {
+      parentHealthcareMonthly: number;
+      parentInsuranceAnnualPremium: number;
+      parentInsuranceCoverAmount: number;
+      monthlyRemittance: number;
+      householdHelpMonthly: number;
+    };
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -579,6 +597,27 @@ const AssetLiabilitySchema = new Schema<IAssetLiability>(
     protection: {
       termInsurance: { type: [TermInsuranceSchema], default: [] },
       endowmentPolicies: { type: [EndowmentSchema], default: [] }
+    },
+    familyOutflows: {
+      children: {
+        type: [{
+          id: { type: String, required: true },
+          yearOfBirth: { type: Number, required: true },
+          schoolFeesAnnual: { type: Number, default: 0 },
+          schoolType: { type: String, enum: ["government", "private", "international"], default: "private" },
+          tuitionMonthly: { type: Number, default: 0 },
+          extracurricularMonthly: { type: Number, default: 0 },
+          childcareMonthly: { type: Number, default: 0 }
+        }],
+        default: []
+      },
+      caregiving: {
+        parentHealthcareMonthly: { type: Number, default: 0 },
+        parentInsuranceAnnualPremium: { type: Number, default: 0 },
+        parentInsuranceCoverAmount: { type: Number, default: 0 },
+        monthlyRemittance: { type: Number, default: 0 },
+        householdHelpMonthly: { type: Number, default: 0 }
+      }
     }
   },
   { timestamps: true }

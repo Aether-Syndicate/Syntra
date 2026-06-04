@@ -59,6 +59,16 @@ const DEFAULT_PORTFOLIO = {
     termInsurance: [],
     endowmentPolicies: [],
   },
+  familyOutflows: {
+    children: [],
+    caregiving: {
+      parentHealthcareMonthly: 0,
+      parentInsuranceAnnualPremium: 0,
+      parentInsuranceCoverAmount: 0,
+      monthlyRemittance: 0,
+      householdHelpMonthly: 0,
+    }
+  },
 };
 
 export async function GET() {
@@ -109,6 +119,7 @@ export async function POST(req: Request) {
           assets: body.portfolio.assets,
           liabilities: body.portfolio.liabilities,
           protection: body.portfolio.protection,
+          familyOutflows: body.portfolio.familyOutflows,
         }
       },
       { upsert: true, new: true, runValidators: true }

@@ -180,6 +180,56 @@ function detectRisks(context: TwinContext, trajectory: TrajectorySignals): strin
   if (trajectory.burnoutRiskScore >= 7)
     risks.push(`BURNOUT RISK SCORE: ${trajectory.burnoutRiskScore}/10 — composite of stress, sleep deficit, low workout frequency, and mood score indicates elevated burnout probability within 2–3 weeks.`);
 
+  // 1. Loneliness Warning: socialCount < 2/week and mood average < 6/10 (equivalent to < 3/5)
+  const socialFreq = typeof a.socialCount === "number" ? a.socialCount : 0;
+  if (socialFreq < 2 && a.moodScore < 6) {
+    risks.push(`WARNING: Loneliness pattern detected — weekly social frequency is at ${socialFreq.toFixed(1)}/week (threshold < 2) and mood average is low at ${a.moodScore.toFixed(1)}/10.`);
+  }
+
+  // 2. Financial Redirect Nudge: discretionary spending high and child education SIP deficit exists
+  const children = context.familyOutflows?.children || [];
+  let totalEducationDeficit = 0;
+  for (const child of children) {
+    let targetCorpus = 3000000;
+    if (child.schoolType === "private") targetCorpus = 5000000;
+    else if (child.schoolType === "international") targetCorpus = 15000000;
+
+    const age = new Date().getFullYear() - (Number(child.yearOfBirth) || 2020);
+    const monthsRemaining = Math.max(1, (18 - age) * 12);
+    const monthlyRate = 0.12 / 12;
+
+    let requiredSIP = 0;
+    if (monthsRemaining > 0) {
+      requiredSIP = (targetCorpus * monthlyRate) / (Math.pow(1 + monthlyRate, monthsRemaining) - 1);
+    }
+    const currentSIP = Number(child.currentSIP || 0);
+    const childDeficit = Math.max(0, requiredSIP - currentSIP);
+    totalEducationDeficit += childDeficit;
+  }
+
+  if (totalEducationDeficit > 0 && a.spendingVsBudget > 0) {
+    risks.push(`FINANCIAL NUDGE: Child education SIP deficit of ₹${Math.round(totalEducationDeficit).toLocaleString("en-IN")}/mo detected while discretionary spending is running ${a.spendingVsBudget}% over budget. Suggest redirecting Swiggy/convenience outflows to bridge this deficit.`);
+  }
+
+  // 3. Social Support Recommendation: high stress (>= 7) or low mood (< 6)
+  const supportNetwork = (context as any).supportNetwork || [];
+  if (supportNetwork.length > 0 && (a.stressLevel >= 7 || a.moodScore < 6)) {
+    let contactName = "";
+    let contactTag = "";
+    if (a.stressLevel >= 8) {
+      const contact = supportNetwork.find((c: any) => c.tag === "venting") || supportNetwork.find((c: any) => c.tag === "motivation") || supportNetwork[0];
+      contactName = contact.name;
+      contactTag = contact.tag;
+    } else {
+      const contact = supportNetwork.find((c: any) => c.tag === "venting") || supportNetwork.find((c: any) => c.tag === "distraction") || supportNetwork[0];
+      contactName = contact.name;
+      contactTag = contact.tag;
+    }
+    if (contactName) {
+      risks.push(`SUPPORT OUTREACH: Consider reaching out to your support contact ${contactName} (${contactTag}) to talk through your current state, lower cortisol, and restore emotional sync.`);
+    }
+  }
+
   return risks;
 }
 
@@ -336,6 +386,9 @@ CRITICAL SPECIFICITY RULES:
 2. If trajectory dropped, name the EXACT root cause (e.g., "Rs. 2500 spent on impulse Zomato buys" or specific ingredients/food items logged).
 3. Always connect current actions to their active long-term specific goals (Dream Car, Tech Tier 1 job, etc.) and their primary Personal Mission ("${personalMission}").
 4. Acknowledge and respect the user's specific health constraints ("${healthConstraints}"). If they have a constraint (like Thyroid, Diabetes, Migraine, or any specific illness), you MUST analyze their logged meals to check if they conform to the constraint, and ensure all meal suggestions (e.g., in todaysMealPlan or recommendations) and risk alerts are highly tailored to accommodate and manage this constraint safely (avoiding trigger foods, recommending metabolic-safe schedules, etc.).
+5. CONTEXTUAL AI TRIGGER — SOCIAL SUPPORT NETWORK: If the user's stress level is elevated (avg stress >= 7) or mood is low (avg mood < 5), you MUST explicitly suggest reaching out to one of the named contacts in their SUPPORT NETWORK (e.g., recommend contacting a specific person by name for their designated tag like venting, advice, distraction, or motivation) in either the recommendations.health or dailyChallenge.
+6. CONTEXTUAL AI TRIGGER — CAREGIVING FATIGUE: If the user has dependents (children or elderly parents) and their sleep average is below 6.5h, you MUST highlight the risk of caregiving fatigue in the riskAlerts or twinPrediction and suggest realistic micro-rest or boundary-setting interventions in the recommendations.health.
+7. CONTEXTUAL AI TRIGGER — FAMILY OUTFLOW PRESSURE: If the user's finance score is below 60 or savings rate is below their target, you MUST cross-reference their fixed FAMILY OUTFLOWS (such as school fees, parent medical care, or monthly remittances) in your financial risk alerts/reflection and warn them to keep discretionary spending low to protect their safety margins.
 `.trim();
 
 // ================================================================
@@ -349,11 +402,27 @@ export function buildaitwinReflectionPrompt(
   streak: number,
   confidence: number,
   personalMission: string = "Achieve Personal Optimization",
-  healthConstraints: string = "none"
+  healthConstraints: string = "none",
+  relations?: any,
+  supportNetwork?: any[],
+  familyOutflows?: any
 ): string {
 
   const safeMission = sanitizeForPrompt(personalMission, 200);
   const safeConstraints = sanitizeForPrompt(healthConstraints, 150);
+
+  // Format relations and socials data
+  const hhMembers = relations?.householdMembers?.map((m: any) => m.relationshipType).join(", ") || "None";
+  const deps = relations?.dependents?.map((d: any) => `${d.type === 'child' ? 'Child' : 'Elderly Parent'} (Age: ${d.age})`).join(", ") || "None";
+  const supportNet = supportNetwork?.map((s: any) => `${s.name} (${s.relationshipType}) [Tag: ${s.tag}]`).join(", ") || "None";
+
+  // Format family outflows data
+  const childrenOut = familyOutflows?.children?.map((c: any) => 
+    `Child (Birth Year: ${c.yearOfBirth}, School Type: ${c.schoolType}, Annual School Fees: ₹${c.schoolFeesAnnual || 0}, Monthly Tuition: ₹${c.tuitionMonthly || 0}, Monthly Extracurriculars: ₹${c.extracurricularMonthly || 0}, Monthly Childcare: ₹${c.childcareMonthly || 0})`
+  ).join(" | ") || "None";
+
+  const cg = familyOutflows?.caregiving || {};
+  const caregivingOut = `Parent Healthcare Monthly: ₹${cg.parentHealthcareMonthly || 0}, Parent Insurance Annual Premium: ₹${cg.parentInsuranceAnnualPremium || 0}, Parent Insurance Cover: ₹${cg.parentInsuranceCoverAmount || 0}, Monthly Remittance: ₹${cg.monthlyRemittance || 0}, Household Help Monthly: ₹${cg.householdHelpMonthly || 0}`;
 
   const trajectory = calculateTrajectory(context, scores);
   const risks = detectRisks(context, trajectory);
@@ -397,6 +466,18 @@ YOUR VOICE AND CHARACTER:
  
 PERSONAL MISSION: ${safeMission}
 HEALTH CONSTRAINTS: ${safeConstraints}
+ 
+RELATIONS & HOUSEHOLD:
+  Relationship Status: ${relations?.relationshipStatus || "Single"}
+  Household Members: ${hhMembers}
+  Dependents: ${deps}
+
+SUPPORT NETWORK:
+  Contacts: ${supportNet}
+
+FAMILY OUTFLOWS:
+  Children: ${childrenOut}
+  Caregiving: ${caregivingOut}
  
 DOMAIN SCORES:
   Health:  ${scores.health}/100 (${interpretScore(scores.health)}) | Trend: ${context.trends.health}
@@ -552,8 +633,21 @@ export async function generateaitwinReflection(
   streak: number,
   confidence: number,
   personalMission: string = "Achieve Personal Optimization",
-  healthConstraints: string = "none"
+  healthConstraints: string = "none",
+  relations?: any,
+  supportNetwork?: any[],
+  familyOutflows?: any
 ): Promise<aitwinReflectionResponse> {
-  const prompt = buildaitwinReflectionPrompt(context, scores, streak, confidence, personalMission, healthConstraints);
+  const prompt = buildaitwinReflectionPrompt(
+    context,
+    scores,
+    streak,
+    confidence,
+    personalMission,
+    healthConstraints,
+    relations,
+    supportNetwork,
+    familyOutflows
+  );
   return callWithValidation(prompt, confidence);
 }

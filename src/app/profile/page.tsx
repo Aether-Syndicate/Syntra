@@ -26,7 +26,6 @@ const NAV_LINKS = [
   { href: "/goals",              label: "Goals" },
   { href: "/simulator",          label: "Simulator" },
   { href: "/insights",           label: "Insights" },
-  { href: "/assets-liabilities", label: "Net Worth" },
   { href: "/profile",            label: "Profile" },
 ];
 

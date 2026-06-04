@@ -18,6 +18,8 @@ interface HealthData {
   moodScore: number; energyLevel: number; waterGlasses: number;
   skippedMeals: string[]; caloriesConsumed: string;
   calorieGoal: string; mealsEatenToday: string;
+  spentTimeWithFriends: boolean; socialCount: number;
+  relationshipQuality: number;
 }
 interface FinanceData {
   amountSaved: string; discretionarySpent: string; spendingCategory: string;
@@ -34,7 +36,7 @@ interface LatestData {
   reflection: { data: any; date: string } | null;
 }
 
-type SidebarPanel = "manual" | "uploads" | "api";
+type SidebarPanel = "manual" | "social" | "uploads" | "api";
 
 const NAV_LINKS = [
   { href: "/dashboard",          label: "Dashboard" },
@@ -464,6 +466,7 @@ export default function IngestionPage() {
     sleepHours: 0, workoutMinutes: 0, stressLevel: 1, moodScore: 5,
     energyLevel: 5, waterGlasses: 0, skippedMeals: [],
     caloriesConsumed: "", calorieGoal: "", mealsEatenToday: "",
+    spentTimeWithFriends: false, socialCount: 0, relationshipQuality: 3,
   });
   const [finance, setFinance] = useState<FinanceData>({
     amountSaved: "", discretionarySpent: "", spendingCategory: "food",
@@ -473,6 +476,24 @@ export default function IngestionPage() {
     hoursStudied: "", productivityRating: 5, sessionsCompleted: "",
     courseName: "", goalWorkedOn: "", blockerToday: "",
   });
+
+  // Relations & Socials Profile State
+  const [relations, setRelations] = useState({
+    relationshipStatus: "Single",
+    householdMembers: [] as Array<{ relationshipType: "partner" | "child" | "parent" | "sibling" }>,
+    dependents: [] as Array<{ type: "child" | "elderly_parent"; age: number }>,
+  });
+  const [supportNetwork, setSupportNetwork] = useState([] as Array<{ name: string; relationshipType: string; tag: "venting" | "advice" | "distraction" | "motivation" }>);
+  const [relationsSaving, setRelationsSaving] = useState(false);
+  const [relationsMsg, setRelationsMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  // Inline form states for Dependents and Support Network
+  const [activeDependentType, setActiveDependentType] = useState<"child" | "elderly_parent" | null>(null);
+  const [dependentAge, setDependentAge] = useState<string>("");
+  const [showAddSupport, setShowAddSupport] = useState(false);
+  const [supportName, setSupportName] = useState("");
+  const [supportRelationship, setSupportRelationship] = useState("");
+  const [supportTag, setSupportTag] = useState<"venting" | "advice" | "distraction" | "motivation">("venting");
 
   const pH = useMemo(() => previewHealthScore(health), [health]);
   const pF = useMemo(() => previewFinanceScore(finance), [finance]);
@@ -498,6 +519,56 @@ export default function IngestionPage() {
         if ((d.latest?.health && isT(d.latest.health.date)) ||
           (d.latest?.finance && isT(d.latest.finance.date)) ||
           (d.latest?.career && isT(d.latest.career.date))) setTodayLogged(true);
+
+        if (d.latest?.health && isT(d.latest.health.date)) {
+          const h = d.latest.health.data;
+          setHealth({
+            sleepHours: h.sleepHours ?? 0,
+            workoutMinutes: h.workoutMinutes ?? 0,
+            stressLevel: h.stressLevel ?? 1,
+            moodScore: h.moodScore ?? 5,
+            energyLevel: h.energyLevel ?? 5,
+            waterGlasses: h.waterGlasses ?? 0,
+            skippedMeals: h.skippedMeals ?? [],
+            caloriesConsumed: h.caloriesConsumed != null ? String(h.caloriesConsumed) : "",
+            calorieGoal: h.calorieGoal != null ? String(h.calorieGoal) : "",
+            mealsEatenToday: h.mealsEatenToday ?? "",
+            spentTimeWithFriends: h.spentTimeWithFriends ?? false,
+            socialCount: h.socialCount ?? 0,
+            relationshipQuality: h.relationshipQuality ?? 3,
+          });
+        }
+        if (d.latest?.finance && isT(d.latest.finance.date)) {
+          const f = d.latest.finance.data;
+          setFinance({
+            amountSaved: f.amountSaved != null ? String(f.amountSaved) : "",
+            discretionarySpent: f.discretionarySpent != null ? String(f.discretionarySpent) : "",
+            spendingCategory: f.spendingCategory ?? "food",
+            biggestExpenseToday: f.biggestExpenseToday ?? "",
+            impulseSpend: f.impulseSpend ?? false,
+          });
+        }
+        if (d.latest?.career && isT(d.latest.career.date)) {
+          const c = d.latest.career.data;
+          setCareer({
+            hoursStudied: c.hoursStudied != null ? String(c.hoursStudied) : "",
+            productivityRating: c.productivityRating ?? 5,
+            sessionsCompleted: c.sessionsCompleted != null ? String(c.sessionsCompleted) : "",
+            courseName: c.courseName ?? "",
+            goalWorkedOn: c.goalWorkedOn ?? "",
+            blockerToday: c.blockerToday ?? "",
+          });
+        }
+        if (d.latest?.reflection && isT(d.latest.reflection.date)) {
+          setDailyNote(d.latest.reflection.data?.note ?? "");
+        }
+      }).catch(() => {});
+
+    fetch("/api/profile/family", { credentials: "include" })
+      .then(r => r.json()).then(d => {
+        if (!d.success) return;
+        if (d.relations) setRelations(d.relations);
+        if (d.supportNetwork) setSupportNetwork(d.supportNetwork);
       }).catch(() => {});
   }, []);
 
@@ -512,7 +583,26 @@ export default function IngestionPage() {
     try {
       const res = await fetch("/api/log/daily", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ health, finance, career, dailyNote: dailyNote.trim() || undefined }),
+        body: JSON.stringify({
+          health: { 
+            sleepHours: health.sleepHours, 
+            workoutMinutes: health.workoutMinutes, 
+            stressLevel: health.stressLevel, 
+            moodScore: health.moodScore || undefined, 
+            energyLevel: health.energyLevel || undefined, 
+            waterGlasses: health.waterGlasses || undefined, 
+            skippedMeals: health.skippedMeals.length ? health.skippedMeals : undefined, 
+            caloriesConsumed: health.caloriesConsumed ? Number(health.caloriesConsumed) : undefined, 
+            calorieGoal: health.calorieGoal ? Number(health.calorieGoal) : undefined, 
+            mealsEatenToday: health.mealsEatenToday.trim() || undefined,
+            spentTimeWithFriends: health.spentTimeWithFriends,
+            socialCount: health.socialCount,
+            relationshipQuality: health.relationshipQuality,
+          },
+          finance: { amountSaved: Number(finance.amountSaved), discretionarySpent: Number(finance.discretionarySpent), spendingCategory: finance.spendingCategory || undefined, biggestExpenseToday: finance.biggestExpenseToday || undefined, impulseSpend: finance.impulseSpend || undefined },
+          career: { hoursStudied: Number(career.hoursStudied), productivityRating: career.productivityRating, sessionsCompleted: career.sessionsCompleted ? Number(career.sessionsCompleted) : undefined, courseName: career.courseName || undefined, goalWorkedOn: career.goalWorkedOn || undefined, blockerToday: career.blockerToday || undefined },
+          dailyNote: dailyNote.trim() || undefined,
+        }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.message || "Submission failed.");
@@ -532,9 +622,42 @@ export default function IngestionPage() {
 
   const sidebarNav = [
     { key: "manual" as const, label: "Manual Entry", sub: "Log your day", icon: <Edit3 size={15} />, badge: "3 sections" },
+    { key: "social" as const, label: "Social & Family", sub: "Relations & contacts", icon: <Heart size={15} /> },
     { key: "uploads" as const, label: "Data Uploads", sub: "Import files", icon: <Upload size={15} /> },
     { key: "api" as const, label: "API Sync", sub: "2 connected", icon: <Plug size={15} />, badge: "2" },
   ];
+
+  const handleSaveRelations = async () => {
+    if (relationsSaving) return;
+    setRelationsSaving(true);
+    setRelationsMsg(null);
+    try {
+      const res = await fetch("/api/profile/family", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          relationshipStatus: relations.relationshipStatus,
+          householdMembers: relations.householdMembers,
+          dependents: relations.dependents,
+          supportNetwork,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.success) {
+        throw new Error(d.error || "Failed to update family profile.");
+      }
+      setRelationsMsg({ text: "Family relations and support network synced successfully!", ok: true });
+      if (d.relations) setRelations(d.relations);
+      if (d.supportNetwork) setSupportNetwork(d.supportNetwork);
+    } catch (err: any) {
+      setRelationsMsg({ text: err.message || "Failed to sync relations.", ok: false });
+    } finally {
+      setRelationsSaving(false);
+    }
+  };
 
   if (!mounted) return null;
   if (processing) return <ProcessingScreen />;
@@ -1082,16 +1205,6 @@ export default function IngestionPage() {
               active={activePanel === item.key} badge={item.badge}
               onClick={() => { setActivePanel(item.key); setDrawerOpen(false); }} />
           ))}
-          <div className="lp-section-lbl">Navigate</div>
-          <NavItem icon={<LayoutDashboard size={15} />} label="Dashboard" active={false} onClick={() => router.push("/dashboard")} />
-          <NavItem icon={<Target size={15} />} label="Goals" active={false} onClick={() => router.push("/goals")} />
-          <NavItem icon={<LineChart size={15} />} label="Insights" active={false} onClick={() => {}} />
-          <NavItem icon={<History size={15} />} label="History" active={false} onClick={() => {}} />
-        </div>
-        <div className="lp-back">
-          <button className="lp-back-btn" onClick={() => router.push("/dashboard")}>
-            <ArrowLeft size={12} /> Return to Dashboard
-          </button>
         </div>
       </div>
 
@@ -1105,11 +1218,6 @@ export default function IngestionPage() {
             <div className="lp-heading">Daily Check-in</div>
             <div className="lp-sub">Log your health, finances and learning every day.</div>
           </div>
-          <div className="lp-stats">
-            <div className="lp-stat"><div className="lp-stat-num">{pH}</div><div className="lp-stat-lbl">Health</div></div>
-            <div className="lp-stat"><div className="lp-stat-num">{pF}</div><div className="lp-stat-lbl">Finance</div></div>
-            <div className="lp-stat"><div className="lp-stat-num">{pC}</div><div className="lp-stat-lbl">Career</div></div>
-          </div>
           <div className="lp-nav">
             <div className="lp-section-lbl">Data Sources</div>
             {sidebarNav.map(item => (
@@ -1117,31 +1225,6 @@ export default function IngestionPage() {
                 active={activePanel === item.key} badge={item.badge}
                 onClick={() => setActivePanel(item.key)} />
             ))}
-            <div className="lp-section-lbl">Navigate</div>
-            <NavItem icon={<LayoutDashboard size={15} />} label="Dashboard" active={false} onClick={() => router.push("/dashboard")} />
-            <NavItem icon={<Target size={15} />} label="Goals" active={false} onClick={() => router.push("/goals")} />
-            <NavItem icon={<LineChart size={15} />} label="Insights" active={false} onClick={() => {}} />
-            <NavItem icon={<History size={15} />} label="History" active={false} onClick={() => {}} />
-          </div>
-          <div className="lp-score-section">
-            <div style={{ fontSize:"0.59rem", fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.11em", padding:"0 4px", marginBottom:7, fontFamily:"DM Sans,sans-serif" }}>Score Preview</div>
-            <div className="lp-score-block">
-              {[
-                { label:"Health", icon:<Heart size={11} />, score:pH },
-                { label:"Finance", icon:<Wallet size={11} />, score:pF },
-                { label:"Career", icon:<Briefcase size={11} />, score:pC },
-              ].map(s => (
-                <div key={s.label} className="lp-score-row">
-                  <span className="lp-score-name"><span style={{ opacity:0.55 }}>{s.icon}</span>{s.label}</span>
-                  <span className="lp-score-num">{s.score}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="lp-back">
-            <button className="lp-back-btn" onClick={() => router.push("/dashboard")}>
-              <ArrowLeft size={12} /> Return to Dashboard
-            </button>
           </div>
         </div>
 
@@ -1153,7 +1236,7 @@ export default function IngestionPage() {
               <div className="lp-logo-dot" />
               <span style={{ fontSize:"0.72rem", fontWeight:800, color:"rgba(255,255,255,0.7)", letterSpacing:"0.13em", textTransform:"uppercase" }}>Syntra&nbsp;&nbsp;</span>
               <span style={{ fontFamily:"DM Sans,sans-serif", fontSize:"0.96rem", fontWeight:800, color:"#fff" }}>
-                {activePanel === "manual" ? "Check-in" : activePanel === "uploads" ? "Uploads" : "API Sync"}
+                {activePanel === "manual" ? "Check-in" : activePanel === "social" ? "Social" : activePanel === "uploads" ? "Uploads" : "API Sync"}
               </span>
             </div>
           </div>
@@ -1266,6 +1349,23 @@ export default function IngestionPage() {
                           ))}
                         </div>
                       </div>
+                      <div className="s-div" />
+
+                      <div className="pill-wrap">
+                        <span className="field-label">Weekly Social Check-in</span>
+                        <div className="toggle-row" style={{ marginTop: 4, width: "fit-content" }} onClick={() => setHealth(p => ({ ...p, spentTimeWithFriends: !p.spentTimeWithFriends }))}>
+                          <div className={`tsw${health.spentTimeWithFriends ? " on" : ""}`} style={health.spentTimeWithFriends ? { background: "#10b981" } : {}}><div className="tknob" /></div>
+                          <span className="ttxt">Did you spend time with friends or family this week?</span>
+                        </div>
+                      </div>
+
+                      <div className="sg-2">
+                        <Slider label="Social activity count this week" value={health.socialCount} onChange={v => setHealth(p => ({ ...p, socialCount: v }))} min={0} max={10} step={1} icon={<TrendingUp size={15} />} unit=" times" color="#10b981" hint="Face-to-face hangouts or calls" />
+                        <Slider label="Relationship quality (monthly check-in)" value={health.relationshipQuality} onChange={v => setHealth(p => ({ ...p, relationshipQuality: v }))} min={1} max={5} step={1} icon={<Heart size={15} />} unit="/5" color="#ec4899" hint="1 = disconnected, 5 = fully connected" />
+                      </div>
+
+                      <div className="s-div" />
+
                       <div className="fg-2">
                         <Field label="Calories eaten" opt type="number" value={health.caloriesConsumed} onChange={v => setHealth(p => ({ ...p, caloriesConsumed:v }))} placeholder="e.g. 2100" />
                         <Field label="Calorie target" opt type="number" value={health.calorieGoal} onChange={v => setHealth(p => ({ ...p, calorieGoal:v }))} placeholder="e.g. 2400" />
@@ -1354,6 +1454,284 @@ export default function IngestionPage() {
               </div>
             )}
 
+            {/* ── SOCIAL & FAMILY ── */}
+            {activePanel === "social" && (
+              <div className="screen">
+                <div className="page-top">
+                  <div>
+                    <div className="page-eyebrow"><div className="page-eyebrow-dot" /><span className="page-eyebrow-text">Social Profile</span></div>
+                    <h1 className="page-title">
+                      <TypewriterTitle phrases={["Social & Family", "Your Support Circle", "Relations & Caregiving"]} />
+                    </h1>
+                    <p className="page-subtitle">Configure your household members, dependents, and support network.</p>
+                  </div>
+                </div>
+
+                <div className="body-pad">
+                  <div className="form-card">
+                    <div className="form-card-stripe" style={{ background: "linear-gradient(90deg,#ec4899,#f43f5e)" }} />
+                    <div className="form-card-head">
+                      <div className="fch-icon" style={{ background: "#fce7f3", color: "#ec4899" }}><Heart size={19} /></div>
+                      <div>
+                        <div className="fch-title">Social & Relationships</div>
+                        <div className="fch-sub">Household members, dependents & your support network</div>
+                      </div>
+                    </div>
+                    <div className="form-card-body">
+                      {/* Relationship Status */}
+                      <div className="field-grp">
+                        <label className="field-label">Relationship Status</label>
+                        <select className="field-input" value={relations.relationshipStatus} onChange={e => setRelations(p => ({ ...p, relationshipStatus: e.target.value as any }))}>
+                          <option value="Single">Single</option>
+                          <option value="Partnered">Partnered</option>
+                          <option value="Married">Married</option>
+                          <option value="Separated">Separated</option>
+                        </select>
+                      </div>
+
+                      <div className="s-div" />
+
+                      {/* Household Members */}
+                      <div className="pill-wrap">
+                        <span className="field-label">Household Members (Living with you)</span>
+                        <div className="pill-row" style={{ marginBottom: 10 }}>
+                          {relations.householdMembers?.map((member, idx) => (
+                            <span key={idx} className="pill on" style={{ background: "#3b82f6", display: "inline-flex", alignItems: "center", gap: 6, color: "#fff", borderColor: "transparent" }}>
+                              🏠 {member.relationshipType}
+                              <button type="button" onClick={() => setRelations(p => ({ ...p, householdMembers: p.householdMembers.filter((_, i) => i !== idx) }))} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 11, fontWeight: "bold" }}>×</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="dp-row" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {([
+                            { v: "partner", l: "Add Partner" },
+                            { v: "child", l: "Add Child" },
+                            { v: "parent", l: "Add Parent" },
+                            { v: "sibling", l: "Add Sibling" }
+                          ] as const).map(opt => (
+                            <button key={opt.v} className="btn-sm btn-sm-ghost" style={{ fontSize: "0.75rem", padding: "4px 10px" }} onClick={() => setRelations(p => ({ ...p, householdMembers: [...(p.householdMembers || []), { relationshipType: opt.v }] }))}>
+                              + {opt.l}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="s-div" />
+
+                      {/* Dependents & Caregiving */}
+                      <div className="pill-wrap">
+                        <span className="field-label">Dependents & Caregiving (People under your care)</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+                          {relations.dependents?.map((dep, idx) => (
+                            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--bg)", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)" }}>
+                              <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>
+                                👶 {dep.type === "child" ? "Child" : "Elderly Parent"} (Age: {dep.age})
+                              </span>
+                              <button type="button" onClick={() => setRelations(p => ({ ...p, dependents: p.dependents.filter((_, i) => i !== idx) }))} style={{ color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontSize: 14 }}>×</button>
+                            </div>
+                          ))}
+                        </div>
+                        {activeDependentType ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "14px", background: "var(--bg)", borderRadius: 12, border: "1px solid var(--border)", marginTop: 10, maxWidth: 320 }}>
+                            <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                              Add Dependent: {activeDependentType === "child" ? "Child" : "Elderly Parent"}
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Age</label>
+                              <input 
+                                type="number" 
+                                min="0" 
+                                max="120"
+                                className="field-input" 
+                                style={{ height: "36px", padding: "0 10px", fontSize: "0.85rem" }}
+                                value={dependentAge} 
+                                onChange={e => setDependentAge(e.target.value)} 
+                                placeholder="Enter age"
+                                autoFocus
+                              />
+                            </div>
+                            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                              <button 
+                                type="button" 
+                                className="btn-sm btn-sm-primary" 
+                                style={{ padding: "6px 12px", fontSize: "0.78rem" }}
+                                onClick={() => {
+                                  const age = parseInt(dependentAge);
+                                  if (isNaN(age) || age < 0 || age > 120) {
+                                    alert("Please enter a valid age between 0 and 120.");
+                                    return;
+                                  }
+                                  setRelations(p => ({
+                                    ...p,
+                                    dependents: [...(p.dependents || []), { type: activeDependentType, age }]
+                                  }));
+                                  setActiveDependentType(null);
+                                  setDependentAge("");
+                                }}
+                              >
+                                Add
+                              </button>
+                              <button 
+                                type="button" 
+                                className="btn-sm btn-sm-ghost" 
+                                style={{ padding: "6px 12px", fontSize: "0.78rem" }}
+                                onClick={() => {
+                                  setActiveDependentType(null);
+                                  setDependentAge("");
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            <button className="btn-sm btn-sm-ghost" style={{ fontSize: "0.75rem", padding: "4px 10px" }} onClick={() => {
+                              setActiveDependentType("child");
+                              setDependentAge("");
+                            }}>+ Add Dependent Child</button>
+                            <button className="btn-sm btn-sm-ghost" style={{ fontSize: "0.75rem", padding: "4px 10px" }} onClick={() => {
+                              setActiveDependentType("elderly_parent");
+                              setDependentAge("");
+                            }}>+ Add Dependent Parent</button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="s-div" />
+
+                      {/* Support Network Setup */}
+                      <div className="pill-wrap">
+                        <span className="field-label">Support Network (3–5 people to connect with in tough times)</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+                          {supportNetwork?.map((net, idx) => (
+                            <div key={idx} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, background: "#fdf2f8", padding: "10px 14px", borderRadius: 12, border: "1px solid #fbcfe8" }}>
+                              <div style={{ flex: 1, minWidth: 150 }}>
+                                <strong style={{ color: "#db2777", fontSize: "0.86rem" }}>{net.name}</strong>
+                                <span style={{ fontSize: "0.74rem", color: "var(--text-secondary)", marginLeft: 6 }}>({net.relationshipType})</span>
+                              </div>
+                              <span style={{ background: "#fce7f3", color: "#db2777", fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6, textTransform: "uppercase" }}>
+                                🎯 {net.tag === "venting" ? "Venting" : net.tag === "advice" ? "Advice" : net.tag === "distraction" ? "Distraction" : "Motivation"}
+                              </span>
+                              <button type="button" onClick={() => setSupportNetwork(p => p.filter((_, i) => i !== idx))} style={{ color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontSize: 14 }}>×</button>
+                            </div>
+                          ))}
+                          {showAddSupport ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px", background: "#fff5f8", borderRadius: 14, border: "1px solid #fbcfe8", marginTop: 10, width: "100%" }}>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#db2777" }}>
+                                Add Support Network Contact
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>Name</label>
+                                  <input 
+                                    type="text" 
+                                    className="field-input" 
+                                    style={{ height: "36px", padding: "0 10px", fontSize: "0.85rem" }}
+                                    value={supportName} 
+                                    onChange={e => setSupportName(e.target.value)} 
+                                    placeholder="Enter contact name"
+                                    autoFocus
+                                  />
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>Relationship</label>
+                                  <input 
+                                    type="text" 
+                                    className="field-input" 
+                                    style={{ height: "36px", padding: "0 10px", fontSize: "0.85rem" }}
+                                    value={supportRelationship} 
+                                    onChange={e => setSupportRelationship(e.target.value)} 
+                                    placeholder="e.g. friend, sibling, mentor"
+                                  />
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>Support Type</label>
+                                  <select 
+                                    className="field-input" 
+                                    style={{ height: "36px", padding: "0 10px", fontSize: "0.85rem" }}
+                                    value={supportTag} 
+                                    onChange={e => setSupportTag(e.target.value as any)}
+                                  >
+                                    <option value="venting">Venting (listener)</option>
+                                    <option value="advice">Advice (guidance)</option>
+                                    <option value="distraction">Distraction (fun/unwind)</option>
+                                    <option value="motivation">Motivation (accountability)</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                                <button 
+                                  type="button" 
+                                  className="btn-sm" 
+                                  style={{ padding: "6px 14px", fontSize: "0.78rem", background: "linear-gradient(135deg,#ec4899,#f43f5e)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}
+                                  onClick={() => {
+                                    if (!supportName.trim()) {
+                                      alert("Please enter a contact name.");
+                                      return;
+                                    }
+                                    const relationship = supportRelationship.trim() || "Friend";
+                                    setSupportNetwork(p => [...p, { name: supportName.trim(), relationshipType: relationship, tag: supportTag }]);
+                                    setShowAddSupport(false);
+                                    setSupportName("");
+                                    setSupportRelationship("");
+                                    setSupportTag("venting");
+                                  }}
+                                >
+                                  Add Contact
+                                </button>
+                                <button 
+                                  type="button" 
+                                  className="btn-sm btn-sm-ghost" 
+                                  style={{ padding: "6px 14px", fontSize: "0.78rem", borderColor: "#db2777", color: "#db2777" }}
+                                  onClick={() => {
+                                    setShowAddSupport(false);
+                                    setSupportName("");
+                                    setSupportRelationship("");
+                                    setSupportTag("venting");
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            supportNetwork?.length < 5 && (
+                              <button 
+                                className="btn-sm btn-sm-ghost" 
+                                style={{ width: "fit-content", borderColor: "#db2777", color: "#db2777", fontSize: "0.75rem", padding: "4px 10px" }} 
+                                onClick={() => {
+                                  setShowAddSupport(true);
+                                  setSupportName("");
+                                  setSupportRelationship("");
+                                  setSupportTag("venting");
+                                }}
+                              >
+                                + Add Support Contact
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="s-div" />
+
+                      {relationsMsg && (
+                        <div className={`upload-msg${relationsMsg.ok ? " ok" : " err"}`} style={{ padding: "8px 12px", borderRadius: 8, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                          {relationsMsg.ok ? <CheckCircle2 size={15} style={{ color: "#22c55e" }} /> : <AlertTriangle size={15} style={{ color: "#ef4444" }} />}
+                          <span style={{ color: relationsMsg.ok ? "#16a34a" : "#ef4444" }}>{relationsMsg.text}</span>
+                        </div>
+                      )}
+
+                      <button className="save-btn" style={{ background: "linear-gradient(135deg,#ec4899,#f43f5e)", width: "fit-content" }} onClick={handleSaveRelations} disabled={relationsSaving}>
+                        {relationsSaving ? "Syncing..." : "Sync Relations & Support Network"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── UPLOADS ── */}
             {activePanel === "uploads" && (
               <div className="screen">
@@ -1378,6 +1756,10 @@ export default function IngestionPage() {
           <button className={`mob-tab${activePanel === "manual" ? " active" : ""}`} onClick={() => setActivePanel("manual")}>
             <div className="mob-tab-icon"><Edit3 size={19} /></div>
             <span className="mob-tab-label">Check-in</span>
+          </button>
+          <button className={`mob-tab${activePanel === "social" ? " active" : ""}`} onClick={() => setActivePanel("social")}>
+            <div className="mob-tab-icon"><Heart size={19} /></div>
+            <span className="mob-tab-label">Social</span>
           </button>
           <button className={`mob-tab${activePanel === "uploads" ? " active" : ""}`} onClick={() => setActivePanel("uploads")}>
             <div className="mob-tab-icon"><Upload size={19} /></div>

@@ -21,7 +21,7 @@ type GoalType = {
   targetDate?: string; milestones?: { text: string; completed: boolean }[];
 };
 type DashboardData = {
-  user?: { name?: string; email?: string; personalMission?: string; age?: number };
+  user?: { name?: string; email?: string; personalMission?: string; age?: number; profile?: any };
   syntraCore?: number;
   scorecards?: { health?: number; finance?: number; career?: number };
   gamification?: { totalPoints?: number; currentStreak?: number; badges?: string[] };
@@ -155,7 +155,6 @@ export default function DashboardPage() {
     { href: "/goals", label: "Goals" },
     { href: "/simulator", label: "Simulator" },
     { href: "/insights", label: "Insights" },
-    { href: "/assets-liabilities", label: "Net Worth" },
     { href: "/profile", label: "Profile" },
   ];
 
@@ -220,12 +219,36 @@ export default function DashboardPage() {
     { label: "Streak",    value: streak,        icon: <Clock size={16} />,       suffix: "d",       formula: "Twin Intelligence = Behavior Patterns + Decision Quality + Habit Consistency + Adaptive Growth" },
   ];
 
+  // Dynamic Trajectory & 12-Month Projections
+  const profile = data.user?.profile;
+  const targetSleep = profile?.averageSleep || 8.0;
+  const targetSavingsRate = profile?.targetSavingsRate || 20;
+  const monthlyIncome = profile?.monthlyIncome || 50000;
+  const targetMonthlySavings = monthlyIncome * (targetSavingsRate / 100) || 10000;
+  const targetStudy = profile?.hoursStudied || 4.0;
+
+  // Real-time projections utilizing Twin Sync as consistency driver
+  const projectedSleep = Number((currentSleep + (8.0 - currentSleep) * (twinSync / 100)).toFixed(1));
+  const projectedSavings = currentSavings >= targetMonthlySavings 
+    ? Math.round(currentSavings * (1 + (twinSync / 1000))) 
+    : Math.round(currentSavings + (targetMonthlySavings - currentSavings) * (twinSync / 100));
+  const projectedStudy = currentStudy >= targetStudy 
+    ? Number((currentStudy * (1 + (twinSync / 1000))).toFixed(1))
+    : Number((currentStudy + (targetStudy - currentStudy) * (twinSync / 100)).toFixed(1));
+
+  const projectedHealthScore = Math.round(healthScore + (95 - healthScore) * (twinSync / 100));
+  const projectedFinanceScore = Math.round(financeScore + (95 - financeScore) * (twinSync / 100));
+  const projectedCareerScore = Math.round(careerScore + (98 - careerScore) * (twinSync / 100));
+
+  const projectedCoreScore = Math.round((projectedHealthScore + projectedFinanceScore + projectedCareerScore) / 3);
+  const deltaScore = projectedCoreScore - twinSync;
+
   const cvfMetrics = [
-    { label: "Daily Sleep",      now: `${currentSleep}h`,                           future: "7.6h",      nowPct: Math.min(100, Math.round((currentSleep/9)*100)),    futurePct: 84, warn: currentSleep < 6.5 },
-    { label: "Monthly Savings",  now: `₹${currentSavings.toLocaleString("en-IN")}`, future: "₹1,10,000", nowPct: Math.min(100, Math.round((currentSavings/110000)*100)), futurePct: 100, warn: false },
-    { label: "Study Hours/Day",  now: `${currentStudy}h`,                           future: "5.2h",      nowPct: Math.min(100, Math.round((currentStudy/8)*100)),     futurePct: 65, warn: false },
-    { label: "Health Score",     now: `${healthScore}`,                             future: "88",        nowPct: healthScore,  futurePct: 88, warn: healthScore < 60 },
-    { label: "Career Score",     now: `${careerScore}`,                             future: "94",        nowPct: careerScore,  futurePct: 94, warn: careerScore < 60 },
+    { label: "Daily Sleep",      now: `${currentSleep}h`,                           future: `${projectedSleep}h`,      nowPct: Math.min(100, Math.round((currentSleep/9)*100)),    futurePct: Math.min(100, Math.round((projectedSleep/9)*100)), warn: currentSleep < 6.5 },
+    { label: "Monthly Savings",  now: `₹${currentSavings.toLocaleString("en-IN")}`, future: `₹${projectedSavings.toLocaleString("en-IN")}`, nowPct: Math.min(100, Math.round((currentSavings/(targetMonthlySavings || 1))*100)), futurePct: Math.min(100, Math.round((projectedSavings/(targetMonthlySavings || 1))*100)), warn: false },
+    { label: "Study Hours/Day",  now: `${currentStudy}h`,                           future: `${projectedStudy}h`,      nowPct: Math.min(100, Math.round((currentStudy/8)*100)),     futurePct: Math.min(100, Math.round((projectedStudy/8)*100)), warn: false },
+    { label: "Health Score",     now: `${healthScore}`,                             future: `${projectedHealthScore}`,        nowPct: healthScore,  futurePct: projectedHealthScore, warn: healthScore < 60 },
+    { label: "Career Score",     now: `${careerScore}`,                             future: `${projectedCareerScore}`,        nowPct: careerScore,  futurePct: projectedCareerScore, warn: careerScore < 60 },
   ];
 
   /* overall progress % across all metrics */
@@ -805,7 +828,9 @@ export default function DashboardPage() {
                   </div>
                   <div className="cvf-pill">
                     <div>
-                      <div className="cvf-pill-val" style={{ color: "#fbbf24" }}>+22</div>
+                      <div className="cvf-pill-val" style={{ color: "#fbbf24" }}>
+                        {deltaScore >= 0 ? `+${deltaScore}` : deltaScore}
+                      </div>
                       <div className="cvf-pill-lbl">Delta Score</div>
                     </div>
                   </div>
@@ -985,9 +1010,9 @@ export default function DashboardPage() {
 
             <div className="proj-trajectory">
               {[
-                { label: "Health Path", current: healthScore, target: 88, color: "#22c55e" },
-                { label: "Finance Path", current: financeScore, target: 91, color: "#0055EE" },
-                { label: "Career Path",  current: careerScore, target: 94, color: "#3322EE" },
+                { label: "Health Path", current: healthScore, target: projectedHealthScore, color: "#22c55e" },
+                { label: "Finance Path", current: financeScore, target: projectedFinanceScore, color: "#0055EE" },
+                { label: "Career Path",  current: careerScore, target: projectedCareerScore, color: "#3322EE" },
               ].map((t, i) => (
                 <div key={i}>
                   <div className="proj-traj-row">

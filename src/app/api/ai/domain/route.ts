@@ -1,4 +1,6 @@
 // src/app/api/ai/domain/route.ts
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";

@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
   if (!code || !userId) {
-    return NextResponse.redirect(`${baseUrl}/profile?sync=error&reason=missing_code_or_state`);
+    return NextResponse.redirect(`${baseUrl}/ingestion?panel=api&sync=error&reason=missing_code_or_state`);
   }
 
   try {
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     if (!clientId || !clientSecret) {
       console.error("GOOGLE FIT OAUTH CALLBACK ERROR: Google Client ID or Secret is not configured.");
-      return NextResponse.redirect(`${baseUrl}/profile?sync=error&reason=auth_config_error`);
+      return NextResponse.redirect(`${baseUrl}/ingestion?panel=api&sync=error&reason=auth_config_error`);
     }
 
     const redirectUri = `${baseUrl}/api/auth/google-fit/callback`;
@@ -59,9 +59,9 @@ export async function GET(req: Request) {
       $set: updateFields
     });
 
-    return NextResponse.redirect(`${baseUrl}/profile?sync=success`);
+    return NextResponse.redirect(`${baseUrl}/ingestion?panel=api&sync=success`);
   } catch (error: any) {
     console.error("GOOGLE FIT CALLBACK ERROR:", error);
-    return NextResponse.redirect(`${baseUrl}/profile?sync=error&reason=exchange_failed`);
+    return NextResponse.redirect(`${baseUrl}/ingestion?panel=api&sync=error&reason=exchange_failed`);
   }
 }

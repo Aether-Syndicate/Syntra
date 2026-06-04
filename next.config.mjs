@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // We will add your API domain whitelists here later if needed
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.devtool = 'cheap-module-source-map';
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

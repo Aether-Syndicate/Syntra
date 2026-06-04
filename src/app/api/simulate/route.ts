@@ -8,7 +8,13 @@ import { runSimulation } from "@/lib/simulator";
 import { buildTwinContext } from "@/lib/aiContextBuilder";
 import { calculateConfidence } from "@/lib/confidenceScore";
 import { generateSimulatorInsight } from "@/lib/prompts/aisimulatorPrompt";
-import { preComputeWealthGoals } from "@/lib/financeMath";
+import { 
+  preComputeWealthGoals, 
+  calculateSIPFutureValue, 
+  calculateCreditCardSavings, 
+  calculateSIPDelayCost, 
+  calculateMortgagePrepayment 
+} from "@/lib/financeMath";
 import { rl } from "@/lib/rateLimit";
 import mongoose from "mongoose";
 import { z } from "zod";
@@ -21,6 +27,7 @@ const ScenarioSchema = z.object({
   variable:       z.string().max(60).optional(),
   currentValue:   z.number().optional(),
   simulatedValue: z.number().optional(),
+  customParams:   z.record(z.string(), z.any()).optional(),
 });
 
 // GET handler to fetch and compute baseline values for the simulator UI
@@ -112,31 +119,147 @@ export async function POST(req: Request) {
     let variable = "";
     let currentValue = 0;
     let simulatedValue = 0;
+    let customMath: any = null;
+    let customScenarioDetails = "";
 
-    if (typeof scenario.percentageChange !== "undefined") {
-      percentageChange = scenario.percentageChange;
-      const variableMap: Record<string, string> = {
-        health: "workout_frequency",
-        finance: "savings_rate",
-        career: "study_hours",
-      };
-      variable = variableMap[scenario.domain] || "variable";
-      currentValue = user.scores[scenario.domain as keyof typeof user.scores] || 50;
-      simulatedValue = Math.min(100, Math.round(currentValue * (1 + percentageChange)));
-    } else {
-      // Modern absolute value payload
-      if (scenario.variable === undefined) {
-        return NextResponse.json({ error: "Invalid scenario payload." }, { status: 400 });
-      }
+    const customFinanceVars = ["dining_redirect", "credit_card_clearance", "education_sip_delay", "mortgage_prepayment"];
+
+    if (scenario.variable && customFinanceVars.includes(scenario.variable)) {
       variable = scenario.variable;
-      currentValue = Number(scenario.currentValue);
-      simulatedValue = Number(scenario.simulatedValue);
-
-      if (isNaN(currentValue) || isNaN(simulatedValue)) {
-        return NextResponse.json({ error: "Invalid scenario payload." }, { status: 400 });
+      currentValue = 50; // Neutral baseline
+      simulatedValue = 50; // Will be set contextually
+      
+      const params = scenario.customParams || {};
+      
+      if (variable === "dining_redirect") {
+        const redirectionAmount = Number(params.redirectionAmount) || 5000;
+        const cagr = Number(params.cagr) || 12;
+        
+        const fv5 = calculateSIPFutureValue(redirectionAmount, cagr, 5);
+        const fv15 = calculateSIPFutureValue(redirectionAmount, cagr, 15);
+        
+        customMath = {
+          redirectionAmount,
+          cagr,
+          fv5: Math.round(fv5),
+          invested5: redirectionAmount * 12 * 5,
+          interestGained5: Math.round(fv5 - (redirectionAmount * 12 * 5)),
+          fv15: Math.round(fv15),
+          invested15: redirectionAmount * 12 * 15,
+          interestGained15: Math.round(fv15 - (redirectionAmount * 12 * 15)),
+        };
+        
+        customScenarioDetails = `Dining out redirection: Moving ₹${redirectionAmount.toLocaleString("en-IN")}/month from dining out budget to an education fund SIP at ${cagr}% CAGR.
+- After 5 years: Accumulates ₹${customMath.fv5.toLocaleString("en-IN")} (Total Invested: ₹${customMath.invested5.toLocaleString("en-IN")}, Interest gained: ₹${customMath.interestGained5.toLocaleString("en-IN")}).
+- After 15 years: Accumulates ₹${customMath.fv15.toLocaleString("en-IN")} (Total Invested: ₹${customMath.invested15.toLocaleString("en-IN")}, Interest gained: ₹${customMath.interestGained15.toLocaleString("en-IN")}).`;
+        
+        percentageChange = 0.25; 
+        simulatedValue = 75;
+      } else if (variable === "credit_card_clearance") {
+        const balance = Number(params.balance) || 48000;
+        const apr = Number(params.apr) || 36;
+        const amortMonths = Number(params.amortMonths) || 12;
+        
+        const CCDetails = calculateCreditCardSavings(balance, apr, amortMonths);
+        
+        customMath = {
+          balance,
+          apr,
+          amortMonths,
+          interestSaved: Math.round(CCDetails.interestSaved),
+          monthlyPayment: Math.round(CCDetails.monthlyPayment),
+          totalPayment: Math.round(CCDetails.totalPayment),
+          annualInterestCompounded: Math.round(CCDetails.annualInterestCompounded),
+        };
+        
+        customScenarioDetails = `Debt Prepayment: Paying off ₹${balance.toLocaleString("en-IN")} credit card outstanding immediately (interest rate: ${apr}% APR).
+- Interest saved over a ${amortMonths}-month standard repayment schedule: ₹${customMath.interestSaved.toLocaleString("en-IN")} (total payments would have been ₹${customMath.totalPayment.toLocaleString("en-IN")}, monthly EMI of ₹${customMath.monthlyPayment.toLocaleString("en-IN")}).
+- Annual compounded interest cost prevented: ₹${customMath.annualInterestCompounded.toLocaleString("en-IN")}/year.`;
+        
+        percentageChange = 0.35;
+        simulatedValue = 85;
+      } else if (variable === "education_sip_delay") {
+        const sipAmount = Number(params.sipAmount) || 10000;
+        const delayYears = Number(params.delayYears) || 2;
+        const tenureYears = Number(params.tenureYears) || 15;
+        const cagr = Number(params.cagr) || 12;
+        
+        const delayDetails = calculateSIPDelayCost(sipAmount, delayYears, tenureYears, cagr);
+        
+        customMath = {
+          sipAmount,
+          delayYears,
+          tenureYears,
+          cagr,
+          fvToday: Math.round(delayDetails.fvToday),
+          fvDelayed: Math.round(delayDetails.fvDelayed),
+          costOfDelay: Math.round(delayDetails.costOfDelay),
+          requiredSIPDelayed: Math.round(delayDetails.requiredSIPDelayed),
+          extraSIPMonthly: Math.round(delayDetails.extraSIPMonthly),
+        };
+        
+        customScenarioDetails = `Compounding Cost of Delay: Starting a ₹${sipAmount.toLocaleString("en-IN")}/month education SIP today at ${cagr}% CAGR for ${tenureYears} years vs starting ${delayYears} years later (resulting in a ${tenureYears - delayYears}-year SIP).
+- Corpus if started today: ₹${customMath.fvToday.toLocaleString("en-IN")} (Total Invested: ₹${(sipAmount * 12 * tenureYears).toLocaleString("en-IN")}).
+- Corpus if started ${delayYears} years later: ₹${customMath.fvDelayed.toLocaleString("en-IN")} (Total Invested: ₹${(sipAmount * 12 * (tenureYears - delayYears)).toLocaleString("en-IN")}).
+- Cost of delay (loss in wealth): ₹${customMath.costOfDelay.toLocaleString("en-IN")}.
+- To reach the same ₹${customMath.fvToday.toLocaleString("en-IN")} target in ${tenureYears - delayYears} years, the required SIP increases to ₹${customMath.requiredSIPDelayed.toLocaleString("en-IN")}/month (an extra ₹${customMath.extraSIPMonthly.toLocaleString("en-IN")}/month needed, representing a +${Math.round(customMath.extraSIPMonthly / sipAmount * 100)}% budget commitment).`;
+        
+        percentageChange = -0.20;
+        simulatedValue = 40;
+      } else if (variable === "mortgage_prepayment") {
+        const outstanding = Number(params.outstanding) || 4000000;
+        const annualRate = Number(params.annualRate) || 8.5;
+        const remainingYears = Number(params.remainingYears) || 20;
+        const prepayment = Number(params.prepayment) || 200000;
+        
+        const prepayDetails = calculateMortgagePrepayment(outstanding, annualRate, remainingYears, prepayment);
+        
+        customMath = {
+          outstanding,
+          annualRate,
+          remainingYears,
+          prepayment,
+          emi: Math.round(prepayDetails.emi),
+          tenureReductionMonths: prepayDetails.tenureReductionMonths,
+          interestSaved: Math.round(prepayDetails.interestSaved),
+          totalWithoutPrepayment: Math.round(prepayDetails.totalWithoutPrepayment),
+          totalWithPrepayment: Math.round(prepayDetails.totalWithPrepayment),
+        };
+        
+        customScenarioDetails = `Mortgage Prepayment: Making a partial prepayment of ₹${prepayment.toLocaleString("en-IN")} on a ₹${outstanding.toLocaleString("en-IN")} home loan at ${annualRate}% interest with ${remainingYears} years remaining.
+- Tenure reduction: Saves ${customMath.tenureReductionMonths} months (approx ${(customMath.tenureReductionMonths / 12).toFixed(1)} years) off the loan.
+- Total interest saved over the lifetime of the loan: ₹${customMath.interestSaved.toLocaleString("en-IN")}.
+- Monthly EMI remains unchanged at ₹${customMath.emi.toLocaleString("en-IN")}/month.`;
+        
+        percentageChange = 0.20;
+        simulatedValue = 70;
       }
+    } else {
+      if (typeof scenario.percentageChange !== "undefined") {
+        percentageChange = scenario.percentageChange;
+        const variableMap: Record<string, string> = {
+          health: "workout_frequency",
+          finance: "savings_rate",
+          career: "study_hours",
+        };
+        variable = variableMap[scenario.domain] || "variable";
+        currentValue = user.scores[scenario.domain as keyof typeof user.scores] || 50;
+        simulatedValue = Math.min(100, Math.round(currentValue * (1 + percentageChange)));
+      } else {
+        // Modern absolute value payload
+        if (scenario.variable === undefined) {
+          return NextResponse.json({ error: "Invalid scenario payload." }, { status: 400 });
+        }
+        variable = scenario.variable;
+        currentValue = Number(scenario.currentValue);
+        simulatedValue = Number(scenario.simulatedValue);
 
-      percentageChange = currentValue !== 0 ? (simulatedValue - currentValue) / currentValue : 0;
+        if (isNaN(currentValue) || isNaN(simulatedValue)) {
+          return NextResponse.json({ error: "Invalid scenario payload." }, { status: 400 });
+        }
+
+        percentageChange = currentValue !== 0 ? (simulatedValue - currentValue) / currentValue : 0;
+      }
     }
 
     const simulationResult = runSimulation(
@@ -192,7 +315,8 @@ export async function POST(req: Request) {
           finance: user.scores.finance,
           career: user.scores.career,
         },
-        confidence
+        confidence,
+        customScenarioDetails
       );
     } catch (e) {
       aiAnalysis = { scenarioTitle: `${scenario.domain} projection`, primaryOutcome: "Projection calculated.", tradeOffs: [], timelineProjection: [], riskLevel: "medium", recommendedPath: "Continue monitoring.", confidence: 0 };
@@ -203,6 +327,7 @@ export async function POST(req: Request) {
       simulation: simulationResult,
       aiAnalysis,
       goal: domainGoal || null,
+      customMath,
     }, { status: 200 });
 
   } catch (error: any) {

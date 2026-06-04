@@ -16,6 +16,9 @@ const HealthDataSchema = z.object({
   waterGlasses: z.number().min(0).max(20).optional(),
   skippedMeals: z.array(z.enum(["breakfast", "lunch", "dinner"])).optional(),
   mealsEatenToday: z.string().max(400).optional(),
+  spentTimeWithFriends: z.boolean().optional(),
+  socialCount: z.number().min(0).optional(),
+  relationshipQuality: z.number().min(1).max(5).optional(),
 });
 
 const FinanceDataSchema = z.object({

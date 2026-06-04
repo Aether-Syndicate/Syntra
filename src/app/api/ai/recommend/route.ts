@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import Log from "@/models/Log";
+import AssetLiability from "@/models/AssetLiability";
 import { buildTwinContext } from "@/lib/aiContextBuilder";
 import { calculateConfidence } from "@/lib/confidenceScore";
 import { generateaitwinReflection } from "@/lib/prompts/aitwinReflection";
@@ -102,6 +103,9 @@ export async function GET(req: Request) {
     }
 
     // Cache is missing or stale — invoke the AI Twin Reflection Core with Personal Mission & Health Constraints
+    const portfolio = await AssetLiability.findOne({ userId: user._id }).lean();
+    const familyOutflows = (portfolio as any)?.familyOutflows || null;
+
     const aiResponse = await generateaitwinReflection(
       twinContext,
       {
@@ -112,7 +116,10 @@ export async function GET(req: Request) {
       user.gamification.currentStreak,
       confidence,
       user.personalMission || "Achieve Personal Optimization",
-      user.healthConstraints || "none"
+      user.healthConstraints || "none",
+      user.relations,
+      user.supportNetwork,
+      familyOutflows
     );
 
     if (!aiResponse || !aiResponse.twinPrediction) {

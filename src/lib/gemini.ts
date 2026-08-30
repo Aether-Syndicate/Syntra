@@ -43,7 +43,7 @@ export async function callGemini<T = any>(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set in .env");
 
-  const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
+const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
 
   let lastError: any;
 
@@ -94,12 +94,20 @@ export async function callGemini<T = any>(
       }
 
     } catch (error) {
-      lastError = error;
-      if (attempt === maxRetries) throw error;
-      const delay = baseDelayMs * Math.pow(2, attempt - 1);
-      console.warn(`⚠️ Gemini call failed (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
+  lastError = error;
+
+  console.error("🔥 GEMINI ERROR:", error);
+  console.error("🔥 GEMINI ERROR MESSAGE:", error instanceof Error ? error.message : error);
+
+  if (attempt === maxRetries) throw error;
+
+  const delay = baseDelayMs * Math.pow(2, attempt - 1);
+  console.warn(
+    `⚠️ Gemini call failed (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`
+  );
+
+  await new Promise(resolve => setTimeout(resolve, delay));
+}
   }
 
   throw new Error(`Gemini call failed: ${lastError?.message || "Unknown error"}`);

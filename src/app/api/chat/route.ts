@@ -8,6 +8,7 @@ import { getSession } from '@/lib/auth';
 import { getUserById } from '@/services/terminalService';
 import Log from '@/models/Log';
 import mongoose from 'mongoose';
+import AssetLiability from '@/models/AssetLiability';
 import { buildTwinContext } from '@/lib/aiContextBuilder';
 
 // Initialize custom Google AI provider using GEMINI_API_KEY
@@ -63,16 +64,20 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Fetch User, Log Context & Portfolio from DB
-    await connectDB();
-    const AssetLiabilityModel = mongoose.models.AssetLiability || mongoose.model("AssetLiability");
-    const [user, recentLogs, portfolio] = await Promise.all([
-      getUserById(session.user.id),
-      Log.find({ userId: new mongoose.Types.ObjectId(session.user.id) })
-        .sort({ date: -1 })
-        .limit(21)
-        .lean(),
-      AssetLiabilityModel.findOne({ userId: new mongoose.Types.ObjectId(session.user.id) }).lean()
-    ]);
+   await connectDB();
+
+const [user, recentLogs, portfolio] = await Promise.all([
+  getUserById(session.user.id),
+
+  Log.find({ userId: new mongoose.Types.ObjectId(session.user.id) })
+    .sort({ date: -1 })
+    .limit(21)
+    .lean(),
+
+  AssetLiability.findOne({
+    userId: new mongoose.Types.ObjectId(session.user.id)
+  }).lean()
+]);
 
     // 3. Build Operator Context
     let contextString = "No digital twin data available yet.";
